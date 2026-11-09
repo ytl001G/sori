@@ -1,0 +1,83 @@
+/* menus */
+#menu-layer { position: fixed; inset: 0; pointer-events: none; z-index: 40; }
+.menu { position: absolute; pointer-events: auto; min-width: 240px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-lg); padding: 4px;
+  animation: fade-in var(--dur-in) ease-out; }
+.menu .item { display: flex; align-items: center; width: 100%; height: 28px; padding: 0 10px; border: 0;
+  border-radius: 5px; gap: 16px; background: none; text-align: left; }
+.menu .item:hover, .menu .item:focus-visible { background: var(--hover); outline: none; }
+.menu .item[aria-disabled="true"] { pointer-events: none; }
+.menu .item .sc { margin-left: auto; color: var(--subtle); font-size: 12px; }
+.menu .item .chk { width: 12px; margin-right: -8px; color: var(--secondary); flex: none; }
+.menu .sep { height: 1px; background: var(--line); margin: 4px 6px; }
+.menu .head { padding: 6px 10px 2px; color: var(--subtle); font-size: 12px; }
+.menu .item.under { padding-left: 22px; }
+.menu:focus { outline: none; }
+@keyframes fade-in { from { opacity: 0; } }
+
+/* dialogs */
+#modal-layer { position: fixed; inset: 0; z-index: 60; display: none; place-items: center; background: var(--scrim); }
+#modal-layer.open { display: grid; }
+.dialog { width: 440px; max-height: calc(100vh - 32px); overflow-y: auto; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-lg); padding: 20px 20px 16px;
+  animation: fade-in var(--dur-in) ease-out; }
+.dialog h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.dialog .note { color: var(--muted); font-size: 12px; margin-bottom: 12px; line-height: 1.5; }
+.dialog .field { display: grid; grid-template-columns: 96px 1fr 104px; align-items: center; gap: 12px; margin: 12px 0; }
+.dialog .field > label { color: var(--muted); }
+.dialog .field[hidden] { display: none; }
+.dialog .num { display: flex; align-items: center; gap: 4px; }
+.dialog .num input { width: 74px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+  color: var(--text); padding: 4px 6px; font: inherit; text-align: right; }
+.dialog .num input:focus { outline: none; border-color: var(--primary); }
+.dialog .num span { color: var(--muted); font-size: 12px; }
+.dialog .choices { grid-column: 2 / 4; display: flex; gap: 8px; flex-wrap: wrap; }
+.dialog .choices button { border: 1px solid var(--line); background: none; border-radius: 6px; padding: 4px 12px;
+  min-height: 28px; }
+.dialog .choices button small { display: block; color: var(--subtle); font-size: 11px; }
+.dialog .choices button[aria-pressed="true"] { border-color: var(--secondary); background: var(--sel); }
+.dialog .foot { display: flex; gap: 8px; margin-top: 20px; }
+.btn { border: 1px solid var(--line); background: none; border-radius: 6px; padding: 0 16px; height: 32px; }
+.btn:hover { background: var(--hover); }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.1); }
+
+#toast { position: fixed; left: 50%; bottom: 48px; transform: translate(-50%, 8px); background: var(--panel);
+  border: 1px solid var(--line); box-shadow: var(--shadow-lg); border-radius: 8px; padding: 8px 16px; opacity: 0;
+  transition: opacity var(--dur-out) ease-in, transform var(--dur-out) ease-in; pointer-events: none; z-index: 70;
+  max-width: 70vw; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); transition-duration: var(--dur-in);
+  transition-timing-function: ease-out; }
+#toast.error { border-color: var(--danger); }
+#toast.error::before { content: "오류 · "; color: var(--danger); font-weight: 600; }
+
+#busy { position: fixed; inset: 0; z-index: 80; background: var(--scrim); display: flex; align-items: center;
+  justify-content: center; color: #fff; font-weight: 600; }
+#busy[hidden], #busy-progress[hidden] { display: none; }
+.busy-box { display: flex; flex-direction: column; align-items: center; gap: 12px; width: min(360px, 90vw); }
+.busy-head { display: flex; align-items: center; gap: 12px; }
+#busy-progress { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+#busy-bar { width: 100%; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .25); overflow: hidden; }
+#busy-fill { width: 0; height: 100%; background: #fff; transition: width 120ms ease-out; }
+#busy-step { font-size: 13px; font-weight: 400; font-variant-numeric: tabular-nums; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#busy-stop { height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, .6);
+  background: transparent; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+#busy-stop:hover { background: rgba(255, 255, 255, .12); }
+#busy-stop:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.spinner { width: 22px; height: 22px; border: 3px solid rgba(255, 255, 255, .3); border-top-color: #fff;
+  border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* toggle switch (effect cards, settings) */
+.switch { width: 34px; height: 20px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface);
+  position: relative; padding: 0; flex: none; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--subtle); transition: transform var(--dur) ease-out, background-color var(--dur) ease-out; }
+.switch[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); }
+.switch[aria-pressed="true"]::after { transform: translateX(14px); background: var(--on-primary); }
+.dialog .extra { margin: 8px 0 4px; }
+.dialog .text { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; color: var(--text);
+  padding: 6px 8px; font: inherit; grid-column: 2 / 4; }
+.dialog .text:focus { outline: none; border-color: var(--primary); }
+.dialog select.preset { grid-column: 2 / 4; }

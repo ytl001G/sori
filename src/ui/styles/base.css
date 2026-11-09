@@ -1,0 +1,62 @@
+/* Design tokens — source: docs/ui-guide.md. Semantic tokens only below. */
+@font-face {
+  font-family: "Pretendard Variable";
+  src: url("../../../node_modules/pretendard/dist/web/variable/woff2/PretendardVariable.woff2")
+    format("woff2-variations");
+  font-weight: 45 920; font-display: swap;
+}
+:root, :root[data-theme="dark"] {
+  --bg: #0F172A; --lane-alt: #131C31; --panel: #111827; --surface: #1E293B; --line: #334155;
+  --text: #F8FAFC; --muted: #CBD5E1; --subtle: #94A3B8;
+  --primary: #0D9488; --on-primary: #000000; --secondary: #14B8A6; --accent: #EA580C; --danger: #EF4444;
+    --on-danger: #FFFFFF;
+  --sel: rgba(20, 184, 166, .20); --hover: rgba(248, 250, 252, .06); --scrim: rgba(2, 6, 23, .62);
+  --meter-g: #22C55E; --meter-l: #84CC16; --meter-y: #EAB308; --meter-o: #F97316; --meter-r: #EF4444;
+  --shadow-lg: 0 10px 28px rgba(0, 0, 0, .5);
+  --clip-alpha: .26; --wave-shade: 0;
+  --dur: 150ms; --dur-in: 120ms; --dur-out: 80ms;
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #EDF0F4; --lane-alt: #E6EAEF; --panel: #FFFFFF; --surface: #F3F5F8; --line: #D3DAE3;
+  --lane-active: rgba(13, 148, 136, .09);
+  --text: #0F172A; --muted: #475569; --subtle: #5B6B7F;
+  --primary: #0F766E; --on-primary: #FFFFFF; --secondary: #0D9488; --accent: #C2410C; --danger: #DC2626;
+    --on-danger: #FFFFFF;
+  --sel: rgba(13, 148, 136, .14); --hover: rgba(15, 23, 42, .05); --scrim: rgba(15, 23, 42, .45);
+  --meter-g: #15803D; --meter-l: #4D7C0F; --meter-y: #A16207; --meter-o: #EA580C; --meter-r: #DC2626;
+    /* >=3:1 on light surface */
+  --shadow-lg: 0 10px 28px rgba(15, 23, 42, .16);
+  --clip-alpha: .9; --wave-shade: -.7; /* solid clip, waveform mixed 70% toward white */
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 400 13px/1.4 "Pretendard Variable", "Malgun Gothic", sans-serif;
+  display: grid; grid-template-rows: 48px minmax(0, 1fr) 12px auto 24px; grid-template-columns: minmax(0, 1fr) auto;
+  overflow: hidden; user-select: none;
+}
+#topbar, #status { grid-column: 1 / -1; }
+#main { grid-row: 2; grid-column: 1; }
+#hscroll { grid-row: 3; grid-column: 1; }
+#mixer { grid-row: 4; grid-column: 1; }
+#fxpanel { grid-row: 2 / 5; grid-column: 2; }
+#status { grid-row: 5; }
+button { font: inherit; color: inherit; cursor: pointer;
+  transition: background-color var(--dur) ease-out, color var(--dur) ease-out, border-color var(--dur) ease-out; }
+button:disabled, [aria-disabled="true"] { opacity: .45; cursor: default; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.mono { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.spacer { flex: 1; }
+.vsep { width: 1px; height: 24px; background: var(--line); margin: 0 8px; }
+kbd { font: 500 12px inherit; font-family: inherit; border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: 4px; padding: 1px 6px; color: var(--muted); }
+i[data-icon] { display: inline-grid; width: 18px; height: 18px; flex: none; }
+i[data-icon] svg { width: 100%; height: 100%; fill: currentColor; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

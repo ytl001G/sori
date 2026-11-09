@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:;
+    script-src 'self' 'unsafe-inline' file:; style-src 'self' 'unsafe-inline' file:; font-src 'self' file:;
+    img-src 'self' data: file:; media-src 'self' blob:">
+  <title>Sori</title>
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/layout.css">
+  <link rel="stylesheet" href="styles/dialogs.css">
+  <link rel="stylesheet" href="styles/panels.css">
+  <link rel="stylesheet" href="styles/sheets.css">
+  <link rel="stylesheet" href="styles/script.css">
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand" aria-hidden="true">Sori</div>
+    <nav id="menubar" aria-label="메뉴">
+      <button data-menu="file" aria-haspopup="menu" aria-expanded="false">파일</button>
+      <button data-menu="edit" aria-haspopup="menu" aria-expanded="false">편집</button>
+      <button data-menu="track" aria-haspopup="menu" aria-expanded="false">트랙</button>
+      <button data-menu="marker" aria-haspopup="menu" aria-expanded="false">마커</button>
+      <button data-menu="view" aria-haspopup="menu" aria-expanded="false">보기</button>
+      <button data-menu="fx" aria-haspopup="menu" aria-expanded="false">효과</button>
+    </nav>
+    <div class="vsep" aria-hidden="true"></div>
+    <div id="transport" role="group" aria-label="재생">
+      <button class="icon" data-cmd="toHome" title="처음으로 (Home)" aria-label="처음으로"><i
+          data-icon="skip-back"></i></button>
+      <button class="icon" id="btn-play" data-cmd="playPause" title="재생 / 일시정지 (Space)" aria-label="재생"
+          aria-pressed="false">
+        <i class="i-play" data-icon="play"></i><i class="i-pause" data-icon="pause"></i>
+      </button>
+      <button class="icon" data-cmd="stop" title="정지" aria-label="정지"><i data-icon="stop"></i></button>
+      <button class="icon rec" id="btn-rec" data-cmd="record" title="녹음 (R)" aria-label="녹음" aria-pressed="false"><i
+          data-icon="record"></i></button>
+      <button class="icon" id="btn-loop" data-cmd="toggleLoop" title="반복 재생 (L)" aria-label="반복 재생"
+          aria-pressed="false"><i data-icon="repeat"></i></button>
+      <button class="icon" id="btn-metro" data-cmd="toggleMetro" title="메트로놈 (K)" aria-label="메트로놈"
+          aria-pressed="false"><i data-icon="metronome"></i></button>
+    </div>
+    <div id="time" class="mono" role="timer" aria-label="재생 위치">00:00.000</div>
+    <div id="tempo" role="group" aria-label="빠르기와 박자">
+      <input id="bpm" class="mono" type="number" min="20" max="300" step="1" value="120" aria-label="빠르기 (BPM)"
+          title="빠르기 (BPM)">
+      <span class="unit" aria-hidden="true">BPM</span>
+      <select id="beats" aria-label="한 마디 박자 수" title="박자">
+        <option value="2">2/4</option><option value="3">3/4</option><option value="4">4/4</option>
+        <option value="5">5/4</option><option value="6">6/4</option><option value="7">7/4</option>
+      </select>
+      <button class="icon" id="btn-grid" data-cmd="toggleGrid" title="박자 격자 (자 · 스냅을 박자 단위로)" aria-label="박자 격자"
+          aria-pressed="false"><i data-icon="music-notes"></i></button>
+      <button class="icon" id="btn-snap" data-cmd="toggleSnap" title="스냅: 끝 · 마커 · 박자에 붙기 (G)" aria-label="스냅"
+          aria-pressed="true"><i data-icon="magnet"></i></button>
+    </div>
+    <div class="spacer"></div>
+    <div id="zoom" role="group" aria-label="보기">
+      <button class="icon" data-cmd="zoomOut" title="축소 (Ctrl+-)" aria-label="축소"><i
+          data-icon="magnifying-glass-minus"></i></button>
+      <button class="icon" data-cmd="zoomIn" title="확대 (Ctrl+=)" aria-label="확대"><i
+          data-icon="magnifying-glass-plus"></i></button>
+      <button class="icon" data-cmd="zoomFit" title="전체 보기 (Ctrl+0)" aria-label="전체 보기"><i
+          data-icon="arrows-out-line-horizontal"></i></button>
+      <div class="vsep" aria-hidden="true"></div>
+    </div>
+    <button class="icon" id="btn-mixer" data-cmd="toggleMixer" title="믹서 (F9)" aria-label="믹서" aria-pressed="false"><i
+        data-icon="faders"></i></button>
+    <button class="icon" id="btn-fx" data-cmd="toggleFxPanel" title="효과 패널 (F8)" aria-label="효과 패널"
+        aria-pressed="false"><i data-icon="sliders-horizontal"></i></button>
+    <div class="vsep" aria-hidden="true"></div>
+    <button class="icon" data-cmd="settings" title="설정 (Ctrl+,)" aria-label="설정"><i data-icon="gear"></i></button>
+    <button class="icon" data-cmd="shortcuts" title="단축키 (F1)" aria-label="단축키 보기"><i data-icon="question"></i></button>
+    <button class="icon" id="btn-theme" data-cmd="toggleTheme" title="테마 전환" aria-label="밝은 테마로 전환">
+      <i class="i-moon" data-icon="moon"></i><i class="i-sun" data-icon="sun"></i>
+    </button>
+  </header>
+
+  <main id="main">
+    <aside id="script-panel" hidden aria-label="대사 목록">
+      <div id="sp-tabs" class="sp-tabs" role="group" aria-label="캐릭터별로 보기"></div>
+      <div class="sp-tools">
+        <input id="sp-search" type="search" placeholder="대사 검색" aria-label="대사 검색" spellcheck="false">
+        <button class="switch" id="sp-todo" type="button" aria-pressed="false"></button><label for="sp-todo">녹음 안 한
+            것만</label>
+      </div>
+      <div id="sp-list"></div>
+    </aside>
+    <div id="script-bar" hidden aria-live="polite">
+      <div class="sb-name"></div><div class="sb-text"></div><div class="sb-hint"></div>
+      <div class="sb-memo"></div><div class="sb-next"></div>
+    </div>
+    <aside id="headers-col" aria-label="트랙">
+      <div id="headers-top">
+        <span class="takes-count"></span>
+        <button class="btn-small take-add" data-cmd="addTrack" title="새 빈 테이크 (Ctrl+Shift+N)"><i data-icon="plus"
+            aria-hidden="true"></i>테이크</button>
+        <span class="split"><button class="btn-small" data-cmd="addTrack" title="새 빈 트랙 (Ctrl+Shift+N)"><i
+            data-icon="plus" aria-hidden="true"></i>트랙</button><button class="btn-small more" data-list="addTrack"
+            aria-haspopup="menu" aria-expanded="false" aria-label="트랙 종류 골라 추가" title="트랙 종류 골라 추가"><i
+            data-icon="caret-down" aria-hidden="true"></i></button></span>
+      </div>
+      <div id="headers"><div id="headers-inner"></div></div>
+    </aside>
+    <section id="timeline-wrap" aria-label="타임라인">
+      <canvas id="timeline" tabindex="0" aria-label="타임라인. 드래그로 구간 선택, 이름 띠 드래그로 클립 이동"></canvas>
+      <div id="empty">
+        <div class="empty-title">오디오 파일을 끌어다 놓으세요</div>
+        <div class="empty-sub">또는 <kbd>Ctrl</kbd>+<kbd>O</kbd> 로 열기 · <kbd>R</kbd> 로 바로 녹음</div>
+      </div>
+      <div id="drop-hint" hidden>여기에 놓으면 새 트랙으로 추가돼요</div>
+    </section>
+  </main>
+  <div id="hscroll" aria-hidden="true"><div id="hscroll-inner"></div></div>
+  <section id="mixer" hidden aria-label="믹서">
+    <div id="mixer-resize" role="separator" aria-orientation="horizontal" aria-label="믹서 높이 (위아래 화살표)"
+        tabindex="0"></div>
+    <div id="mixer-body"><div id="mixer-strips"></div><div id="mixer-master"></div></div>
+  </section>
+  <aside id="fxpanel" hidden aria-label="효과 패널">
+    <div class="fxp-band" aria-hidden="true"></div>
+    <div class="fxp-head">
+      <h2 id="fx-title">효과</h2>
+      <button class="icon" id="fx-close" title="닫기 (F8)" aria-label="효과 패널 닫기"><i data-icon="x"></i></button>
+    </div>
+    <div class="fxp-pick"><select id="fx-target" aria-label="효과를 볼 채널"></select></div>
+    <div class="fxp-note" id="fx-note"></div>
+    <div id="fx-body"></div>
+  </aside>
+  <footer id="status"><span id="hint"></span><span class="spacer"></span><span id="seltime" class="mono"></span><span
+      id="info"></span></footer>
+
+  <div id="menu-layer"></div>
+  <div id="modal-layer"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <div id="busy" hidden><div class="busy-box">
+    <div class="busy-head"><div class="spinner" aria-hidden="true"></div>
+      <span id="busy-label" role="status"></span></div>
+    <div id="busy-progress" hidden>
+      <div id="busy-bar" role="progressbar" aria-label="진행" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div id="busy-fill"></div></div>
+      <div id="busy-step"></div>
+      <button id="busy-stop" type="button">멈추기 (Esc)</button>
+    </div>
+  </div></div>
+  <script>require('./app.js');</script>
+</body>
+</html>
