@@ -22,7 +22,7 @@
 
 ## 설치
 
-Windows 10/11 (64비트). [Releases](https://github.com/ytl001G/sori/releases/latest)에서 `Sori Setup <버전>.exe`를 받아
+Windows 10/11 (64비트). [Releases](https://github.com/ytl001G/sori/releases/latest)에서 `Sori.Setup.<버전>.exe`를 받아
 실행하세요. 설치 파일에 코드 서명이 없어서 처음 실행할 때 Windows가 'Windows의 PC 보호' 창을 띄울 수 있어요. 그러면
 **추가 정보 → 실행**을 누르세요.
 

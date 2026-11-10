@@ -23,7 +23,7 @@ shortcuts and only the features that matter. It has a **script recording mode** 
 
 ## Install
 
-Windows 10/11 (64-bit). Download `Sori Setup <version>.exe` from
+Windows 10/11 (64-bit). Download `Sori.Setup.<version>.exe` from
 [Releases](https://github.com/ytl001G/sori/releases/latest) and run it. The installer is not code-signed, so on the
 first run Windows may show "Windows protected your PC": click **More info → Run anyway**.
 
