@@ -14,13 +14,15 @@ const sortClips = (clips) => clips.slice().sort((x, y) => x.start - y.start);
 
 function splitClip(c, f) {
   if (f <= c.start || f >= clipEnd(c)) return [c];
-  const k = f - c.start;
-  // DAW rule: the left part keeps the fade-in, the right part keeps the fade-out
+  const k = f - c.start, { fadeInShape, fadeOutShape, ...rest } = c;
+  // DAW rule: the left part keeps the fade-in, the right part keeps the fade-out (each with its shape only: a fade
+  // made later on the cut side starts 직선)
   return [
-    { ...c, id: uid('c'), length: k, fadeIn: Math.min(c.fadeIn || 0, k), fadeOut: 0 },
+    { ...rest, ...(fadeInShape && { fadeInShape }), id: uid('c'), length: k, fadeIn: Math.min(c.fadeIn || 0, k),
+      fadeOut: 0 },
     {
-      ...c, id: uid('c'), start: f, offset: c.offset + k, length: c.length - k,
-      fadeIn: 0, fadeOut: Math.min(c.fadeOut || 0, c.length - k),
+      ...rest, ...(fadeOutShape && { fadeOutShape }), id: uid('c'), start: f, offset: c.offset + k,
+      length: c.length - k, fadeIn: 0, fadeOut: Math.min(c.fadeOut || 0, c.length - k),
     },
   ];
 }
@@ -151,11 +153,21 @@ function remapFrame(f, a, b, newLen) {
   if (f >= b) return f + newLen - (b - a);
   return a + Math.round((f - a) * newLen / (b - a));
 }
+// [start, end, name] between markers, from 0 ('시작') to `end`: 내보내기 > 마커 구간별 in the app and the CLI
+// (pieces under 10 ms skipped)
+function markerSegments(markers, end, sr) {
+  const cuts = [{ frame: 0, name: '시작' }, ...markers.filter((m) => m.frame < end)], out = [];
+  cuts.forEach((m, i) => {
+    const a = m.frame, b = i + 1 < cuts.length ? cuts[i + 1].frame : end;
+    if (b - a >= Math.round(0.01 * sr)) out.push([a, b, m.name]);
+  });
+  return out;
+}
 
 const projectEnd = (tracks) => Math.max(0, ...tracks.flatMap((t) => t.clips.map(clipEnd)));
 
 module.exports = {
   uid, makeSource, makeClip, srcLen, clipEnd, sortClips, splitClip, splitAt, rippleDelete, insertGap,
   clearRange, keepRange, renderRegion, replaceRegion, merge, trimClip, projectEnd, shiftFrom,
-  fades, envAt, envBreaks, clampFades, remapFrame, fadeGain, fadeShapes, FADE_SHAPES,
+  fades, envAt, envBreaks, clampFades, remapFrame, markerSegments, fadeGain, fadeShapes, FADE_SHAPES,
 };

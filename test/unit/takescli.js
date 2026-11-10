@@ -66,6 +66,14 @@ t('cli takes: refused where takes have no such thing, wrong names, flags of the 
   }
   await fails('NOT_SCRIPT', 'clip', 'split', '단편.vproj', ...L, '--at', '0.5');
   await fails('BAD_ARG', 'fx', K, '--master', ...L, '--take', '1', 'eq', '--on'); // like --track with --master
+  // nothing to change: the message names only flags the command takes
+  const { VERBS } = require('../../src/cli/verbs');
+  for (const [v, argv] of [['track set', ['track', 'set', '단편.vproj', '--track', '1']],
+    ['script take set', ['script', 'take', 'set', K, ...L, '--take', '1']]]) {
+    const named = (await fails('BAD_ARG', ...argv)).message.match(/--[a-z-]+/g);
+    const flags = VERBS.find((x) => x.name === v).flags;
+    assert(named.every((f) => f.slice(2) in flags), `${v} names a flag it does not take: ${named}`);
+  }
 });
 t('cli: a take named exactly like the ref comes first, else 2 means 테이크 2', () => {
   const { takeByRef } = require('../../src/cli/project');

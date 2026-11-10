@@ -1,4 +1,4 @@
-// Size limits: every file in src/, test/ and main.js. Runs first in npm test.
+// Size limits (and no stray control characters): every file in src/, test/ and main.js. Runs first in npm test.
 const fs = require('fs');
 const path = require('path');
 const acorn = require('acorn');
@@ -30,6 +30,7 @@ function check(file) {
   if (lines.length > MAX_FILE) bad.push(`${rel}: ${lines.length} lines (max ${MAX_FILE}): split it by job`);
   lines.forEach((l, i) => {
     if (l.length > MAX_LINE) bad.push(`${rel}:${i + 1}: ${l.length} chars (max ${MAX_LINE})`);
+    if (/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(l)) bad.push(`${rel}:${i + 1}: a control character (a lost escape?)`);
   });
   if (!file.endsWith('.js')) return bad;
   const ast = acorn.parse(text, { ecmaVersion: 'latest', locations: true, allowHashBang: true });

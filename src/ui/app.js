@@ -5,10 +5,10 @@ const S = require('../core/settings');
 const K = require('../core/shortcuts');
 const C = require('./commands');
 const timeline = require('./timeline');
-const tracks = require('./tracks');
-const mixer = require('./mixer');
-const fxpanel = require('./fxpanel');
-const scriptui = require('./scriptui');
+const tracks = require('./panels/tracks');
+const mixer = require('./panels/mixer');
+const fxpanel = require('./panels/fx');
+const scriptui = require('./panels/script');
 const menus = require('./menus');
 const spectro = require('../core/spectro');
 const D = require('./dialogs');
@@ -115,8 +115,8 @@ setInterval(() => PK.sweep(new Set(state.project.tracks.flatMap((t) => t.clips.m
 let dirty = true;
 state.listeners.add(() => { dirty = true; });
 
-const fmt = (f) => {
-  const s = Math.max(0, f) / state.project.sampleRate, m = Math.floor(s / 60);
+const fmt = (f) => { // rounded first: never 00:60.000
+  const s = +(Math.max(0, f) / state.project.sampleRate).toFixed(3), m = Math.floor(s / 60);
   return `${String(m).padStart(2, '0')}:${(s - m * 60).toFixed(3).padStart(6, '0')}`;
 };
 

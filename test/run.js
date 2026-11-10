@@ -3,7 +3,7 @@
 const H = require('./unit/helpers');
 
 const FILES = ['edit', 'effects', 'voice', 'history', 'audiopack', 'fileio', 'settings', 'worklets', 'script', 'args',
-  'live', 'cli', 'scriptcli', 'takescli', 'batch', 'measure', 'applylines', 'pipe', 'backup', 'safewrite'];
+  'split', 'live', 'cli', 'scriptcli', 'takescli', 'batch', 'measure', 'applylines', 'pipe', 'backup', 'safewrite'];
 
 (async () => {
   let passed = 0;
@@ -12,11 +12,11 @@ const FILES = ['edit', 'effects', 'voice', 'history', 'audiopack', 'fileio', 'se
     require('./unit/' + f);
     console.log(f);
     for (const [name, fn] of H.tests.slice(from)) {
+      console.log('  ..  ' + name); // a failure below belongs to this one
       await fn();
       passed++;
-      console.log('  ok  ' + name);
     }
   }
-  H.cleanup();
   console.log(`\n${passed} passed`);
-})().catch((e) => { console.error(e); process.exit(1); });
+  H.cleanup();
+})().catch((e) => { console.error(e); H.cleanup(); process.exit(1); }); // the scratch folder goes on a failure too

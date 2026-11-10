@@ -119,7 +119,7 @@ Settings and on/off states (theme, panels, snap) are the app's state, not a wind
   where the effects apply. Cards get a 3px left edge in `--ch` (`color-not-only`: the title says it too).
 - Effect card (effect panel): header [switch] name [preset ▾]; body (sliders, EQ curve) only when on;
   border `--primary` when on. Every slider: label · range · value text; double-click = default value.
-- EQ curve (`eqgraph.js`): log 20 Hz–20 kHz × ±18 dB, grid at 50/100/200/500/1k/2k/5k/10k and ±6/±12 dB,
+- EQ curve (`panels/eq.js`): log 20 Hz–20 kHz × ±18 dB, grid at 50/100/200/500/1k/2k/5k/10k and ±6/±12 dB,
   response line `--secondary` 2px with `--sel` fill to 0 dB, 5 band points (cut bands hollow when off),
   hover/drag shows "band value" in a small label. The sliders under it are the keyboard alternative.
 - Mixer strip 84px (master 92px): name button with track color top border (click = show its effects),
@@ -135,6 +135,27 @@ Settings and on/off states (theme, panels, snap) are the app's state, not a wind
 - Line bar / prompter (script mode): 4px left edge in the character color (`--danger` while recording), `캐릭터-번호`
   13px/700 `--muted`, the line 20px/600 (32px while recording, max 30vh then scrolls), memo 13px, hint right 12px; while
   recording the next line shows below in 14px `--subtle` ("다음 · 영희-005 …").
+- 이어 녹음 on the line bar: the cued line instead of the current one, hint `이어 녹음 · N 다음 대사 · Shift+N 되돌리기 ·
+  Shift+R 멈춤`, right below it `.sb-side`: `.sb-live` (time m:ss 13px tabular `--danger` + an 80×6px input meter,
+  `--meter-g`, red once clipped; `aria-hidden`: the bar is a live region) and [이어 녹음] (`.btn-small`, record icon;
+  while it runs `이어 녹음 멈춤` in `--danger`; disabled during a normal R recording). The cued row in the list: 2px
+  inset `--danger` outline, and it is the only highlighted row (no `.cur` while cueing).
+- 긴 녹음 나누기 window: a sheet (760×600). Top row: length, 쉬는 기준 number box (`.numin`, 0.3–5 s) and [쉬는 곳마다
+  대사 나누기]; the whole recording 56px (canvas, piece boxes drawn under the waveform: `--secondary` 16% / chosen 32% /
+  dropped `--subtle` 10%; current piece outlined in `--text`, line boundaries 2px `--accent`, each line's name at its
+  first piece 11px/600 on `--panel`, skipped where they would overlap); the current piece ±1 s 104px (edges: a 2px
+  full-height `--text` line + a 6×28 grip on the inner side, kept inside the canvas; the 나누기 point 1px `--danger`;
+  a time ruler at the bottom, ticks every 0.5 s, `m:ss` every 1 s, 10px `--subtle`). While listening a 2px `--text`
+  playhead moves on both canvases and 듣기 reads `멈추기 (Space)`. Both canvases `role="img"` with an `aria-label`
+  saying what they show (pieces / boundaries, the current piece's times). Tool buttons `.btn.small` with their keys,
+  disabled when they would do nothing (합치기 < 2 chosen, 나누기 without a point inside the piece, 여기부터 다음 대사 on
+  the first piece or where a boundary is, 대사 경계 지우기 with none before the piece); the line picker row ends with the
+  key hint `←/→ 나눌 곳 · Alt+←/→ 시작 · Alt+Shift+←/→ 끝 (0.1초씩)` 12px `--muted`; the list (focused when the
+  window opens and after a row click, so the keys work at once; never the 쉬는 기준 box, where ↑/↓ change the number;
+  rows are toggle buttons, `aria-pressed` = chosen) (sticky line headers 13px/600,
+  `캐릭터-번호  대사`, '대사가 모자라요' in `--accent`; piece rows 30px, chosen `--sel`, current 3px `--secondary`
+  inset, dropped struck through + '버림' badge); the foot: what 적용 makes + [취소] [적용 (테이크 n개)], or a question in
+  place (a second window would close this one).
 - Take count (script mode): in `#headers-top` instead of the add button, plain text `테이크 n개` 12px `--muted` (not a
   button: every take always shows), then [+ 테이크] (`.btn-small.take-add`, same look as [+ 트랙]; disabled while
   recording). A line without takes: the empty timeline says how to record one.
@@ -174,6 +195,9 @@ removes all transitions and the pulse (spinner becomes static text).
 | Line list row (script mode) | click → that line; double-click → 대사 고치기 | ↑/↓ (편집 > 이전/다음 대사), 편집 > 대사 고치기… |
 | Take lane / header (script mode) | click → select the take; the next playback plays it | Tab focus in header |
 | Take ★ (script mode) | click → this take is the one exported | — (Tab to the button, Enter) |
+| 나누기 window, whole recording | click → that piece (Ctrl = add, Shift = range) | ↑/↓ (Shift = range) |
+| 나누기 window, piece view | drag an edge → move it (never past a neighbour or a line boundary); click → 나누기 point | ←/→ 나누기 point, Alt+←/→ start, Alt+Shift+←/→ end (0.1 s); S splits |
+| 나누기 window, piece row | click → choose (Ctrl / Shift add); double-click → listen | Space listen, Ctrl+J merge, Delete drop, N new line; Ctrl+Z / Ctrl+Y undo inside the window |
 | Mixer top edge | drag → panel height (120px to 60% of the window; a saved height is capped the same way when the window shrinks) | focus the edge, ↑/↓ 20px |
 Keyboard focus rules: shortcuts are off only while typing in a text field. Space is always play/pause
 (buttons are activated with Enter); a focused slider keeps ←/→. Mouse clicks on the ruler/lanes never

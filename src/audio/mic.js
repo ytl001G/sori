@@ -3,17 +3,20 @@
 const engine = require('./engine');
 const CH = require('./chain');
 
-// settings: live input level without recording
-let test = null;
+// settings: live input level without recording. Returns whether the default mic stood in, or null when a stop or a
+// newer start came while the mic opened (that stream is closed, never left running)
+let test = null, gen = 0;
 async function startInputTest(deviceId, channels) {
   stopInputTest();
-  const stream = await engine.openMic(deviceId, channels), ctx = engine.context();
+  const my = gen, stream = await engine.openMic(deviceId, channels), ctx = engine.context();
+  if (my !== gen) { stream.getTracks().forEach((t) => t.stop()); return null; }
   const src = ctx.createMediaStreamSource(stream), m = engine.meterFor(ctx, 'input'), sink = engine.sink0();
   src.connect(m).connect(sink);
   test = { stream, src, m, sink };
   return !!stream.fellBack;
 }
 function stopInputTest() {
+  gen++;
   if (!test) return;
   test.src.disconnect(); test.m.disconnect(); CH.stopNode(test.m); test.sink.disconnect();
   test.stream.getTracks().forEach((t) => t.stop());

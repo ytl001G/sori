@@ -43,7 +43,8 @@ function describeScript(p) {
   return {
     current: cur ? SC.lineName(cur) : null,
     progress: { done: lines.filter(SC.isDone).length, lines: lines.length },
-    characters: Object.entries(sc.chars).map(([name, c]) => ({
+    // the characters with lines, in script order (the app's tabs; a saved file keeps only these too)
+    characters: [...new Set(lines.map((l) => l.char))].map((name) => [name, sc.chars[name]]).map(([name, c]) => ({
       name, color: c.color, done: lines.filter((l) => l.char === name && SC.isDone(l)).length,
       lines: lines.filter((l) => l.char === name).length, fx: chain(P.TRACK_KINDS, c.fx),
     })),

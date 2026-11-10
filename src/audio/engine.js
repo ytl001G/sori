@@ -243,14 +243,14 @@ async function openMic(deviceId, channels) {
 const sink0 = () => { const z = ctx.createGain(); z.gain.value = 0; z.connect(ctx.destination); return z; };
 
 // recording: AudioWorklet chunks (exact samples, live peaks); rec.t = context time of the first sample, t0/lat: play
-let rec = null;
+let rec = null, opening = false; // opening: the mic is opening (a start then too would leave one of them running)
 async function startRecording({ deviceId = '', channels = 1 } = {}) {
-  if (rec) throw new Error('이미 녹음 중이에요'); // a second recorder would replace the running take
-  const stream = await openMic(deviceId, channels);
+  if (rec || opening) throw new Error('이미 녹음 중이에요'); // a second recorder would replace the running take
+  opening = true;
+  const stream = await openMic(deviceId, channels).finally(() => { opening = false; });
   const src = ctx.createMediaStreamSource(stream);
   const opts = { channelCount: channels, channelCountMode: 'explicit', processorOptions: { channels } };
-  const node = new AudioWorkletNode(ctx, 'sori-rec', opts);
-  const sink = sink0();
+  const node = new AudioWorkletNode(ctx, 'sori-rec', opts), sink = sink0();
   const r = {
     stream, src, node, sink, chunks: [], peaks: [], length: 0, t: ctx.currentTime, chunk: 4096, channels,
     fellBack: !!stream.fellBack,

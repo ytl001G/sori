@@ -59,4 +59,14 @@ function uniquePaths(paths) {
   });
 }
 
-module.exports = { writeAtomic, writeAtomicSync, uniquePaths };
+// the folders writing these files makes, deepest first, known before any is made (two mkdir at the same moment do not
+// tell which one made a shared parent): an export that fails removes them again (the app and the CLI)
+function newFolders(paths) {
+  const out = new Set();
+  // a root that does not exist (a drive not there) is its own dirname: stop there, the write then fails
+  const up = path.dirname;
+  for (const f of paths) for (let d = up(f); !fs.existsSync(d) && d !== up(d); d = up(d)) out.add(d);
+  return [...out].sort((x, y) => y.length - x.length);
+}
+
+module.exports = { writeAtomic, writeAtomicSync, uniquePaths, newFolders };

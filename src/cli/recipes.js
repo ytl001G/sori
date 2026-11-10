@@ -39,8 +39,7 @@ function fxNext(c, kind, cur, lanes = []) {
   return next;
 }
 
-// the track header and mixer: name, volume (-60 dB = silent, max +6 like the slider), pan, view (track set, script
-// take set)
+// the track header and mixer: name, volume (-60 dB = silent, max +6 like the slider), pan (track set, script take set)
 function mixPatch(o) {
   const patch = {};
   if (o.name !== undefined) patch.name = name(o.name);
@@ -84,15 +83,6 @@ function rippleMarkers(p, ids, a, b, newLen) {
   if (!p.tracks.length || !p.tracks.every((t) => ids.has(t.id))) return;
   p.markers = p.markers.map((m) => ({ ...m, frame: E.remapFrame(m.frame, a, b, newLen) }));
 }
-// [start, end, name] between markers, like 내보내기 > 마커 구간별 (pieces under 10 ms skipped)
-function markerSegments(p, end) {
-  const cuts = [{ frame: 0, name: '시작' }, ...p.markers.filter((m) => m.frame < end)], out = [];
-  cuts.forEach((m, i) => {
-    const a = m.frame, b = i + 1 < cuts.length ? cuts[i + 1].frame : end;
-    if (b - a >= Math.round(0.01 * p.sampleRate)) out.push([a, b, m.name]);
-  });
-  return out;
-}
 
 // the export dialog's formats
 const FORMATS = ['wav16', 'wav24', 'mp3_128', 'mp3_192', 'mp3_320'];
@@ -102,6 +92,6 @@ const encode = (fmt, ch, sr) => (fmt.startsWith('mp3')
   : IO.encodeWav(ch, sr, fmt === 'wav24' ? 24 : 16));
 
 module.exports = {
-  TRACK_TYPES, fxNext, mixPatch, SHAPES, APPLY, VOICE, rippleMarkers, markerSegments, FORMATS, extOf, encode,
+  TRACK_TYPES, fxNext, mixPatch, SHAPES, APPLY, VOICE, rippleMarkers, FORMATS, extOf, encode,
   jobsFor: MP3.jobsFor,
 };

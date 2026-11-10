@@ -35,11 +35,17 @@ t('partial overlap crossfades to constant level; clip gain + fades apply', () =>
   assert.deepStrictEqual(E.envBreaks(c, [10, 20]), [0, 10, 80, 100]);
 });
 t('split keeps fade-in left, fade-out right; trim clamps fades', () => {
-  const c = { ...clip(0, 100), fadeIn: 30, fadeOut: 40 };
+  const c = { ...clip(0, 100), fadeIn: 30, fadeOut: 40, fadeInShape: 'slow', fadeOutShape: 'fast' };
   const [l, r] = E.splitClip(c, 20);
   assert.deepStrictEqual([l.fadeIn, l.fadeOut, r.fadeIn, r.fadeOut], [20, 0, 0, 40]);
+  assert.deepStrictEqual([l.fadeInShape, 'fadeOutShape' in l, 'fadeInShape' in r, r.fadeOutShape],
+    ['slow', false, false, 'fast'], 'each part keeps only its own fade shape');
   const t2 = E.trimClip(c, 'right', 50);
   assert.deepStrictEqual([t2.length, t2.fadeIn, t2.fadeOut], [50, 30, 20]);
+});
+t('markerSegments: from 0 to the end, pieces under 10 ms and markers past the end left out', () => {
+  const ms = [[0, 'a'], [1000, 'b'], [1005, 'c'], [5000, 'd']].map(([frame, name]) => ({ frame, name }));
+  assert.deepStrictEqual(E.markerSegments(ms, 3000, 1000), [[0, 1000, 'a'], [1005, 3000, 'c']]);
 });
 t('remapFrame: delete, insert, stretch', () => {
   assert.deepStrictEqual([5, 15, 30].map((f) => E.remapFrame(f, 10, 20, 0)), [5, 10, 20]);

@@ -9,7 +9,7 @@ const { safeName } = require('../core/fileio');
 const { describe, describeScript } = require('../core/summary');
 const { state, makeTrack, newProjectData, COLORS } = require('../core/state');
 const {
-  fail, load, secs, linesOf, lineOf, takeOf, charOf, charsOf, putLines, putLine, lineInfo, textArg, hexColor,
+  fail, load, secs, linesOf, lineOf, takeOf, charOf, charsOf, putChar, putLines, putLine, lineInfo, textArg, hexColor,
   checkOverwrite, decodeFiles, baseName, scriptFile, writeAll, uniquePaths,
 } = require('./project');
 const R = require('./recipes');
@@ -18,7 +18,8 @@ const LINE_TAKE = { line: 'str', take: 'str' };
 
 // 대본 넣기: a new script project, a plain project converted, or a script project updated by line name
 async function importScript(c) {
-  const got = await scriptFile(c.a.file), dryRun = !!c.o['dry-run'], chars = {};
+  const got = await scriptFile(c.a.file), dryRun = !!c.o['dry-run'];
+  const chars = Object.create(null); // as the app: a character may be named __proto__
   if (dryRun) c.noSave = true;
   const lines = got.lines.length, renumbered = got.dup, fresh = { lines: got.lines, lineId: got.lines[0].id, chars };
   if (!c.p && !fs.existsSync(c.a.project)) { // sori live: c.p is the open project
@@ -37,7 +38,7 @@ async function importScript(c) {
   }
   const { lines: merged, counts, names } = SC.merge(linesOf(c), got.lines);
   if (!dryRun) {
-    const ch = { ...c.p.script.chars };
+    const ch = Object.assign(Object.create(null), c.p.script.chars); // a new character may be __proto__
     SC.addChars(ch, merged, COLORS);
     c.p.script.chars = ch;
     putLines(c, merged);
@@ -69,7 +70,7 @@ async function addTakes(c) {
 
 function setTake(c) {
   const l = lineOf(c, c.o.line), t = takeOf(l, c.o.take), patch = R.mixPatch(c.o);
-  if (!Object.keys(patch).length) fail('BAD_ARG', 'nothing to change: give --name, --volume, --pan or --view');
+  if (!Object.keys(patch).length) fail('BAD_ARG', 'nothing to change: give --name, --volume or --pan');
   const n = { ...t, ...patch };
   putLine(c, { ...l, takes: l.takes.map((x) => (x === t ? n : x)) });
   const volumeDb = describe({ ...c.p, tracks: [n] }).tracks[0].volumeDb;
@@ -82,7 +83,7 @@ function setCharFx(c) {
     fail('BAD_ARG', `unknown effect "${kind}"; character effects: ${P.TRACK_KINDS.join(', ')}`);
   }
   const next = R.fxNext(c, kind, ch.fx[kind], linesOf(c).filter((l) => l.char === c.o.char).flatMap((l) => l.takes));
-  c.p.script.chars = { ...c.p.script.chars, [c.o.char]: { ...ch, fx: { ...ch.fx, [kind]: next } } };
+  putChar(c, c.o.char, { ...ch, fx: { ...ch.fx, [kind]: next } });
   return { char: c.o.char, kind, fx: { ...next, preset: P.matchPreset(kind, next) } };
 }
 
@@ -98,9 +99,6 @@ async function exportLines(c) {
   const sub = (l) => (range.line ? [] : [safeName(l.char)]);
   const paths = uniquePaths(ready.map((l) => path.join(c.a.out, ...sub(l), safeName(SC.lineName(l)) + R.extOf(fmt))));
   checkOverwrite(c, paths);
-  try { for (const d of new Set(paths.map((p) => path.dirname(p)))) fs.mkdirSync(d, { recursive: true }); } catch (e) {
-    fail('WRITE_FAILED', `${c.a.out}: ${e.message}`);
-  }
   const files = [];
   await writeAll(paths, async (i) => {
     const l = ready[i], t = { ...SC.takeView(SC.starTake(l), c.p.script.chars[l.char]), mute: false, solo: false };
@@ -198,7 +196,7 @@ const VERBS = [
       + '--color)',
     run(c) {
       const ch = charOf(c, c.o.char), color = hexColor(c.o.color);
-      c.p.script.chars = { ...c.p.script.chars, [c.o.char]: { ...ch, color } };
+      putChar(c, c.o.char, { ...ch, color });
       return { char: c.o.char, color };
     } },
 

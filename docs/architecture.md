@@ -58,6 +58,9 @@ src/core/  (plain Node, no DOM / AudioContext)
   parked.js             필요할 때만 풀기: a Source with an exact packed blob decodes `ch` on use and lets it go off screen
   script.js             대본 녹음 모드: script readers (.txt / CSV rows), line numbers, re-import merge, take helpers, and the rules
                         the app and sori script share (nextTakeName, takeRef, withStar, editLine, addChars, exportPick, takesNow)
+  split.js              긴 녹음 나누기 for the app's window and sori script split: sound runs (voicedit.quietLevels'
+                        between-words threshold), N snapped to quiet, pieces per gap, line boundaries, window edits,
+                        plan (pieces -> line index), addTakes
   peaks.js              waveform peak cache (min/max pyramid per Source)
   spectro.js            spectrogram columns per Source, computed a slice per frame
   settings.js           app settings (localStorage), validated, change listeners
@@ -70,7 +73,8 @@ src/cli/   (the AI command line, docs/cli.md; plain Node except headless.*)
   verbs.js              file commands: load .vproj -> one edit with the app's rules -> atomic save; export/import via `audio`;
                         `on`: the same edit on the app's open project (sori live), nothing loaded or saved.
                         The verbs themselves: tracks.js (project, tracks, import, fx, apply, tempo, export),
-                        clips.js (clips, ranges, markers), lines.js (script projects: lines, takes, ★, characters)
+                        clips.js (clips, ranges, markers), lines.js (script projects: lines, takes, ★, characters),
+                        split.js (script split = 긴 녹음 나누기 without the window)
   project.js            the project a verb works on: load/save, find tracks/clips/lines/takes by the CLI's names, check args
   scope.js              track verbs on a script project's takes: --line / --take in place of --track
   measure.js            sori measure: what to render (tracks alone + mix, or ★ takes) through audio.mixdown, then
@@ -101,24 +105,27 @@ src/ui/
   commands/             every user action as a named command; menus/shortcuts/buttons call these. index.js re-exports
                         the API; core.js = registry + shared selection helpers; one file per group: play, record,
                         script, files, export, edit, tracks, effects, markers, view, voice (목소리 정리), backup
-                        (자동 백업 + 백업에서 열기); take.js = sori
-                        live file commands
+                        (자동 백업 + 백업에서 열기), longrec (이어 녹음, N / Shift+N, 긴 녹음 나누기…, apply);
+                        outside.js = requests from main (the window's X, a .vproj opened while running);
+                        take.js = sori live file commands
   timeline/             the canvas: index.js (events, context menu, drop), view.js (geometry, colors, zoom, scroll),
                         paint.js + clips.js (drawing), hit.js (hit test, cursor, snap), mouse.js (press and drag)
-  tracks.js             track header DOM (name, FX, ★ for takes, M/S, volume, pan, delete)
-  mixer.js              bottom mixer panel (strips, faders, meters)
-  fxpanel.js            right effect panel (always-on effects of master, one track, or one character)
-  scriptui.js           script mode views: line list (tabs, filter, search, progress) + line bar / prompter
-  eqgraph.js            draggable EQ response curve (effect panel + EQ dialog)
+  panels/               tracks.js = track header DOM (name, FX, ★ for takes, M/S, volume, pan, delete); mixer.js =
+                        bottom mixer (strips, faders, meters); fx.js = right effect panel (always-on effects of master,
+                        one track, or one character); eq.js = draggable EQ curve (effect panel + EQ dialog); script.js =
+                        script mode views: line list (tabs, filter, search, progress) + line bar / prompter
+  split/                긴 녹음 나누기 window (sheet): index.js = tools, keys, mouse, foot; edit.js = its state, edits,
+                        line list; draw.js = its two waveforms and their hit tests
+  settings/             설정 window: index.js = the 4 tabs; audio.js = 오디오 장치 tab; keys.js = the editable shortcut
+                        list (key capture) + the 단축키 window (F1)
+  live/                 sori live requests from main.js: index.js = state, command list, selection, run a command
+                        (undoable), any file command on the open project (verb -> commands.takeProject); run.js = sori
+                        live run, a menu command like the user (values fill its dialog, --path, --yes); settings.js =
+                        sori live settings, everything the app remembers, checked like the 설정 window
   menus.js              top-bar dropdown menus + context menus
   dialogs.js            modal (fields + presets + extra editor), sheet (settings, shortcuts), toast, busy
-  settingsui.js         설정 window (4 tabs); audiotab.js = 오디오 장치 tab; controls.js = row / choice / switch controls
-  keysui.js             the editable shortcut list (key capture) + the 단축키 window (F1)
+  controls.js           row / choice / switch controls (설정 window, 나누기 window)
   icons.js              replaces <i data-icon> with Phosphor SVGs
-  live.js               sori live requests from main.js: state, command list, selection, run a command (undoable),
-                        any file command on the open project (verb -> commands.takeProject)
-  liverun.js            sori live run: a menu command like the user (values fill its dialog, --path, --yes)
-  livesettings.js       sori live settings: everything the app remembers, checked like the 설정 window
 test/standards.js       size limits (300 / 40 / 120), run first by npm test
 test/run.js             Node self-checks: runs test/unit/*.js in order (helpers.js = assert, fakes, CLI runner) — core,
                         worklet math (vm sandbox), CLI commands and pipe
@@ -126,7 +133,7 @@ test/smoke.js           scripted end-to-end run inside Electron (npm run smoke);
                         in test/smoke/<group>.js in order on one app session; kit.js = stubs + helpers
 ```
 Requires point down only: `ui -> audio -> core`, `cli -> audio -> core` (cli is a top layer like ui; main.js requires
-`cli/pipe`). Views (`timeline`, `tracks`, `mixer`, `fxpanel`, `menus`) read state and call commands.
+`cli/pipe`). Views (`timeline`, `panels/`, `menus`) read state and call commands.
 
 ## Data model
 All time positions and lengths are **integer sample frames at the project sample rate**
@@ -170,7 +177,7 @@ state.view = { pxPerSec, scrollX, scrollY, follow, laneH }   // from settings + 
 state.ui   = { mixer, fxPanel, fxTarget: 'master' | trackId | 'char:<name>', // panels (remembered in settings)
                scriptView: { char, todo, q } }                // line list filter, not saved
 ```
-Script mode (`core/script.js`, `ui/scriptui.js`, spec §5-5): **`project.tracks` is the current line's takes**, so the
+Script mode (`core/script.js`, `ui/panels/script.js`, spec §5-5): **`project.tracks` is the current line's takes**, so the
 timeline, headers, mixer, clip edits, effects and recording work on takes unchanged. `line.takes` of the current line
 is stale until stashed; `linesNow(project)` gives every line with the current takes filled in (save, export, counts,
 undo snapshots use it). Every take of the current line is on screen (no folding).
@@ -185,6 +192,16 @@ looked up in every line (`linesNow` + `takeView`), so ★ or another take never 
 line (`goLine`, or undo/redo landing on one) stops playback and a recording first;
 `tick` ends at that take's end and `landAt` puts the playhead at 0 when the take is no longer on screen. Line export renders `[★ take with the character fx]`
 through the same graph + master chain, one file per line named `캐릭터-번호`.
+이어 녹음 (`commands/longrec.js`, spec §5-5) is a recording with `rec.cont = { order, at, marks }` and no take: nothing
+goes into `project.tracks` or history while it runs, so undo, edits and line moves never touch it. N pushes the raw
+recorded length into `marks` (the count-in / latency lead is cut from them on stop, like from the sound). Stopping
+hands the sound to the 나누기 window on a timer (a ↑/↓ that stopped it finishes first). `stopFirst` refuses while it
+runs (new / open / 대본 넣기 / close would lose a sound that exists nowhere else). From the start of 이어 녹음 until its
+window closes `state.holding` is true (`setHolding`): main is told the page is dirty, so the window's X asks, and
+`outside.js` refuses the X and a .vproj opened from outside with a toast instead of closing the window. 적용 is one
+`history.commit()`: new takes on each planned line (`split.addTakes`; the current line through `project.tracks`).
+Pieces: sound is cut at every boundary first, then joined by the gap within a line only, so a piece next to a boundary
+keeps its 0.3 s margin, not the quiet up to the boundary. The window keeps its peaks on its own state (gone with it).
 A clip is a window (`offset`, `length`) into an immutable `Source`. Split/trim/move create new Clip
 objects pointing at the same Source — no sample copying. Destructive effects and merge create a new Source.
 
@@ -527,7 +544,7 @@ follow the same rules as `ui/commands/`: new tracks right below `--track N` (end
   The same file -> `OPEN_IN_APP`, dirty or not (the app does not watch files: its next save would overwrite the CLI
   edit, or the CLI would drop unsaved work). No answer -> `APP_NOT_RESPONDING`. No app -> go ahead.
 
-**Live commands** (`pipe.js`, `main.js`, `src/ui/live.js`). The CLI connects to the named pipe
+**Live commands** (`pipe.js`, `main.js`, `src/ui/live/`). The CLI connects to the named pipe
 `\.\pipe\sori-live-<USERNAME>` (`SORI_PIPE` overrides; smoke uses `sori-smoke-<pid>`), writes one JSON request line
 (≤ 64 KB, op `state` | `commands` | `select` | `run` | `script` | `verb` | `settings`, anything else -> `BAD_REQUEST`) and reads one reply line. No
 network port; the pipe has the default DACL (owner, administrators, SYSTEM). `main.js` forwards each request to the
@@ -553,8 +570,8 @@ window (IPC `live` with an id; reply on `live-reply`); `live.js` answers one req
 - `settings`: every key of `S.DEFAULTS` but `keys` / `recent` (`VALUES`), parsed by the type of its default, device ids
   checked against `engine.listDevices`, choices checked against `S.ONE_OF` (refused), ranges clamped by `S.validate`;
   then `S.set`, whose listener in app.js applies them like the window does (panels too). The window's buttons share its
-  code: `settingsui.autoLatency` (`--latencyMs auto`), `shortcuts.rebind` (`--key`, the window's key capture uses it
-  too) with `shortcuts.parseKey` for typed keys and `settingsui.commandList` for the commands, `S.removeRecent`;
+  code: `settings/audio.autoLatency` (`--latencyMs auto`), `shortcuts.rebind` (`--key`, the window's key capture uses it
+  too) with `shortcuts.parseKey` for typed keys and `settings/keys.commandList` for the commands, `S.removeRecent`;
   `--mic-test` runs an input test: peakDb from `engine.heldPeak` (every meter report since `resetClip`; 50 ms
   samples missed short sounds), avgDb from `engine.level('input')` sampled every 50 ms.
 - `select`: range (`a`, `b`, track ids), clip ids, active track, marker, playhead (`C.seek`); all inputs checked before

@@ -13,6 +13,14 @@ t('cli script: import creates a project or converts a plain one (dry run first),
   fs.writeFileSync(cp('t.wav'), 'x');
   const made = await run('script', 'import', S, '대본.txt');
   assert.deepStrictEqual([made.action, made.lines, made.characters], ['created', 3, ['철수', '영희']]);
+  fs.writeFileSync(cp('proto.txt'), '__proto__: 하나\nconstructor: 둘\n'); // names that are object keys
+  await run('script', 'import', 'proto.vproj', 'proto.txt');
+  const who = async (f) => (await run('script', 'info', f)).characters.map((x) => x.name);
+  assert.deepStrictEqual(await who('proto.vproj'), ['__proto__', 'constructor']);
+  fs.writeFileSync(cp('one.txt'), 'constructor: 둘\n'); // and one that comes in on a re-import
+  await run('script', 'import', 'proto2.vproj', 'one.txt');
+  await run('script', 'import', 'proto2.vproj', 'proto.txt');
+  assert.deepStrictEqual(await who('proto2.vproj'), ['__proto__', 'constructor']); // in script order
   await fails('SCRIPT_PROJECT', 'info', S);
   await fails('SCRIPT_PROJECT', 'track', 'sort', S); // its takes keep their order
   fs.copyFileSync(cp('단편.vproj'), cp('plain.vproj'));
@@ -28,6 +36,34 @@ t('cli script: import creates a project or converts a plain one (dry run first),
   const i = await info();
   assert.deepStrictEqual([i.lines.map((l) => l.name), i.lines[1].memo, i.current],
     [['철수-001', '영희-005', '철수-002'], '웃으며', '철수-001']);
+});
+
+// sori live on the app's project: a color or effect change keeps the characters prototype-free, so the app's own
+// re-import (addChars in place) can still add a character named __proto__
+t('cli script: color and fx keep the characters without a prototype', async () => {
+  const V = require('../../src/cli/verbs'), SC = require('../../src/core/script');
+  await run('script', 'import', 'one.vproj', 'one.txt');
+  for (const argv of [['script', 'color', '--char', 'constructor', '--color', 'F472B6'],
+    ['script', 'fx', 'eq', '--char', 'constructor', '--preset', '밝게']]) {
+    const p = require('../../src/cli/project').load(cp('one.vproj'), true);
+    const r = await V.execute(argv, { cwd: cp('.'), on: p });
+    assert.ok(r.ok, JSON.stringify(r));
+    SC.addChars(p.script.chars, [{ char: '__proto__' }], ['#123456']);
+    assert.deepStrictEqual(Object.keys(p.script.chars), ['constructor', '__proto__'], argv.join(' '));
+  }
+});
+
+// a re-import on the open project: a character whose lines all went is not listed (as after a save and reopen)
+t('cli script: info lists the characters with lines, in script order', async () => {
+  const fs = require('fs'), V = require('../../src/cli/verbs'), { describeScript } = require('../../src/core/summary');
+  fs.writeFileSync(cp('two.txt'), '영희: 하나\n철수: 둘\n');
+  const p = require('../../src/cli/project').load(cp('one.vproj'), true);
+  const r = await V.execute(['script', 'import', 'two.txt'], { cwd: cp('.'), on: p });
+  assert.ok(r.ok, JSON.stringify(r));
+  assert.deepStrictEqual(describeScript(p).characters.map((x) => x.name), ['영희', '철수']);
+  const argv = ['script', 'color', '--char', 'constructor', '--color', 'F472B6'];
+  const gone = await V.execute(argv, { cwd: cp('.'), on: p });
+  assert.strictEqual(gone.error, 'NO_CHAR', 'its look is no character to change');
 });
 
 t('cli script: takes: add, remove, ★, take values, names', async () => {

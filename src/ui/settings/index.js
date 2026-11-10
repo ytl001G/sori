@@ -1,11 +1,11 @@
-// 설정 window (Ctrl+,) with 4 tabs. Every change applies at once. The audio tab: audiotab.js; the key list and the
-// 단축키 window (F1): keysui.js.
-const D = require('./dialogs');
+// 설정 window (Ctrl+,) with 4 tabs. Every change applies at once. The audio tab: audio.js; the key list and the
+// 단축키 window (F1): keys.js.
+const D = require('../dialogs');
 const { el } = D;
-const { row, seg, toggle, button } = require('./controls');
-const { audioTab } = require('./audiotab');
-const KUI = require('./keysui');
-const S = require('../core/settings');
+const { row, seg, toggle, button } = require('../controls');
+const { audioTab } = require('./audio');
+const KUI = require('./keys');
+const S = require('../../core/settings');
 
 const TABS = [['audio', '오디오 장치'], ['rec', '녹음 · 재생'], ['file', '파일 · 프로젝트'], ['view', '화면 · 단축키']];
 
@@ -50,8 +50,11 @@ function viewTab(p) {
   );
 }
 
+// a tab is built off screen and shown only if no other tab was picked meanwhile (the audio tab waits for the device
+// list: a quick ↓ appended both tabs' rows)
+let shown = 0;
 async function render(root, tab) {
-  const nav = root.querySelector('.snav'), panel = root.querySelector('.spanel');
+  const nav = root.querySelector('.snav'), panel = root.querySelector('.spanel'), n = ++shown;
   if (panel.cleanup) panel.cleanup();
   panel.cleanup = null;
   nav.querySelectorAll('button').forEach((b) => {
@@ -60,8 +63,11 @@ async function render(root, tab) {
   });
   panel.replaceChildren();
   KUI.stopCapture();
-  const tabs = { audio: audioTab, rec: recTab, file: fileTab, view: viewTab };
-  await tabs[tab](panel, () => render(root, tab));
+  const tabs = { audio: audioTab, rec: recTab, file: fileTab, view: viewTab }, part = document.createDocumentFragment();
+  await tabs[tab](part, () => render(root, tab));
+  if (n !== shown) return part.cleanup && part.cleanup();
+  panel.replaceChildren(part);
+  panel.cleanup = part.cleanup || null;
 }
 
 // the tab list: click, or ↑/↓ to the next tab

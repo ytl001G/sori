@@ -1,8 +1,8 @@
 // Interactive EQ curve (effect panel + EQ dialog): drag a band point (x = frequency, y = gain),
 // wheel over a point = width (Q, mid band), double-click a point = reset that band.
 // The sliders next to it stay the keyboard alternative (ui-guide: dragging-alternative).
-const FX = require('../core/effects');
-const P = require('../core/fxparams');
+const FX = require('../../core/effects');
+const P = require('../../core/fxparams');
 
 const F0 = 20, F1 = 20000, DB = 18, SR = 48000, PADX = 8, PADY = 10;
 const FIELD = Object.fromEntries(P.FIELDS.eq.map((f) => [f.key, f]));

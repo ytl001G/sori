@@ -1,12 +1,12 @@
 // 설정 > 오디오 장치: microphone and speaker, the input test meter, recording channels and 녹음 지연 보정 with
 // 자동 측정 (also run by sori live settings --latencyMs auto).
-const S = require('../core/settings');
-const engine = require('../audio/engine');
-const MIC = require('../audio/mic');
-const D = require('./dialogs');
+const S = require('../../core/settings');
+const engine = require('../../audio/engine');
+const MIC = require('../../audio/mic');
+const D = require('../dialogs');
 const { el } = D;
-const { row, seg, button } = require('./controls');
-const { cmds } = require('./commands');
+const { row, seg, button } = require('../controls');
+const { cmds } = require('../commands');
 
 let meterRaf = 0;
 
@@ -41,9 +41,9 @@ function inputTest() {
   };
   t.start = async () => {
     try {
-      if (await MIC.startInputTest(S.get().inputId, S.get().recChannels)) {
-        D.toast('고른 마이크가 없어서 기본 마이크로 테스트해요');
-      }
+      const fellBack = await MIC.startInputTest(S.get().inputId, S.get().recChannels);
+      if (fellBack === null) return; // stopped (or started again) while the mic opened
+      if (fellBack) D.toast('고른 마이크가 없어서 기본 마이크로 테스트해요');
       t.on = true; btn.textContent = '테스트 멈추기';
       cancelAnimationFrame(meterRaf); loop();
     } catch { D.toast('마이크를 열 수 없어요', 'error'); }

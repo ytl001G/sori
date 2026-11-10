@@ -3,7 +3,7 @@
 // stand where --track / --to-track do (take names or name numbers, not positions) and the reply names takes.
 // What takes do not have (track add / remove / move, M/S) stays refused; their own commands are `script take ...`.
 const SC = require('../core/script');
-const { fail, linesOf, lineOf, takeOf, charOf, putLines, lineInfo } = require('./project');
+const { fail, linesOf, lineOf, takeOf, charOf, putChar, putLines, lineInfo } = require('./project');
 
 // --line, and --take / --to-take in the shape of --track / --to-track.
 // shortcut: lists split at commas, so a take renamed with a comma in it cannot be named in a --take list (clip split,
@@ -65,7 +65,7 @@ async function inTakes(c, run) {
   try { res = await run(c); } catch (e) { throw renamed(e, view); }
   const had = new Set(l.takes.map((t) => t.id)), fx = c.p.tracks.find((t) => had.has(t.id) && t.fx !== ch.fx);
   const look = fx ? { ...ch, fx: fx.fx } : ch;
-  if (fx) c.p.script.chars = { ...c.p.script.chars, [l.char]: look };
+  if (fx) putChar(c, l.char, look);
   const takes = [];
   for (const t of c.p.tracks) takes.push(SC.takeView(had.has(t.id) ? t : { ...t, name: SC.nextTakeName(takes) }, look));
   const first = takes.find((t) => !had.has(t.id));

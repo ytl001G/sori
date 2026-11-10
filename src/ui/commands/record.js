@@ -7,9 +7,11 @@ const D = require('../dialogs');
 const { def, T, SC, curLine, setLine } = require('./core');
 const { metroOpts, pause } = require('./play');
 const { newTake } = require('./script');
-const { state, history, makeTrack, setDirty, changed, sr } = require('../../core/state');
+const { state, history, makeTrack, setDirty, setHolding, changed, sr } = require('../../core/state');
 
-let rec = null; // { trackId, start, lineId }
+// { trackId, start, lineId }; 이어 녹음 (spec §5-5): no take, cont = { order: line ids, at: the cued one, marks: frames
+// of the raw recording where N was pressed }
+let rec = null;
 let recBusy = false; // mic opening / stopping: ignore repeated presses
 const recInfo = () => rec;
 const busy = () => recBusy;
@@ -54,11 +56,20 @@ async function stopRecording(quiet) {
   state.recording = false; state.playing = false;
   const done = rec;
   rec = null;
+  // 이어 녹음: the whole recording goes to the 나누기 window (after the caller, e.g. a move to another line, is done)
+  if (done.cont) {
+    if (ch) setTimeout(() => require('./longrec').review(ch, done.cont, lead));
+    else setHolding(false);
+    return changed();
+  }
   const at = recSpot(done.trackId, done.lineId);
   // the take becomes one undo step now, on its line (still hidden from this snapshot)
   if (ch && at) history.commit(done.lineId);
   history.hide = null;
-  if (at && !ch) at.set(null); // nothing kept (stopped during the count-in): no empty take
+  if (at && !ch) { // nothing kept (stopped during the count-in): no empty take
+    at.set(null);
+    if (history.top() === done.was.top) { setDirty(done.was.dirty); state.backupDue = done.was.due; }
+  }
   else if (at) keepTake(at, ch, done, quiet);
   return changed();
 }
@@ -66,6 +77,7 @@ async function stopRecording(quiet) {
 // mic is still opening or closing
 async function stopFirst() {
   if (recBusy) return false;
+  if (rec && rec.cont) { D.toast('이어 녹음 중이에요. Shift+R로 멈추고 나눈 뒤에 해 주세요'); return false; }
   if (state.recording) await stopRecording();
   return true;
 }
@@ -73,6 +85,7 @@ async function stopFirst() {
 function dropRecording() {
   if (!state.recording) return;
   engine.stopRecording(); rec = null; state.recording = false;
+  if (state.holding) setHolding(false);
 }
 
 // mic first: a refusal must not leave a track or undo step behind
@@ -89,19 +102,24 @@ async function openMic() {
     return false;
   } finally { recBusy = false; }
 }
-def('record', '녹음', async () => {
-  if (recBusy) return;
-  if (state.recording) return stopRecording();
+// R: a new take (script) or track; cont (이어 녹음): one long recording, no take, the cued line on the prompter
+async function begin(cont) {
+  if (state.holding) return; // the last 이어 녹음 waits for its 나누기 window (a quick second Shift+R or R)
   pause();
   if (!(await openMic())) return changed();
-  const line = curLine(), n = T().filter((x) => x.name.startsWith('녹음')).length + 1;
-  const t = line ? newTake() : makeTrack({ name: '녹음 ' + n });
-  setDirty(true); // the undo step comes on stop; edits made while recording are their own steps
-  history.hide = t.id;
-  state.project.tracks = [...T(), t];
+  const line = curLine(), take = line && !cont, n = T().filter((x) => x.name.startsWith('녹음')).length + 1;
+  const t = cont ? null : take ? newTake() : makeTrack({ name: '녹음 ' + n });
+  if (cont) setHolding(true); // closing the app asks: this sound lives only in memory until 적용
+  // nothing kept on stop (the count-in): a saved project stays saved unless an edit came meanwhile (top moves)
+  const was = { dirty: state.dirty, due: state.backupDue, top: history.top() };
+  if (t) {
+    setDirty(true); // the undo step comes on stop; edits made while recording are their own steps
+    history.hide = t.id;
+    state.project.tracks = [...T(), t];
+    state.sel.activeTrackId = t.id;
+  }
   // a take always starts at 0 s
-  rec = { trackId: t.id, start: line ? 0 : state.sel.playhead, lineId: line ? line.id : null };
-  state.sel.activeTrackId = t.id;
+  rec = { trackId: t && t.id, start: line ? 0 : state.sel.playhead, lineId: take ? line.id : null, cont, was };
   state.recording = true;
   const countIn = S.get().countIn * state.project.beats * 60 / state.project.bpm;
   // overdub: hear the other tracks; count-in clicks first (the mic audio from that time is cut on stop)
@@ -110,6 +128,11 @@ def('record', '녹음', async () => {
   engine.play(others, state.project.master, rec.start, Infinity, { metro: metroOpts(), countIn });
   state.playing = true;
   changed();
+}
+def('record', '녹음', async () => {
+  if (recBusy) return;
+  if (state.recording) return stopRecording();
+  return begin(null);
 });
 
-module.exports = { recInfo, recTrim, busy, recSpot, stopRecording, stopFirst, dropRecording };
+module.exports = { recInfo, recTrim, busy, recSpot, stopRecording, stopFirst, dropRecording, begin };

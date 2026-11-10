@@ -1,18 +1,19 @@
 // Shortcuts on screen: the editable key list in 설정 > 화면 · 단축키 (with key capture) and the 단축키 window (F1).
-const S = require('../core/settings');
-const K = require('../core/shortcuts');
-const D = require('./dialogs');
+const S = require('../../core/settings');
+const K = require('../../core/shortcuts');
+const D = require('../dialogs');
 const { el } = D;
-const { button } = require('./controls');
-const { cmds } = require('./commands');
-const { MENUS } = require('./menus');
+const { button } = require('../controls');
+const { cmds } = require('../commands');
+const { MENUS } = require('../menus');
 
 let capture = null; // { cmd, draw } while a 바꾸기 button waits for a key
 
 // commands in menu order, then transport/clip keys
 function commandList() {
-  const extra = ['playPause', 'stop', 'record', 'toggleLoop', 'toHome', 'toEnd', 'back1', 'fwd1', 'back01', 'fwd01',
-    'nudgeLeft', 'nudgeRight', 'nudgeLeftBig', 'nudgeRightBig', 'clipsUp', 'clipsDown', 'contextMenu', 'devtools'];
+  const extra = ['playPause', 'stop', 'record', 'contRecord', 'cueNext', 'cueBack', 'toggleLoop', 'toHome', 'toEnd',
+    'back1', 'fwd1', 'back01', 'fwd01', 'nudgeLeft', 'nudgeRight', 'nudgeLeftBig', 'nudgeRightBig', 'clipsUp',
+    'clipsDown', 'contextMenu', 'devtools'];
   const all = [...extra, ...Object.values(MENUS).flat()].filter((n) => cmds[n]);
   return [...new Set(all)];
 }
@@ -70,8 +71,8 @@ function onKey(e) {
 
 // built when opened: MENUS may still be loading when this file is
 const groups = () => [
-  ['재생 · 녹음', ['playPause', 'stop', 'record', 'toggleLoop', 'toggleMetro', 'toHome', 'toEnd', 'back1', 'fwd1',
-    'back01', 'fwd01']],
+  ['재생 · 녹음', ['playPause', 'stop', 'record', 'contRecord', 'cueNext', 'cueBack', 'toggleLoop', 'toggleMetro',
+    'toHome', 'toEnd', 'back1', 'fwd1', 'back01', 'fwd01']],
   ['파일', MENUS.file], ['편집', MENUS.edit], ['트랙', MENUS.track], ['마커', MENUS.marker],
   ['클립 옮기기', ['nudgeLeft', 'nudgeRight', 'nudgeLeftBig', 'nudgeRightBig', 'clipsUp', 'clipsDown']],
   ['보기', MENUS.view], ['효과', MENUS.fx],
@@ -81,7 +82,7 @@ function openShortcuts() {
     title: '단축키',
     build: (body, close) => {
       const go = button('단축키 바꾸기…');
-      go.onclick = () => { close(null); setTimeout(() => require('./settingsui').open('view'), 0); };
+      go.onclick = () => { close(null); setTimeout(() => require('./index').open('view'), 0); };
       body.classList.add('shortcuts');
       const hint = el('span', { className: 'shint', textContent: '마우스로 하는 일은 상태 줄(맨 아래)에 안내가 나와요.' });
       body.append(el('div', { className: 'shead' }, hint, go));

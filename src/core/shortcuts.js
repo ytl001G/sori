@@ -9,6 +9,7 @@ const DEFAULT_KEYS = {
   'Ctrl+KeyA': 'selectAll', 'Escape': 'deselect',
   'Ctrl+KeyD': 'duplicate', 'KeyS': 'split', 'Ctrl+KeyJ': 'merge', 'Ctrl+KeyT': 'keep',
   'KeyL': 'toggleLoop', 'KeyR': 'record', 'KeyK': 'toggleMetro',
+  'Shift+KeyR': 'contRecord', 'KeyN': 'cueNext', 'Shift+KeyN': 'cueBack',
   'Home': 'toHome', 'End': 'toEnd',
   'ArrowLeft': 'back1', 'ArrowRight': 'fwd1', 'Shift+ArrowLeft': 'back01', 'Shift+ArrowRight': 'fwd01',
   'Alt+ArrowLeft': 'nudgeLeft', 'Alt+ArrowRight': 'nudgeRight',

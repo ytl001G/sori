@@ -53,6 +53,7 @@ t('noise floor: the quietest 0.5 s with sound; digital silence only as a last re
   const tts = [new Float32Array(3 * sr)], tone = sine(sr, 1000, sr, 0.3);
   tts[0].set(tone); tts[0].set(tone, 2 * sr);
   assert.strictEqual(V.quietest(tts, sr).db, V.SILENT, 'pauses of digital silence');
+  assert.strictEqual(V.STEPS.noise(tts, sr, 'mid'), tts, 'nothing to take out: the same sound, no new clip');
   assert.strictEqual(V.quietest([new Float32Array(sr)], sr).db, V.SILENT, 'nothing but silence');
 });
 t('de-esser: the high band goes down when it dominates, low sound stays; live worklet = offline', () => {

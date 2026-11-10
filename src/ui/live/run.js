@@ -5,10 +5,10 @@
 const fs = require('fs');
 const path = require('path');
 const { ipcRenderer } = require('electron');
-const C = require('./commands');
-const D = require('./dialogs');
-const A = require('../core/args');
-const { state, history } = require('../core/state');
+const C = require('../commands');
+const D = require('../dialogs');
+const A = require('../../core/args');
+const { state, history } = require('../../core/state');
 
 const bad = (message) => ({ ok: false, error: 'BAD_ARG', message });
 const resolved = (x) => Promise.resolve(x);

@@ -5,7 +5,7 @@ const C = require('../../src/ui/commands');
 const MN = require('../../src/ui/menus');
 const D = require('../../src/ui/dialogs');
 const SCR = require('../../src/core/script');
-const { state } = require('../../src/core/state');
+const { state, history } = require('../../src/core/state');
 const { toasts, dir, stub, wait, painted, stubModal, realModal, invokeOrig, assert, sr, T, end, sel, wav,
   shots } = require('./kit');
 
@@ -84,6 +84,12 @@ module.exports = [
     await C.run('prevLine');
     assert(cur().id === here && T().length === 2 && state.sel.activeTrackId === cur().star && heard() === '테이크 2',
       'back: every take shows, ★ selected');
+    // a take shorter than another, heard to its end: Space plays it again from 0 s (not silence from its end)
+    const was = T()[1], half = { ...was, clips: [{ ...was.clips[0], length: Math.round(was.clips[0].length / 2) }] };
+    state.project.tracks = [T()[0], half]; state.sel.playhead = half.clips[0].length;
+    await C.run('playPause'); await wait(150);
+    assert(state.playing && state.sel.playhead < half.clips[0].length, 'the end of the shorter take: Space from 0 s');
+    await C.run('stop'); state.project.tracks = [T()[0], was];
     C.mixer(T()[0].id, { solo: true }); C.mixer(T()[1].id, { mute: true });
     assert(heard() === '테이크 2', 'takes have no M/S: stored flags are ignored'); C.mixer(T()[0].id, { solo: false });
     C.mixer(T()[1].id, { mute: false });
@@ -172,16 +178,18 @@ module.exports = [
     C.setFx('char:철수', 'eq', { on: true, low: 5 });
     assert(T().length === 2 && T().every((t) => t.fx.eq.on && t.fx.eq.low === 5), 'character eq on its takes');
     await painted(); assert(document.getElementById('fx-title').textContent === '캐릭터 효과 · 철수', 'fx title');
+    const left = (id) => Math.round(document.getElementById(id).getBoundingClientRect().left);
+    assert(left('hscroll') === left('timeline-wrap'), 'scrollbar under the timeline: ' + left('hscroll'));
     await shot('script-dark');
     await C.run('toggleTheme'); await shot('script-light'); await C.run('toggleTheme');
-    C.run('toggleFxPanel');
+    await C.run('toggleFxPanel');
     C.setScriptView({ q: '둘째' }); assert(C.visibleLines().length === 1, 'search');
     C.setScriptView({ q: '', char: '영희' });
     assert(SCR.lineName(cur()) === '영희-005', 'a character tab goes to its lines');
     C.setScriptView({ char: '', todo: true });
     assert(C.visibleLines().map((l) => SCR.lineName(l)).join() === '영희-005,철수-002', 'only unrecorded');
     C.setScriptView({ todo: false });
-    C.goLine(s().lines[0].id);
+    await C.goLine(s().lines[0].id);
     stub.modal = { text: '너 뭐냐고!' }; await C.run('editLine'); stub.modal = {};
     assert(cur().text === '너 뭐냐고!' && cur().memo === '화가 나서' && cur().state === 'redo',
       'edit line: recorded -> 다시 녹음 필요');
@@ -197,6 +205,9 @@ module.exports = [
     await C.importScript(txt); // 대본 넣기 in a script project: the new script is the base
     assert(names().join() === '철수-001,영희-005,영희-006' && C.takeCount() === 2, 're-import ' + names());
     await C.run('undo'); assert(names().join() === '철수-001,영희-005,철수-002', 'undo re-import'); await C.run('redo');
+    const step = history.top();
+    await C.importScript(txt); // the same script again
+    assert(history.top() === step && toasts[toasts.length - 1] === '대본에서 바뀐 대사가 없어요', 'same script: no step');
     stub.dir = path.join(dir, 'lines'); fs.mkdirSync(stub.dir);
     await C.run('export'); // 전체: a new folder (project, time), a folder per character in it
     const [top] = fs.readdirSync(stub.dir), out = fs.readdirSync(path.join(stub.dir, top, '철수'));

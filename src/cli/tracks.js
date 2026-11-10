@@ -37,7 +37,7 @@ function setTrack(c) {
   if (o.color !== undefined) patch.color = hexColor(o.color);
   for (const k of ['mute', 'solo']) if (o[k] !== undefined) patch[k] = o[k];
   if (!Object.keys(patch).length) {
-    fail('BAD_ARG', 'nothing to change: give --name, --volume, --pan, --mute, --solo, --view or --color');
+    fail('BAD_ARG', 'nothing to change: give --name, --volume, --pan, --mute, --solo or --color');
   }
   const n = { ...t, ...patch };
   c.p.tracks = c.p.tracks.map((x) => (x === t ? n : x));
@@ -97,8 +97,8 @@ function exportPlan(c, end) {
       fail('BAD_ARG', '--markers exports every marker segment; leave out --from/--to');
     }
     if (!c.p.markers.length) fail('NOTHING_TO_EXPORT', 'the project has no markers');
-    const fmt = c.o.format || 'wav16', segs = R.markerSegments(c.p, end), width = String(segs.length).length;
-    try { fs.mkdirSync(out, { recursive: true }); } catch (e) { fail('WRITE_FAILED', `${out}: ${e.message}`); }
+    const fmt = c.o.format || 'wav16', segs = E.markerSegments(c.p.markers, end, c.p.sampleRate);
+    const width = String(segs.length).length;
     const file = (i, n) => path.join(out, `${String(i + 1).padStart(width, '0')} ${safeName(n)}${R.extOf(fmt)}`);
     return { fmt, files: segs.map(([a, b, n], i) => [a, b, file(i, n)]) };
   }
@@ -108,6 +108,8 @@ function exportPlan(c, end) {
   }
   const fmt = c.o.format || (ext === '.mp3' ? 'mp3_192' : 'wav16');
   if (R.extOf(fmt) !== ext) fail('BAD_ARG', `--format ${fmt} does not match ${ext}`);
+  // one file goes into a folder that is there (--markers makes its folder)
+  if (!fs.existsSync(path.dirname(out))) fail('WRITE_FAILED', `${path.dirname(out)} does not exist`);
   return { fmt, files: [[...span(c, end), out]] };
 }
 async function exportMix(c) {

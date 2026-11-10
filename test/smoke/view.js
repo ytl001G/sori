@@ -1,4 +1,4 @@
-// Smoke steps: Theme toggle, a small window with a tall mixer, the top menus, 이름순 정렬.
+// Smoke steps: Theme toggle, a small window with a tall mixer, dragging the mixer edge, fonts, the top menus, 이름순 정렬.
 const C = require('../../src/ui/commands');
 const S = require('../../src/core/settings');
 const menus = require('../../src/ui/menus');
@@ -17,6 +17,15 @@ async function rowsOf(menu) {
 }
 
 module.exports = [
+  ['times round before the minutes split off (1:00, never 0:60)', async () => {
+    const sr = state.project.sampleRate, f = Math.round(59.9996 * sr), ph = state.sel.playhead;
+    state.sel.playhead = f; changed(); await painted();
+    const top = document.getElementById('time').textContent;
+    state.sel.playhead = ph; changed();
+    const ruler = require('../../src/ui/timeline/paint').fmtTime(60 - 1e-12, 0.001);
+    const split = require('../../src/ui/split/edit').t1(Math.round(59.96 * sr), sr);
+    assert(top === '01:00.000' && ruler === '1:00.000' && split === '1:00.0', `${top} | ${ruler} | ${split}`);
+  }],
   ['theme toggle + redraw', async () => {
     await C.run('toggleTheme'); await wait(50); await C.run('toggleTheme'); await wait(50);
   }],
@@ -26,6 +35,31 @@ module.exports = [
     await invokeOrig('resize', 1400, 860); await C.run('toggleMixer'); S.set({ mixerH: 220 }); await wait(200);
     assert(h > 80, 'timeline height ' + h);
   }],
+  ['dragging the mixer edge resizes it while the mouse moves, saved on release', async () => {
+    await C.run('toggleMixer'); await painted();
+    const root = document.getElementById('mixer'), grip = document.getElementById('mixer-resize');
+    const h0 = root.offsetHeight, y = grip.getBoundingClientRect().top + 3;
+    grip.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientY: y }));
+    window.dispatchEvent(new MouseEvent('mousemove', { clientY: y - 60 }));
+    await painted(); await painted(); // the redraw loop ran meanwhile
+    const during = root.offsetHeight;
+    window.dispatchEvent(new MouseEvent('mouseup', { clientY: y - 60 }));
+    const saved = S.get().mixerH;
+    S.set({ mixerH: 220 }); await C.run('toggleMixer');
+    assert(during === h0 + 60 && saved === h0 + 60, `mixer drag: ${h0} -> ${during} while dragging, saved ${saved}`);
+  }],
+  ['track names, M/S letters and key caps get their set weight and size (a font shorthand with inherit is dropped)',
+    async () => {
+      const kept = T();
+      state.project.tracks = [makeTrack({ name: '보컬1' })]; changed(); await painted();
+      const font = (sel) => {
+        const s = getComputedStyle(document.querySelector(sel));
+        return s.fontWeight + ' ' + s.fontSize;
+      };
+      const got = [font('.track-h .name'), font('.track-h .tbtn.m'), font('#empty kbd')].join(', ');
+      state.project.tracks = kept; changed();
+      assert(got === '600 13px, 700 12px, 500 12px', 'fonts ' + got);
+    }],
   ['top menus: 편집 · 트랙 · 마커 split, 대사 rows only in a script, no stray separators', async () => {
     const tops = [...document.querySelectorAll('#menubar button')].map((b) => b.textContent);
     assert(tops.join() === '파일,편집,트랙,마커,보기,효과', 'menubar ' + tops);

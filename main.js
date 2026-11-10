@@ -22,8 +22,10 @@ if (SMOKE) {
 const CLI_JOB = (process.argv.find((a) => a.startsWith('--cli=')) || '').slice(6);
 if (CLI_JOB) app.setPath('userData', path.join(CLI_JOB, 'data'));
 if (SMOKE) process.env.SORI_PIPE = 'sori-smoke-' + process.pid; // own live pipe: smoke never drives the user's app
-// one window per user: two instances would overwrite each other's autosave
-if (!SMOKE && !CLI_JOB && !app.requestSingleInstanceLock()) app.quit();
+// one window per user: two instances would overwrite each other's autosave. The second one only hands its file over
+// (second-instance below) and makes no window: quit() is not immediate, so whenReady checks this too
+const SECOND = !SMOKE && !CLI_JOB && !app.requestSingleInstanceLock();
+if (SECOND) app.quit();
 // a double-clicked .vproj (fileAssociations in package.json) comes as an argument: at start, or to the running window
 const projectArg = (argv, cwd) => {
   const f = argv.slice(1).find((a) => /\.vproj$/i.test(a));
@@ -97,6 +99,7 @@ function askBeforeClose(e) {
 ipcMain.on('close-now', () => { closing = true; win.close(); });
 
 app.whenReady().then(() => {
+  if (SECOND) return;
   if (CLI_JOB) return cliJob();
   session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === 'media'));
   session.defaultSession.setPermissionCheckHandler((_wc, perm) => perm === 'media');
@@ -114,7 +117,7 @@ function cliJob() {
   w.webContents.on('render-process-gone', () => app.exit(1));
   w.loadFile(path.join(__dirname, 'src', 'cli', 'headless.html'));
 }
-// sori live: local pipe -> this window; src/ui/live.js validates and runs the app's own commands
+// sori live: local pipe -> this window; src/ui/live/ validates and runs the app's own commands
 const livePending = new Map();
 let liveSeq = 0;
 function serveLive() {

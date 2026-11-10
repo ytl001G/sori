@@ -4,7 +4,7 @@ const path = require('path');
 const C = require('../../src/ui/commands');
 const SCR = require('../../src/core/script');
 const { state } = require('../../src/core/state');
-const { dir, assert, sr, T, wav, cli, ok } = require('./kit');
+const { dir, assert, sr, T, wav, cli, ok, painted } = require('./kit');
 
 let back = null; // the project open before these steps, reopened by the last one
 
@@ -52,9 +52,16 @@ module.exports = [
   ['CLI live script: file commands on the open project: color, take set / remove, line set', async () => {
     let r;
     // script file commands on the open project: the line on screen follows
+    const panel = state.ui.fxPanel;
+    C.showFx('char:철수');
     r = ok(await cli('live', 'script', 'color', '--char', '철수', '--color', '22C55E'), 'live script color');
     assert(r.undoStep === false && T()[0].color === '#22C55E', 'live character color: the take on screen follows '
       + JSON.stringify(r));
+    await painted(); // the line bar and list redraw with it (their cache once looked only at the lines)
+    const color = (id) => document.getElementById(id).style.getPropertyValue('--ch').toUpperCase();
+    assert(color('script-bar') === '#22C55E' && color('fxpanel') === '#22C55E',
+      `live character color: the line bar and the effect panel follow ${color('script-bar')} ${color('fxpanel')}`);
+    if (!panel) await C.run('toggleFxPanel');
     r = ok(await cli('live', 'script', 'take', 'set', '--line', '철수-001', '--take', '1', '--volume', '-6', '--name',
       '좋은 거'), 'live take set');
     assert(r.undoStep === false && T()[0].name === '좋은 거' && Math.abs(T()[0].gain - 10 ** (-6 / 20)) < 1e-9,
@@ -90,10 +97,16 @@ module.exports = [
     r = ok(await cli('live', 'script', 'import', 'cs2.txt', '--dry-run'), 'live re-import --dry-run');
     assert(r.dryRun && r.counts && state.project.script.lines.length === 2 && !state.project.script.chars['캐릭터Z'],
       'dry run changes nothing ' + JSON.stringify(r));
+    C.setScriptView({ char: '영희' }); C.showFx('char:영희'); // its tab and effects; the re-import takes its lines
     r = ok(await cli('live', 'script', 'import', 'cs2.txt'), 'live re-import');
     assert(r.undoStep && state.project.script.lines.map(SCR.lineName).join() === '철수-001,캐릭터Z-001' &&
       SCR.lineName(C.curLine()) === '철수-001' && T()[0].name === '좋은 거',
       'the current line (영희-001) left the script: the first line shows ' + JSON.stringify(r));
+    await painted();
+    const pressed = document.querySelector('#sp-tabs [aria-pressed=true]');
+    assert(!state.ui.scriptView.char && pressed && pressed.textContent.startsWith('전체')
+      && document.querySelectorAll('#sp-list .line-row').length === 2, 'a gone character\'s tab: 전체 again');
+    assert(state.ui.fxTarget === 'master', 'a gone character\'s effects: the master shows ' + state.ui.fxTarget);
     await C.run('undo');
     assert(state.project.script.lines.length === 2 && SCR.lineName(C.curLine()) === '영희-001',
         'undo the live re-import');

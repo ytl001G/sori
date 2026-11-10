@@ -66,11 +66,13 @@ select:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 .drop-line { position: absolute; left: 0; right: 0; height: 2px; margin-top: -1px; background: var(--primary);
   pointer-events: none; }
 .track-h .name { flex: 1; min-width: 0; background: none; border: 1px solid transparent; border-radius: 4px;
-  color: var(--text); font: 600 13px inherit; font-family: inherit; padding: 2px 4px; text-overflow: ellipsis; }
+  color: var(--text); font-weight: 600; font-size: 13px; font-family: inherit; padding: 2px 4px;
+  text-overflow: ellipsis; }
 .track-h .name:hover { border-color: var(--line); }
 .track-h .name:focus { outline: none; border-color: var(--primary); background: var(--bg); }
 .tbtn { width: 24px; height: 24px; border: 1px solid var(--line); border-radius: 5px; background: none;
-  font: 700 12px inherit; font-family: inherit; color: var(--muted); padding: 0; display: grid; place-items: center; }
+  font-weight: 700; font-size: 12px; font-family: inherit; color: var(--muted); padding: 0; display: grid;
+  place-items: center; }
 .tbtn i[data-icon] { width: 14px; height: 14px; }
 .tbtn:hover { color: var(--text); background: var(--hover); }
 .tbtn.m[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #000; }

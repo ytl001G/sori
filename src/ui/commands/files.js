@@ -51,19 +51,6 @@ async function confirmDiscard(what = '계속하면', ask = D.ask) {
   if (v === 'save') return !!(await cmds.save.run()) && !state.dirty;
   return v === 'discard';
 }
-// The window's X with unsaved changes (main.js askBeforeClose) and a .vproj double-clicked while Sori runs (main.js
-// second-instance) come from the user, from outside the page: they wait for a long job to end, close an open dialog
-// (Esc, one question at a time) and ask in the real window (`askUser`: a `live run --yes` answers D.ask meanwhile)
-const askUser = D.ask;
-async function userTurn() {
-  while (D.isBusy()) await new Promise((r) => setTimeout(r, 100));
-  if (D.isModalOpen()) document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-}
-ipcRenderer.on('ask-close', async () => {
-  await userTurn();
-  if (await confirmDiscard('닫으면', askUser)) ipcRenderer.send('close-now');
-});
-ipcRenderer.on('open-path', async (_e, p) => { await userTurn(); return openProject(p, askUser); });
 function resetProject(project) {
   engine.stop(); engine.stopPreview();
   dropRecording();
@@ -294,6 +281,6 @@ async function askRecover(f, meta) {
 }
 
 module.exports = {
-  baseName, confirmDiscard, openProject, openRecent, loadProjectFile, importAudio, writeProject, autosave,
+  baseName, decodeAll, confirmDiscard, openProject, openRecent, loadProjectFile, importAudio, writeProject, autosave,
   clearAutosave, recoverAutosave, writeFailed, writeOk,
 };

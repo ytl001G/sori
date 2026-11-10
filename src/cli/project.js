@@ -8,7 +8,7 @@ const SC = require('../core/script');
 const { readScript } = require('../core/scriptfile');
 const { describe, describeScript } = require('../core/summary');
 const { state, makeTrack, newProjectData } = require('../core/state');
-const { writeAtomic, writeAtomicSync, uniquePaths } = require('../core/safewrite');
+const { writeAtomic, writeAtomicSync, uniquePaths, newFolders } = require('../core/safewrite');
 const { pool, RENDERS } = require('../core/pool');
 const W = require('../core/workers');
 
@@ -125,11 +125,16 @@ function charsOf(c) {
   chars.forEach((x) => charOf(c, x));
   return chars;
 }
+// a character with lines (a re-import can leave the look of one whose lines all went: it is no character any more)
 function charOf(c, name) {
-  const all = c.p.script.chars;
-  if (!Object.hasOwn(all, name)) fail('NO_CHAR', `no character "${name}"; characters: ${Object.keys(all).join(', ')}`);
-  return all[name];
+  const names = [...new Set(linesOf(c).map((l) => l.char))];
+  if (!names.includes(name)) fail('NO_CHAR', `no character "${name}"; characters: ${names.join(', ')}`);
+  return c.p.script.chars[name];
 }
+// a character's new look; a new object for the app's redraw, without a prototype: a character may be named __proto__
+const putChar = (c, name, look) => {
+  c.p.script.chars = Object.assign(Object.create(null), c.p.script.chars, { [name]: look });
+};
 function putLines(c, lines) {
   const s = c.p.script;
   s.lines = lines;
@@ -163,12 +168,16 @@ function checkOverwrite(c, files) {
   const some = there.slice(0, 3).map((f) => path.basename(f)).join(', ') + (there.length > 3 ? ', …' : '');
   fail('EXISTS', `${there.length} file(s) already exist (${some}); add --overwrite to replace them`);
 }
-// an export of several files: names that clash get ' (2)', each is written as
-// `<name>.part` and all are renamed only when every one is done; a failure removes the parts. make(i) -> bytes
+// an export of files (names already unique): their folders are made, each is written as `<name>.part` and all are
+// renamed only when every one is done; a failure removes the parts and the folders it made (as the app).
+// make(i) -> bytes
 async function writeAll(files, make, k = RENDERS) {
-  const done = [];
+  const done = [], made = newFolders(files);
   const write = async (f, act) => { try { await act(); } catch (e) { fail('WRITE_FAILED', `${f}: ${e.message}`); } };
   try {
+    for (const d of new Set(files.map((f) => path.dirname(f)))) {
+      await write(d, () => fs.promises.mkdir(d, { recursive: true }));
+    }
     await pool(files.length, k, async (i) => {
       const data = await make(i);
       await write(files[i], () => writeAtomic(files[i] + '.part', data));
@@ -177,6 +186,7 @@ async function writeAll(files, make, k = RENDERS) {
     for (const f of done) await write(f, () => fs.promises.rename(f + '.part', f));
   } catch (e) {
     for (const f of done) fs.rmSync(f + '.part', { force: true });
+    for (const d of made) try { fs.rmdirSync(d); } catch { /* not empty */ }
     throw e;
   }
 }
@@ -206,6 +216,6 @@ async function scriptFile(file) {
 module.exports = {
   fail, load, kind, packAhead, save, takeByRef, writeAll, uniquePaths,
   frames, secs, byId, setClips, trackNo, track, clipOf, targets, span, where, trackInfo,
-  linesOf, lineOf, takeOf, charOf, charsOf, putLines, putLine, lineInfo,
+  linesOf, lineOf, takeOf, charOf, charsOf, putChar, putLines, putLine, lineInfo,
   name, textArg, hexColor, checkOverwrite, decodeFiles, baseName, scriptFile,
 };

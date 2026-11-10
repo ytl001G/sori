@@ -45,5 +45,5 @@ async function fails(code, ...argv) {
 }
 
 module.exports = {
-  assert, E, FX, IO, tests, t, ramp, sine, rms, clip, ones, sr, cliDir, cp, cleanup, decoded, run, fails,
+  assert, E, FX, IO, tests, t, ramp, sine, rms, clip, ones, sr, cliDir, cp, cleanup, decoded, audio, run, fails,
 };

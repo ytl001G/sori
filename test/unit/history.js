@@ -48,8 +48,15 @@ t("history.hide keeps the take being recorded out of every snapshot (normal and 
     "script: not in the takes, not the ★");
   history.clear(); assert.strictEqual(history.hide, null);
 });
+t('tidySel: the effect panel leaves a character whose lines all went (its look is still there)', () => {
+  const { state, newProjectData, tidySel } = require('../../src/core/state');
+  const look = { color: '#38BDF8', fx: null }, l = { id: 'l1', char: '철수', num: 1, text: 'x', memo: '', takes: [] };
+  state.project = newProjectData(48000, { script: { lines: [l], lineId: 'l1', chars: { 철수: look, 영희: look } } });
+  const after = (target) => { state.ui.fxTarget = target; tidySel(); return state.ui.fxTarget; };
+  assert.deepStrictEqual([after('char:철수'), after('char:영희'), after('char:')], ['char:철수', 'master', 'master']);
+});
 t('history: a recording take with clips edited onto it stays in snapshots; drop() brings redo back', () => {
-  const { state, history, makeTrack, newProjectData } = require('../../src/core/state');
+  const { state, history, makeTrack, newProjectData, setDirty } = require('../../src/core/state');
   const rec = makeTrack();
   state.project = newProjectData(48000); state.project.tracks = [rec];
   history.clear(); history.hide = rec.id;
@@ -58,8 +65,9 @@ t('history: a recording take with clips edited onto it stays in snapshots; drop(
   history.undo();
   assert.strictEqual(state.project.tracks[0].clips.length, 1, 'the edited take comes back with its clip');
   assert(history.canRedo());
-  history.commit(); history.drop();
+  setDirty(false); state.backupDue = false; history.commit(); history.drop();
   assert(history.canRedo(), 'a dropped commit leaves redo as it was');
+  assert.deepStrictEqual([state.dirty, state.backupDue], [false, false], 'a saved project saved, no backup due');
   history.clear();
 });
 t('필요할 때만 풀기: a loaded take decodes on use and lets go off screen; the budget counts only undo', () => {

@@ -59,7 +59,7 @@ function previewFx(fn, opt, targets, vals) {
 // the effect's dialog (the EQ graph); null = 취소. It always opens with the same values (no memory)
 function askParams(label, fn, opt, targets) {
   const extra = opt.graph ? (box, api) => {
-    const gr = require('../eqgraph').mount(box, { get: api.get, set: api.set, height: 170 });
+    const gr = require('../panels/eq').mount(box, { get: api.get, set: api.set, height: 170 });
     api.onChange(gr.update);
   } : null;
   return D.modal({ title: label, note: opt.note, fields: opt.fields, presets: opt.presets, extra,
@@ -80,7 +80,7 @@ function stretchMarkers(results) {
   };
 }
 // compute everything first (a progress step per target, where 멈추기 lands), then commit + assign: an exception or a
-// stop leaves the project untouched
+// stop leaves the project untouched. false: no sound in the targets (nothing done)
 async function applyFx(targets, fn, opt, params, step) {
   const results = [];
   for (const [i, tg] of targets.entries()) {
@@ -90,7 +90,7 @@ async function applyFx(targets, fn, opt, params, step) {
     if (ch) results.push({ tg, name: first ? first.name : t.name, out: fn(ch, sr(), params) });
   }
   results.sort((x, y) => y.tg.a - x.tg.a); // right to left so ripple shifts never move pending targets
-  if (!results.length) return;
+  if (!results.length) return false;
   const markers = opt.ripple ? stretchMarkers(results) : () => {};
   history.commit();
   const newIds = new Set();
@@ -103,6 +103,7 @@ async function applyFx(targets, fn, opt, params, step) {
   const r = state.sel.range;
   if (r && opt.ripple) r.b = r.a + results[0].out[0].length;
   if (!r && state.sel.clipIds.size) state.sel.clipIds = newIds;
+  return true;
 }
 async function runFx(name, label, fn, opt) {
   const targets = fxTargets();
@@ -116,6 +117,7 @@ async function runFx(name, label, fn, opt) {
   try {
     const r = await D.busy(label + ' 적용 중', (step) => applyFx(targets, fn, opt, params, step));
     if (r === D.STOPPED) return D.toast('멈췄어요 — 바뀐 것 없어요');
+    if (!r) return D.toast('선택한 구간에 소리가 없어요 — 바뀐 것 없어요');
     D.toast(label + ' 적용했어요');
     afterEdit();
   } catch (e) {
@@ -141,11 +143,14 @@ def('fxProfile', '잡음 프로필 잡기', () => {
 const shapeOf = (c, edge) => c[edge + 'Shape'] || 'linear';
 function setFadeShape(clipId, edge, shape) {
   const t = T().find((x) => x.clips.some((c) => c.id === clipId));
-  if (!t) return;
+  if (!t || shapeOf(t.clips.find((c) => c.id === clipId), edge) === shape) return; // the shape it has: no undo step
   history.commit();
   setClips(t.id, t.clips.map((c) => (c.id === clipId ? E.clampFades({ ...c, [edge + 'Shape']: shape }) : c)));
   afterEdit();
 }
+// the same volume, fades and fade shapes (no shape = 직선)
+const sameLook = (c, n) => (c.gain ?? 1) === n.gain && (c.fadeIn || 0) === n.fadeIn && (c.fadeOut || 0) === n.fadeOut
+  && shapeOf(c, 'fadeIn') === shapeOf(n, 'fadeIn') && shapeOf(c, 'fadeOut') === shapeOf(n, 'fadeOut');
 function clipFields(sc) {
   const c0 = sc[0].c, maxLen = +(Math.min(...sc.map(({ c }) => c.length)) / sr()).toFixed(2);
   const db = (c0.gain ?? 1) > 0 ? 20 * Math.log10(c0.gain ?? 1) : -24;
@@ -163,14 +168,19 @@ def('clipProps', '클립 볼륨 · 페이드…', async () => {
   if (!sc.length) return D.toast('클립을 먼저 선택하세요 (이름 띠 클릭)');
   const note = sc.length > 1 ? `선택한 클립 ${sc.length}개에 똑같이 적용해요.`
     : '페이드는 클립 위쪽 모서리의 작은 네모를 끌어서도 바꿀 수 있어요.';
-  const v = await D.modal({ title: '클립 볼륨 · 페이드', note, fields: clipFields(sc) });
+  const fields = clipFields(sc), v = await D.modal({ title: '클립 볼륨 · 페이드', note, fields });
   if (!v) return;
+  // a value left as it opened is the first clip's exact one: the dialog shows it rounded (0.5 dB, 0.01 s)
+  const c0 = sc[0].c, kept = (k, exact, typed) => (v[k] === fields.find((f) => f.key === k).value ? exact : typed);
+  const patch = { gain: kept('db', c0.gain ?? 1, Math.pow(10, v.db / 20)), fadeIn: kept('fi', c0.fadeIn || 0,
+    frames(v.fi)), fadeOut: kept('fo', c0.fadeOut || 0, frames(v.fo)), fadeInShape: v.fis, fadeOutShape: v.fos };
+  const ids = state.sel.clipIds, next = (c) => E.clampFades({ ...c, ...patch });
+  // 확인 with nothing changed: no undo step
+  if (!T().some((t) => t.clips.some((c) => ids.has(c.id) && !sameLook(c, next(c))))) return;
   history.commit();
-  const ids = state.sel.clipIds, patch = { gain: Math.pow(10, v.db / 20), fadeIn: frames(v.fi), fadeOut: frames(v.fo),
-    fadeInShape: v.fis, fadeOutShape: v.fos };
   for (const t of T()) {
     if (!t.clips.some((c) => ids.has(c.id))) continue;
-    setClips(t.id, t.clips.map((c) => (ids.has(c.id) ? E.clampFades({ ...c, ...patch }) : c)));
+    setClips(t.id, t.clips.map((c) => (ids.has(c.id) ? next(c) : c)));
   }
   afterEdit();
 }, () => state.sel.clipIds.size > 0);

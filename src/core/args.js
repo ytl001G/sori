@@ -1,4 +1,4 @@
-// Argument checks for the AI command line (src/cli) and live mode (src/ui/live.js): command-line flags
+// Argument checks for the AI command line (src/cli) and live mode (src/ui/live/): command-line flags
 // against a typed spec, and effect/dialog values against their field specs. Both are trust boundaries.
 
 const bad = (message) => Object.assign(new Error(message), { code: 'BAD_ARG' });

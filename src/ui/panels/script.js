@@ -1,12 +1,14 @@
 // Script mode views (spec §5-5): the line list on the left and the line bar above the takes
 // (a prompter while recording: this line big, the next one small). Commands live in commands.js.
-const C = require('./commands');
-const SCR = require('../core/script');
-const { el } = require('./dialogs');
-const { state } = require('../core/state');
+const C = require('../commands');
+const SCR = require('../../core/script');
+const { el } = require('../dialogs');
+const engine = require('../../audio/engine');
+const { state } = require('../../core/state');
 
 const $ = (id) => document.getElementById(id);
-let panel, bar, tabs, list, search, todo, count, lastLines = null, lastKey = '', lastLine = null, emptyText = null;
+let panel, bar, tabs, list, search, todo, count, live; // live: 이어 녹음's time + level
+let lastLines = null, lastChars = null, lastKey = '', lastLine = null, emptyText = null;
 const setText = (e, t) => { if (e.textContent !== t) e.textContent = t; }; // per frame: touch the DOM only on change
 
 function tab(label, char, done, total, color) {
@@ -20,9 +22,11 @@ function tab(label, char, done, total, color) {
   return b;
 }
 
-function row(l, s) {
+function row(l, s, cue) {
   const cur = l.id === s.lineId, done = SCR.isDone(l);
-  const className = 'line-row' + (cur ? ' cur' : '') + (done ? ' done' : '') + (l.state ? ' ' + l.state : '');
+  // 이어 녹음: only the cued line stands out
+  const className = 'line-row' + (cur && !cue ? ' cur' : '') + (cue && cue.id === l.id ? ' cue' : '')
+    + (done ? ' done' : '') + (l.state ? ' ' + l.state : '');
   const takes = l.takes.length ? `${done ? '★ ' : ''}테이크 ${l.takes.length}` : '녹음 전';
   const b = el('button', { type: 'button', className, title: '더블클릭: 대사 고치기' },
     el('span', { className: 'lr-name', textContent: SCR.lineName(l) }),
@@ -38,22 +42,26 @@ function row(l, s) {
 }
 
 function build(s) {
+  const vis = C.visibleLines(); // first: it may set the view back to 전체
   const now = SCR.linesNow(state.project), chars = [...new Set(now.map((l) => l.char))];
   const count = (ls) => [ls.filter(SCR.isDone).length, ls.length];
   const charTab = (c) => tab(c, c, ...count(now.filter((l) => l.char === c)), s.chars[c].color);
   tabs.replaceChildren(tab('전체', '', ...count(now)), ...chars.map(charTab));
-  const focused = list.contains(document.activeElement), vis = C.visibleLines();
+  const focused = list.contains(document.activeElement);
   const none = el('div', { className: 'sp-empty', textContent: '맞는 대사가 없어요' });
-  list.replaceChildren(...(vis.length ? vis.map((l) => row(l, s)) : [none]));
-  const cur = list.querySelector('.cur');
-  if (cur && (focused || s.lineId !== lastLine)) cur.scrollIntoView({ block: 'nearest' });
+  const cue = C.cue();
+  list.replaceChildren(...(vis.length ? vis.map((l) => row(l, s, cue)) : [none]));
+  const cur = list.querySelector(cue ? '.cue' : '.cur') || list.querySelector('.cur');
+  const at = cue ? cue.id : s.lineId;
+  if (cur && (focused || at !== lastLine)) cur.scrollIntoView({ block: 'nearest' });
   if (cur && focused) cur.focus();
-  lastLine = s.lineId;
+  lastLine = at;
   todo.setAttribute('aria-pressed', String(state.ui.scriptView.todo));
 }
 
+// 이어 녹음: the cued line instead of the current one, N / Shift+N / Shift+R in the hint
 function renderBar(s) {
-  const l = C.curLine(), nx = C.lineAfter(1), rec = state.recording;
+  const cue = C.cue(), l = cue || C.curLine(), nx = cue ? C.cueNextLine() : C.lineAfter(1), rec = state.recording;
   bar.classList.toggle('rec', rec);
   bar.style.setProperty('--ch', s.chars[l.char].color);
   bar.querySelector('.sb-name').textContent = SCR.lineName(l) + (l.state === 'redo' ? ' · 다시 녹음 필요' : '');
@@ -63,7 +71,32 @@ function renderBar(s) {
   const next = bar.querySelector('.sb-next');
   next.textContent = nx ? `다음 · ${SCR.lineName(nx)}  ${nx.text || nx.memo}` : '마지막 대사예요';
   next.hidden = !rec;
-  bar.querySelector('.sb-hint').textContent = rec ? '녹음 중 · R로 멈춤' : 'R 새 테이크 · ↑/↓ 대사 이동';
+  bar.querySelector('.sb-hint').textContent = cue ? '이어 녹음 · N 다음 대사 · Shift+N 되돌리기 · Shift+R 멈춤'
+    : rec ? '녹음 중 · R로 멈춤' : 'R 새 테이크 · Shift+R 이어 녹음 · ↑/↓ 대사 이동';
+  live.hidden = !cue;
+}
+
+// 이어 녹음's time and input level, every frame (hidden from screen readers: the bar is a live region)
+function liveInfo() {
+  const r = engine.recording(), sec = r ? Math.floor(r.length / engine.sampleRate()) : 0;
+  setText(live.firstChild, `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`);
+  const pk = Math.max(...engine.level('input'));
+  live.lastChild.firstChild.style.width = Math.min(100, Math.round(pk * 100)) + '%';
+  live.classList.toggle('clip', engine.isClipped('input'));
+}
+
+// the take count, [+ 테이크] / [이어 녹음] and what the empty timeline (a line without takes) says (spec §5-5);
+// cueing = 이어 녹음 runs (no take grows here)
+function heads(cueing) {
+  setText($('empty').querySelector('.empty-title'), cueing ? '이어 녹음 중이에요' : 'R 을 눌러 이 대사를 녹음하세요');
+  setText($('empty').querySelector('.empty-sub'), cueing ? '대사 하나를 끝낼 때마다 N, 다 읽으면 Shift+R. 멈추면 대사별로 나눠요'
+    : '녹음할 때마다 테이크가 하나씩 생겨요. 내보낼 테이크는 ★로 골라요');
+  setText(count, `테이크 ${C.takeCount()}개`);
+  count.nextElementSibling.disabled = !C.cmds.addTrack.enabled(); // [+ 테이크]: not while recording
+  const cont = bar.querySelector('.cont-rec');
+  cont.disabled = state.recording && !cueing; // during R: no; during 이어 녹음 it stops it
+  setText(cont.lastChild, cueing ? '이어 녹음 멈춤' : '이어 녹음');
+  cont.classList.toggle('on', cueing);
 }
 
 function render() {
@@ -77,18 +110,18 @@ function render() {
   }
   panel.hidden = bar.hidden = !on;
   if (!on) return;
-  // the take count + what the empty timeline (a line without takes) says (spec §5-5)
-  setText($('empty').querySelector('.empty-title'), 'R 을 눌러 이 대사를 녹음하세요');
-  setText($('empty').querySelector('.empty-sub'), '녹음할 때마다 테이크가 하나씩 생겨요. 내보낼 테이크는 ★로 골라요');
-  setText(count, `테이크 ${C.takeCount()}개`);
-  count.nextElementSibling.disabled = !C.cmds.addTrack.enabled(); // [+ 테이크]: not while recording
+  heads(!!C.cue());
   const v = state.ui.scriptView;
   if (document.activeElement !== search && search.value !== v.q) search.value = v.q;
   // emptying the ★ take changes it
   const l = C.curLine(), done = SCR.isDone({ ...l, takes: state.project.tracks });
-  const key = `${s.lineId}|${state.project.tracks.length}|${done}|${v.char}|${v.todo}|${v.q}|${state.recording}`;
-  if (s.lines === lastLines && key === lastKey) return;
-  lastLines = s.lines; lastKey = key;
+  const cue = C.cue();
+  if (cue) liveInfo();
+  const key = `${s.lineId}|${state.project.tracks.length}|${done}|${v.char}|${v.todo}|${v.q}|${state.recording}|`
+    + (cue ? cue.id : '');
+  // chars: a color set from the CLI (script color) replaces it
+  if (s.lines === lastLines && s.chars === lastChars && key === lastKey) return;
+  lastLines = s.lines; lastChars = s.chars; lastKey = key;
   build(s);
   renderBar(s);
 }
@@ -104,6 +137,9 @@ function init() {
   };
   todo.onclick = () => C.setScriptView({ todo: !state.ui.scriptView.todo });
   count = $('headers-top').querySelector('.takes-count');
+  live = el('div', { className: 'sb-live', hidden: true }, el('span'), el('span', { className: 'sb-meter' }, el('i')));
+  live.setAttribute('aria-hidden', 'true');
+  bar.querySelector('.sb-side').prepend(live);
 }
 
 module.exports = { init, render };

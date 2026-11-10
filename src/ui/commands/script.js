@@ -6,7 +6,7 @@ const D = require('../dialogs');
 const { readScript } = require('../../core/scriptfile');
 const { cmds, def, T, clearSel, SC, curLine, setLine } = require('./core');
 const { afterEdit, pause } = require('./play');
-const { state, history, makeTrack, changed, COLORS } = require('../../core/state');
+const { state, history, makeTrack, changed, tidySel, COLORS } = require('../../core/state');
 
 const R = () => require('./record'); // lazy: record.js requires this file
 
@@ -55,8 +55,10 @@ async function goLine(id) {
 // the list: character tab, '녹음 안 한 것만' (a line leaves it once done, the current one too), search
 function visibleLines() {
   if (!SC()) return [];
-  const v = state.ui.scriptView, q = v.q.trim().toLowerCase();
-  return SCR.linesNow(state.project).filter((l) => (!v.char || l.char === v.char) && (!v.todo || !SCR.isDone(l))
+  const now = SCR.linesNow(state.project), v = state.ui.scriptView, q = v.q.trim().toLowerCase();
+  // a tab whose character has no lines any more (a re-import, Ctrl+Z) is 전체 again: no tab would show it
+  if (v.char && !now.some((l) => l.char === v.char)) v.char = '';
+  return now.filter((l) => (!v.char || l.char === v.char) && (!v.todo || !SCR.isDone(l))
     && (!q || `${SCR.lineName(l)} ${l.text} ${l.memo}`.toLowerCase().includes(q)));
 }
 // next/previous line in the list, in script order (works when the current line is filtered out)
@@ -138,8 +140,13 @@ async function importScript(p) {
     + (n ? ' · Ctrl+Z로 되돌리기' : ''));
 }
 // a changed script: match by name, show what changes first
+const SAME = ['id', 'char', 'num', 'text', 'memo', 'state'];
 async function reimportScript(fresh, dup) {
-  const { lines, counts: n } = SCR.merge(SCR.linesNow(state.project), fresh);
+  const old = SCR.linesNow(state.project), { lines, counts: n } = SCR.merge(old, fresh);
+  // the same script again: no question, no undo step
+  if (lines.length === old.length && lines.every((l, i) => SAME.every((k) => l[k] === old[i][k]))) {
+    return D.toast('대본에서 바뀐 대사가 없어요');
+  }
   const takes = n.goneTakes ? ` (테이크 ${n.goneTakes}개도 지워져요)` : '';
   const note = `새 대사 ${n.added}개 · 내용 바뀜 ${n.changed}개 (녹음이 있으면 '다시 녹음 필요') · 없어짐 ${n.gone}개${takes}`
     + ` · 그대로 ${n.same}개${dup}`;
@@ -149,6 +156,7 @@ async function reimportScript(fresh, dup) {
   SCR.addChars(s.chars, lines, COLORS);
   s.lines = lines;
   if (!lines.some((l) => l.id === s.lineId)) showLine(lines[0]); // the current line left the script
+  tidySel(); // the effect panel off a character whose lines all went
   afterEdit();
   D.toast('대본을 바꿨어요 · Ctrl+Z로 되돌리기');
 }

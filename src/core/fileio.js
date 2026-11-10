@@ -244,8 +244,10 @@ function readScript(ms, readTrack) {
   const row = (l) => {
     const takes = (Array.isArray(l.takes) ? l.takes : []).map((t) => ({ ...readTrack(t), id: uid('t') }));
     return {
-      char: str(l.char, 40).trim() || '?', num: SC.toNum(l.num),
-      text: str(l.text, 2000), memo: str(l.memo, 500), state: l.state === 'redo' ? l.state : undefined,
+      // older files kept a Markdown script's \[ \] escapes (script.js unescape)
+      char: SC.unescape(str(l.char, 40)).trim() || '?', num: SC.toNum(l.num),
+      text: SC.unescape(str(l.text, 2000)), memo: SC.unescape(str(l.memo, 500)),
+      state: l.state === 'redo' ? l.state : undefined,
       takes, star: int(l.star) && takes[l.star] ? takes[l.star].id : null,
     };
   };
@@ -256,12 +258,13 @@ function readScript(ms, readTrack) {
   return { lines, chars: readChars(ms.chars, lines), lineId: lines.length ? lines[at].id : null };
 }
 function readChars(saved, lines) {
-  // no prototype: a character named `constructor` is its own entry
-  const chars = Object.create(null), own = (k) => isObj(saved) && Object.hasOwn(saved, k);
+  // no prototype: a character named `constructor` is its own entry. Names were unescaped on load (readScript), the
+  // saved looks may sit under the old escaped name: an exact key first, else the one that unescapes to it
+  const chars = Object.create(null), looks = new Map(), keys = isObj(saved) ? Object.keys(saved) : [];
+  for (const k of keys) { const n = SC.unescape(k).trim(); if (n === k || !looks.has(n)) looks.set(n, saved[k]); }
   for (const l of lines) {
     if (chars[l.char]) continue;
-    const c = own(l.char) ? saved[l.char] : {};
-    const color = /^#[0-9a-f]{6}$/i.test(c && c.color) ? c.color : '#38BDF8';
+    const c = looks.get(l.char) || {}, color = /^#[0-9a-f]{6}$/i.test(c && c.color) ? c.color : '#38BDF8';
     chars[l.char] = { color, fx: P.clampChain(P.TRACK_KINDS, c && c.fx) };
   }
   return chars;
@@ -289,7 +292,7 @@ function* loadSteps(bytes, opts = {}) {
 }
 const loadProject = (bytes, opts) => AP.finish(loadSteps(bytes, opts));
 
-// a marker or line name as a file name (export);  too: "a" must not become a subfolder
+// a marker or line name as a file name (export); \ too: "a\b" must not become a subfolder
 const safeName = (s) => s.replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').trim().slice(0, 80) || '구간';
 
 module.exports = { encodeWav, encodeMp3, saveProject, saveThin, prepack, loadProject, loadSteps, readHead, safeName,

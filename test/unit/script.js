@@ -106,3 +106,12 @@ t('script numbers as text (1-01): kept as written, auto numbers count on past th
   assert.deepStrictEqual([SC.toNum(' 1-01 '), SC.toNum('005'), SC.toNum(''), SC.toNum(0), SC.toNum(12)],
     ['1-01', 5, null, null, 12]);
 });
+
+// String.raw: in a plain '...' string \[ is just [ and the test would check nothing
+t('script readers: a Markdown export\'s \\[ \\] \\~ \\, escapes go, other backslashes stay', () => {
+  const r = SC.fromTxt(String.raw`철수: \[작게\] 대사가 \, 아니 \~ 그래 C:\폴더` + '\n' + String.raw`철수: \# 하나`);
+  assert.deepStrictEqual(r.lines.map((l) => l.text), [String.raw`[작게] 대사가 , 아니 ~ 그래 C:\폴더`, '# 하나']);
+  assert.strictEqual(SC.fromTxt(String.raw`\# 철수: 둘`).lines.length, 1, 'an escaped # starts a line, not a comment');
+  const t2 = SC.fromTable([['캐릭터', '대사'], ['영희', String.raw`\[웃음\] 안녕`]]);
+  assert.strictEqual(t2.lines[0].text, '[웃음] 안녕');
+});

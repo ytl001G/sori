@@ -1,10 +1,10 @@
 // Right effect panel (spec §5-1): the always-on effects of one channel (master or a track).
 // Changes are live (C.setFx) and not undo steps.
-const C = require('./commands');
-const P = require('../core/fxparams');
-const eqgraph = require('./eqgraph');
-const { el, fmt } = require('./dialogs');
-const { state, trackById, changed } = require('../core/state');
+const C = require('../commands');
+const P = require('../../core/fxparams');
+const eqgraph = require('./eq');
+const { el, fmt } = require('../dialogs');
+const { state, trackById, changed } = require('../../core/state');
 
 let root, body, picker, sig = '', cards = [];
 
@@ -103,7 +103,8 @@ function render() {
   if (root.hidden) return;
   if (tgt() !== 'master' && !trackById(tgt()) && !charOf(tgt())) state.ui.fxTarget = 'master';
   // the picker and title follow the channels' names and colors; the cards are rebuilt for another channel
-  const chans = state.project.script ? charNames() : state.project.tracks.map((t) => t.id + ':' + t.name + t.color);
+  const sc = state.project.script, { tracks } = state.project; // a character's color can change (sori script color)
+  const chans = sc ? charNames().map((n) => n + sc.chars[n].color) : tracks.map((t) => t.id + ':' + t.name + t.color);
   const s = tgt() + '|' + chans.join(',');
   if (s !== sig) {
     sig = s; rebuildPicker(); labelChannel();

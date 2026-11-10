@@ -35,6 +35,7 @@ function pressStrip(h, e, x, y) {
     sel.clipIds = s;
   } else if (!wasSel) sel.clipIds = new Set([id]);
   sel.range = null; sel.activeTrackId = h.track.id;
+  if (!sel.clipIds.has(id)) return null; // Ctrl+click let it go: a drag from it moves nothing (no empty undo step)
   return { kind: 'move', x0: x, y0: y, orig: null, clickId: !e.ctrlKey && wasSel ? id : null };
 }
 // a new range from here; Shift: the range (or the playhead) stretched to here
@@ -118,6 +119,8 @@ function dragFade(x) {
   const nc = drag.edge === 'fadeIn'
     ? { ...o, fadeIn: Math.max(0, Math.min(f - o.start, o.length - (o.fadeOut || 0))) }
     : { ...o, fadeOut: Math.max(0, Math.min(E.clipEnd(o) - f, o.length - (o.fadeIn || 0))) };
+  // a fade dragged away: one made again starts 직선 (a shape picked on purpose for a zero-length fade stays)
+  if (!nc[drag.edge] && o[drag.edge]) delete nc[drag.edge + 'Shape'];
   drag.changed = (nc.fadeIn || 0) !== (o.fadeIn || 0) || (nc.fadeOut || 0) !== (o.fadeOut || 0);
   setClip(nc, false);
 }

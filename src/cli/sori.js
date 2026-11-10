@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // `sori`: command line for AIs (and people). File commands edit/export a .vproj without the app (src/cli/verbs.js);
-// `sori live ...` drives the running app over a local pipe (src/cli/pipe.js -> main.js -> src/ui/live.js).
+// `sori live ...` drives the running app over a local pipe (src/cli/pipe.js -> main.js -> src/ui/live/).
 // Prints one JSON line; exit code 0 = ok, 1 = error. Guide: docs/cli.md
 const fs = require('fs');
 const os = require('os');

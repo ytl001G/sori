@@ -40,7 +40,7 @@ const undoRedo = (fn, back) => {
   if (!fn()) return;
   if (keep) keepRecording(rec, keep, () => { back(); backTo(id); });
   // to another line: stop; never engine.stop mid-take, never a second stop while one is keeping it
-  const moved = SC() && SC().lineId !== id, stopping = moved && (state.recording ? stopFirst() : pause());
+  const moved = SC() && SC().lineId !== id, stopping = moved && (state.recording ? !rec?.cont && stopFirst() : pause());
   if (SC()) { if (moved) clearSel(); viewTakes(state.sel.activeTrackId); }
   else if (!trackById(state.sel.activeTrackId)) state.sel.activeTrackId = T()[0] ? T()[0].id : null;
   afterEdit();
@@ -85,14 +85,20 @@ function deleteSelection() {
   return true;
 }
 
+// Delete / cut as one undo step; a range past every clip and marker changes nothing: no step
+function removeSelection() {
+  const clips = T().map((t) => t.clips), at = state.project.markers.map((m) => m.frame);
+  history.commit(); deleteSelection();
+  const same = T().every((t, i) => t.clips.length === clips[i].length && t.clips.every((c, k) => c === clips[i][k]))
+    && state.project.markers.every((m, i) => m.frame === at[i]);
+  if (same) { history.drop(); D.toast('선택한 구간에 소리가 없어요 — 바뀐 것 없어요'); }
+  afterEdit();
+}
 def('copy', '복사', () => { if (copySelection()) D.toast('복사했어요'); }, hasSel);
-def('cut', '잘라내기', () => {
-  if (!hasSel()) return;
-  copySelection(); history.commit(); deleteSelection(); afterEdit();
-}, hasSel);
+def('cut', '잘라내기', () => { if (hasSel()) { copySelection(); removeSelection(); } }, hasSel);
 def('delete', '삭제', () => { // only what is selected, in every project (a take goes with its ✕ button)
   if (!hasSel()) return state.sel.markerId && cmds.markerDelete.run(); // a selected marker (clicked or jumped to)
-  history.commit(); deleteSelection(); afterEdit();
+  removeSelection();
 }, () => hasSel() || !!state.sel.markerId);
 
 // a copied range: a gap on each track, its sound in it; returns the new clip ids and the length
@@ -218,7 +224,7 @@ def('merge', '클립 합치기', () => {
 // Audacity-style: selected audio to new track(s) at the same time
 function duplicateRange(r) {
   const ts = rangeTracks().map((t) => ({ t, ch: E.renderRegion(t.clips, r.a, r.b) })).filter((x) => x.ch);
-  if (!ts.length) return;
+  if (!ts.length) return D.toast('선택한 구간에 소리가 없어요 — 바뀐 것 없어요');
   history.commit();
   for (const { t, ch } of ts) {
     const clip = E.makeClip(E.makeSource(ch), r.a, t.name);
@@ -244,11 +250,15 @@ def('duplicate', '복제', () => {
 def('keep', '선택만 남기기', () => {
   const r = state.sel.range;
   if (!r) return D.toast('남길 구간을 먼저 선택하세요');
+  const same = (a, b) => a.length === b.length && a.every((c, i) => c === b[i]);
+  const jobs = rangeTracks().map((t) => [t, E.keepRange(t.clips, r.a, r.b)]).filter(([t, cs]) => !same(t.clips, cs));
+  if (!jobs.length) return; // nothing outside the range: no undo step
   history.commit();
-  for (const t of rangeTracks()) setClips(t.id, E.keepRange(t.clips, r.a, r.b));
+  for (const [t, cs] of jobs) setClips(t.id, cs);
   afterEdit();
 }, () => !!state.sel.range);
 def('insertSilence', '무음 넣기…', async () => {
+  if (!targetTracks().length) return D.toast('무음을 넣을 트랙이 없어요'); // no lane: it would be an empty step
   const r = state.sel.range, value = r ? +((r.b - r.a) / sr()).toFixed(1) || 1 : 1;
   const v = await D.modal({ title: '무음 넣기', note: '재생 위치(선택 구간이 있으면 그 시작)에 빈 시간을 끼워 넣고 뒤를 밀어요.',
     fields: [{ key: 'sec', label: '길이', min: 0.1, max: 600, step: 0.1, value, unit: '초' }] });
@@ -264,6 +274,7 @@ def('insertSilence', '무음 넣기…', async () => {
 // keyboard alternative to dragging clips (ui-guide: dragging-alternative)
 function nudge(df) {
   if (!selClips().length) return D.toast('옮길 클립을 선택하세요');
+  if (df < 0 && selClips().every(({ c }) => c.start === 0)) return; // already at the start: no undo step
   history.commit();
   const ids = state.sel.clipIds, moved = (c) => (ids.has(c.id) ? { ...c, start: Math.max(0, c.start + df) } : c);
   for (const t of T()) if (t.clips.some((c) => ids.has(c.id))) setClips(t.id, E.sortClips(t.clips.map(moved)));

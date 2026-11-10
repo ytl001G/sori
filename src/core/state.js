@@ -50,7 +50,7 @@ function sourceBytes(snaps, seen = new Set()) {
   return n;
 }
 const undoStack = [], redoStack = [];
-let lastRedo = []; // what the last commit cleared, back with drop()
+let lastRedo = [], lastDirty = false, lastDue = false; // what the last commit cleared / found, back with drop()
 // Script projects: the snapshot holds every line with its takes (lines are replaced, never mutated) and the line it
 // shows. Undo/redo show the line the step changed: the opposite stack gets the present state viewed at that line.
 // history.hide = the take being recorded. While empty it is kept out of every snapshot (commands/edit.js puts it back
@@ -97,11 +97,13 @@ function restore(snap) {
   p.markers = snap.markers;
   tidySel();
 }
-// the selection and the effect panel only point at what exists (after undo / redo or a sori live edit)
+// the selection and the effect panel only point at what exists (after undo / redo, 대본 넣기 again or a sori live
+// edit); a character is one with lines (its look can outlive them)
 function tidySel() {
   const p = state.project;
   if (!p.markers.some((m) => m.id === state.sel.markerId)) state.sel.markerId = null;
-  const fx = state.ui.fxTarget, charFx = p.script && String(fx).startsWith('char:');
+  const fx = state.ui.fxTarget, name = p.script && String(fx).startsWith('char:') && fx.slice(5);
+  const charFx = !!name && SC.linesNow(p).some((l) => l.char === name);
   if (!p.tracks.some((t) => t.id === fx) && !charFx) state.ui.fxTarget = 'master';
   const ids = new Set(state.project.tracks.flatMap((t) => t.clips.map((c) => c.id)));
   for (const id of state.sel.clipIds) if (!ids.has(id)) state.sel.clipIds.delete(id);
@@ -120,6 +122,7 @@ const history = {
     const mine = new Set();
     sourceBytes([snapshot()], mine);
     while (undoStack.length > 1 && sourceBytes(undoStack, new Set(mine)) > history.budget) undoStack.shift();
+    lastDirty = state.dirty; lastDue = state.backupDue;
     setDirty(true);
   },
   undo() {
@@ -130,8 +133,10 @@ const history = {
     if (!redoStack.length) return false;
     const s = redoStack.pop(); undoStack.push(snapshot(viewOf(s))); restore(s); setDirty(true); return true;
   },
-  // forget the last commit when the action turned out to change nothing
-  drop() { undoStack.pop(); redoStack.push(...lastRedo); lastRedo = []; },
+  // forget the last commit when the action turned out to change nothing (a saved project stays saved, no backup due)
+  drop() {
+    undoStack.pop(); redoStack.push(...lastRedo); lastRedo = []; setDirty(lastDirty); state.backupDue = lastDue;
+  },
   hide: null,
   clear() { undoStack.length = 0; redoStack.length = 0; lastRedo = []; history.hide = null; },
   depth: () => undoStack.length,
@@ -140,13 +145,16 @@ const history = {
   canRedo: () => redoStack.length > 0,
 };
 
+// main asks before the window closes while this is true: unsaved changes, or a long recording that lives only in
+// memory (state.holding: 이어 녹음 and its 나누기 window, spec §5-5)
 function setDirty(v) {
   state.dirty = v;
   if (v) state.backupDue = true;
   const { ipcRenderer } = require('electron'); // undefined under plain Node (tests)
-  if (ipcRenderer) ipcRenderer.send('set-dirty', v);
+  if (ipcRenderer) ipcRenderer.send('set-dirty', v || !!state.holding);
   changed();
 }
+function setHolding(v) { state.holding = v; setDirty(state.dirty); }
 
 // views subscribe; app batches redraw
 function changed() { for (const f of state.listeners) f(); }
@@ -161,5 +169,6 @@ const NAMES = new Intl.Collator('ko', { numeric: true });
 const sortByName = (tracks) => [...tracks].sort((x, y) => NAMES.compare(x.name, y.name));
 
 module.exports = {
-  state, history, makeTrack, sortByName, newProjectData, setDirty, changed, tidySel, trackById, trackIndex, sr, COLORS,
+  state, history, makeTrack, sortByName, newProjectData, setDirty, setHolding, changed, tidySel, trackById, trackIndex,
+  sr, COLORS,
 };

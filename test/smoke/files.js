@@ -5,7 +5,7 @@ const { ipcRenderer } = require('electron');
 const C = require('../../src/ui/commands');
 const D = require('../../src/ui/dialogs');
 const S = require('../../src/core/settings');
-const { state } = require('../../src/core/state');
+const { state, history } = require('../../src/core/state');
 const { dir, stub, wait, invokeOrig, assert, sr, T, end, sel, painted, realAsk, stubAsk } = require('./kit');
 
 // answers the app's own question window with one of its buttons, after checking them
@@ -36,6 +36,7 @@ module.exports = [
     assert(await C.writeProject(p), 'write');
     assert(S.get().recent[0] === p, 'recent');
     await C.run('newProject'); assert(T().length === 0 && state.project.markers.length === 0, 'new');
+    await C.run('insertSilence'); assert(!history.canUndo() && !state.dirty, 'silence with no track: no step');
     ipcRenderer.emit('open-path', {}, p); // a .vproj double-clicked while Sori runs (main.js second-instance)
     for (let i = 0; i < 100 && state.filePath !== p; i++) await wait(20);
     assert(state.filePath === p && T().length === n && end() === len, 'reopen');

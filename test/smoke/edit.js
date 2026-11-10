@@ -24,6 +24,12 @@ module.exports = [
     await C.run('undo'); assert(Math.abs(end() - 2 * sr) < 2, 'after undo');
     await C.run('redo'); assert(Math.abs(end() - 1.5 * sr) < 2, 'after redo');
     await C.run('undo');
+    // a range past every clip: Delete and cut change nothing, no undo step
+    const depth = history.depth(), dirty = state.dirty;
+    for (const cmd of ['delete', 'cut']) {
+      sel(3, 4); await C.run(cmd);
+      assert(history.depth() === depth && state.dirty === dirty && Math.abs(end() - 2 * sr) < 2, cmd + ' past the end');
+    }
   }],
   ['split + merge', async () => {
     state.sel.range = null; state.sel.clipIds = new Set(); state.sel.activeTrackId = T()[0].id; state.sel.playhead = sr;
@@ -47,7 +53,13 @@ module.exports = [
   ['duplicate + nudge + move track', async () => {
     state.sel.range = null; state.sel.clipIds = new Set([T()[0].clips[0].id]);
     await C.run('duplicate'); assert(T()[0].clips.length === 2, 'dup');
-    await C.run('nudgeRight'); await C.run('addTrack'); state.sel.clipIds = new Set([T()[0].clips[1].id]);
+    await C.run('nudgeRight');
+    const step = history.top(), at = T()[0].clips[0];
+    state.sel.clipIds = new Set([at.id]); await C.run('nudgeLeft'); // a clip at 0: nothing moves
+    assert(at.start === 0 && history.top() === step, 'nudge at 0: no undo step');
+    state.sel.range = { a: 0, b: end(), trackIds: new Set(T().map((t) => t.id)) }; await C.run('keep');
+    assert(history.top() === step, 'keep everything: no undo step');
+    state.sel.range = null; await C.run('addTrack'); state.sel.clipIds = new Set([T()[0].clips[1].id]);
     await C.run('clipsDown'); assert(T()[1].clips.length === 1, 'moved down');
     for (let i = 0; i < 4; i++) await C.run('undo');
     assert(T().length === 1 && T()[0].clips.length === 1, 'undo chain');
@@ -121,6 +133,11 @@ module.exports = [
     const d = history.depth(), x2 = xOf(T()[0].clips[0].start) + 30;
     dragTo(x2, yStrip, [x2 + 40, x2]);
     assert(history.depth() === d, 'drag-back left an undo step');
+    state.sel.clipIds = new Set([T()[0].clips[0].id]); // Ctrl+click lets the clip go: dragging on moves nothing
+    cv.dispatchEvent(new MouseEvent('mousedown',
+      { clientX: rc.left + x2, clientY: rc.top + yStrip, button: 0, bubbles: true, ctrlKey: true }));
+    ev('mousemove', x2 + 40, yStrip); ev('mouseup', x2 + 40, yStrip);
+    assert(history.depth() === d && !state.sel.clipIds.size, 'a drag after Ctrl+click let go left an undo step');
     await C.run('undo'); await C.run('undo');
     assert(T()[0].clips[0].start === c0.start && T()[0].clips[0].length === c0.length, 'undo drag');
   }],
@@ -143,10 +160,14 @@ module.exports = [
     assert(T()[0].gain === 1 && T()[0].pan === 0, 'model not reset');
     pan.blur();
   }],
-  // each effect on a selection, then undone
+  // each effect on a selection makes new sound (an effect that silently did nothing failed no check), then undone
   ...['fxGain', 'fxNormalize', 'fxFadeIn', 'fxFadeOut', 'fxReverse', 'fxSilence', 'fxPitch', 'fxEq', 'fxComp',
-    'fxReverb',
-    'fxEcho'].map((fx) => [fx, async () => {
-    sel(0.2, 0.8); await C.run(fx); assert(T()[0].clips.length >= 1, 'clips'); await C.run('undo');
+    'fxReverb', 'fxEcho'].map((fx) => [fx, async () => {
+    sel(0.2, 0.8);
+    const was = T()[0].clips;
+    await C.run(fx);
+    const made = T()[0].clips !== was && T()[0].clips.some((c) => !was.some((w) => w.src === c.src));
+    await C.run('undo');
+    assert(made && T()[0].clips === was, `${fx}: new sound, undone`);
   }]),
 ];

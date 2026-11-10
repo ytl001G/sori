@@ -56,9 +56,15 @@ t('apply on several lines: refused shapes; batch reads what it touches', async (
   await fails('NO_CHAR', 'apply', 'many.vproj', 'voiceGaps', '--char', '캐릭터Z');
   await run('new', 'lines-flat.vproj');
   await fails('NOT_SCRIPT', 'apply', 'lines-flat.vproj', 'voiceGaps', '--all-lines');
-  const of = (s) => B.touches('apply', s, () => '철수');
+  const of = (s, fx) => B.touches('apply', s, () => '철수', fx);
   assert.deepStrictEqual([of({ char: '철수,영희' }), of({ line: '철수-001,영희-001' }), of({ 'all-lines': true })],
     [['character 철수', 'character 영희'], ['line 철수-001', 'line 영희-001'], ['all']]);
+  // fxTempo / 긴 침묵 줄이기 move markers: never in a wave with a marker command
+  assert.deepStrictEqual([B.touches('apply', { track: [1] }, () => null, 'fxTempo'),
+    of({ line: '철수-001' }, 'voiceGaps'), B.touches('apply', { track: [1] }, () => null, 'fxGain')],
+  [['track 1', 'markers'], ['line 철수-001', 'markers'], ['track 1']]);
+  // split fills the lines after --line too
+  assert.deepStrictEqual(B.touches('script split', { line: '철수-001' }, () => '철수'), ['all']);
 });
 
 t('workers: a job that throws rejects, and the next jobs still run', async () => {

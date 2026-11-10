@@ -12,7 +12,7 @@ const MENUS = {
     'export', '|', 'settings'],
   edit: ['undo', 'redo', '|', 'cut', 'copy', 'paste', 'delete', '|',
     'split', 'merge', 'duplicate', 'keep', 'insertSilence', 'clipProps', '|', 'selectAll', 'deselect', '|',
-    'editLine', 'prevLine', 'nextLine'],
+    'editLine', 'prevLine', 'nextLine', 'contRecord', 'splitFile'],
   track: ['addTrack', 'dupTrack', '|', 'addVoiceTrack', 'addMusicTrack', 'addSfxTrack', '|', 'trackUp', 'trackDown',
     '|', 'sortTracks'],
   marker: ['addMarker', 'prevMarker', 'nextMarker'],
@@ -24,7 +24,7 @@ const MENUS = {
     'fxProfile', 'fxNoise', '|', 'fxEq', 'fxComp', 'fxReverb', 'fxEcho'],
 };
 // rows a menu shows only in a script project; the shortcut list still has them
-const SCRIPT_ONLY = new Set(['editLine', 'prevLine', 'nextLine']);
+const SCRIPT_ONLY = new Set(['editLine', 'prevLine', 'nextLine', 'contRecord', 'splitFile']);
 // [data-list] buttons
 const LISTS = { addTrack: ['addTrack', 'dupTrack', '|', 'addVoiceTrack', 'addMusicTrack', 'addSfxTrack'] };
 const CONTEXT = ['cut', 'copy', 'paste', 'delete', '|', 'split', 'merge', 'duplicate', 'keep', 'clipProps', '|',
@@ -70,8 +70,9 @@ function menuItem(it) {
 function menuKeys(menu, btn, e) {
   const list = [...menu.querySelectorAll('.item:not([aria-disabled="true"])')];
   const i = list.indexOf(document.activeElement);
-  if (e.key === 'ArrowDown') list[(i + 1) % list.length].focus();
-  else if (e.key === 'ArrowUp') list[(i - 1 + list.length) % list.length].focus();
+  // every row greyed out: nothing to move to
+  if (e.key === 'ArrowDown') list[(i + 1) % list.length]?.focus();
+  else if (e.key === 'ArrowUp') list[(i - 1 + list.length) % list.length]?.focus();
   else if (e.key === 'Escape') { const b = current && current.btn; close(); if (b) b.focus(); }
   else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && btn && btn.closest('#menubar')) {
     const bs = [...document.querySelectorAll('#menubar button')], k = bs.indexOf(btn);

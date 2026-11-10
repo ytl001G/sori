@@ -50,7 +50,7 @@ def('playPause', '재생 / 일시정지', () => {
   let f = state.sel.playhead;
   const r = state.sel.range;
   if (state.loop && r && (f < r.a || f >= r.b)) f = r.a;
-  else if (f >= E.projectEnd(T())) f = 0;
+  else if (f >= E.projectEnd(audible())) f = 0; // script mode: the end of the take heard, not of the longest one
   playStart = f;
   startPlay(f);
   changed();

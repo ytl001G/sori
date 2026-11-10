@@ -5,8 +5,11 @@ const { execFile } = require('child_process');
 const { assert, t, cliDir, cp } = require('./helpers');
 
 const SORI = path.join(__dirname, '../../src/cli/sori.js');
-const cli = (...argv) => new Promise((res) => execFile(process.execPath, [SORI, ...argv],
-  { cwd: cliDir, env: process.env }, (_e, out) => res(JSON.parse(out))));
+// output that is not JSON (a crash) fails this check, not the whole run with an uncaught throw in the callback
+const cli = (...argv) => new Promise((res, rej) => execFile(process.execPath, [SORI, ...argv],
+  { cwd: cliDir, env: process.env }, (e, out, err) => {
+    try { res(JSON.parse(out)); } catch { rej(new Error(`sori ${argv.join(' ')}: ${err || e}`)); }
+  }));
 
 t('cli: refuses to edit a project the app has open; live requests go over the pipe', async () => {
   const pipe = require('../../src/cli/pipe');

@@ -1,4 +1,4 @@
-// `sori live <file command>` (src/ui/live.js): the command ran on a copy; take its result like an app edit. Only what
+// `sori live <file command>` (src/ui/live/): the command ran on a copy; take its result like an app edit. Only what
 // the app's undo covers (tracks, clips, track colors, markers, lines) is an undo step; mixer values, names, effects,
 // character colors and tempo are live in the app too.
 const SCR = require('../../core/script');

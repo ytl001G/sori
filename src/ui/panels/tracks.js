@@ -1,8 +1,8 @@
 // Track header column (name, M/S, delete, volume, pan). Mixer changes are live (commands.mixer).
-const C = require('./commands');
-const icons = require('./icons');
-const { el } = require('./dialogs');
-const { state, changed, trackById } = require('../core/state');
+const C = require('../commands');
+const icons = require('../icons');
+const { el } = require('../dialogs');
+const { state, changed, trackById } = require('../../core/state');
 
 const MIN_DB = -60;
 const gainToDb = (g) => (g <= 0 ? MIN_DB : Math.max(MIN_DB, 20 * Math.log10(g)));
@@ -137,7 +137,7 @@ function render() {
 
 function init() {
   inner = document.getElementById('headers-inner');
-  const scroll = (e) => require('./timeline').scrollV(e.deltaY);
+  const scroll = (e) => require('../timeline').scrollV(e.deltaY);
   document.getElementById('headers').addEventListener('wheel', scroll, { passive: true });
 }
 

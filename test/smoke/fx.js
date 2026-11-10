@@ -5,10 +5,23 @@ const C = require('../../src/ui/commands');
 const E = require('../../src/core/edit');
 const engine = require('../../src/audio/engine');
 const P = require('../../src/core/fxparams');
-const { state, changed, makeTrack } = require('../../src/core/state');
-const { dir, stub, wait, painted, invokeOrig, assert, sr, T, end, sel } = require('./kit');
+const { state, changed, makeTrack, history } = require('../../src/core/state');
+const { dir, stub, wait, painted, invokeOrig, assert, sr, T, end, sel, toasts } = require('./kit');
 
 const peakOf = (ch) => ch.reduce((m, c) => { for (const v of c) m = Math.max(m, Math.abs(v)); return m; }, 0);
+// the first lane's first clip on screen at 200 px/s: cl() reads it, at(type, x, y) sends a mouse event, hx, hy = its
+// fade-in handle while it has no fade
+async function fadeKit() {
+  const cv = document.getElementById('timeline'), rc = cv.getBoundingClientRect();
+  Object.assign(state.view, { pxPerSec: 200, scrollX: 0, scrollY: 0 }); state.sel.range = null;
+  state.sel.clipIds = new Set(); changed(); await painted();
+  const id = T()[0].clips[0].id, cl = () => T()[0].clips.find((c) => c.id === id);
+  const xOf = (f) => (f / sr - state.view.scrollX) * state.view.pxPerSec;
+  const at = (type, x, y, target = cv) =>
+    target.dispatchEvent(new MouseEvent(type,
+      { clientX: rc.left + x, clientY: rc.top + y, button: type === 'contextmenu' ? 2 : 0, bubbles: true }));
+  return { id, cl, xOf, at, hx: xOf(cl().start) + 4, hy: 28 + 4 + 18 + 4 };
+}
 module.exports = [
   ['fxTempo ripples', async () => {
     sel(0, 1); stub.modal = { percent: 200 }; await C.run('fxTempo'); stub.modal = {};
@@ -31,6 +44,12 @@ module.exports = [
     state.sel.range = null; state.sel.playhead = 0; stub.modal = { sec: 1 };
     await C.run('insertSilence'); stub.modal = {};
     assert(Math.abs(end() - 3 * sr) < 2, 'silence ' + end());
+    const step = history.top();
+    sel(0, 0.9); await C.run('fxReverse'); // only the inserted silence: no sound there
+    assert(history.top() === step && toasts.at(-1) === '선택한 구간에 소리가 없어요 — 바뀐 것 없어요',
+      'an effect on no sound: ' + toasts.at(-1));
+    await C.run('duplicate');
+    assert(history.top() === step && toasts.at(-1) === '선택한 구간에 소리가 없어요 — 바뀐 것 없어요', 'duplicate no sound');
     sel(1, 2); await C.run('keep'); assert(Math.abs(end() - 2 * sr) < 2, 'keep');
     await C.run('undo'); await C.run('undo');
   }],
@@ -105,24 +124,28 @@ module.exports = [
     assert(Math.abs(c.gain - 0.501) < 0.01 && Math.abs(c.fadeIn - 0.5 * sr) < 2, `props ${c.gain} ${c.fadeIn}`);
     const out = await engine.mixdown(T(), state.project.master, 0, sr);
     assert(peakOf([out[0].subarray(0, sr * 0.02)]) < 0.03, 'fade start not quiet');
+    const top = history.top(); await C.run('clipProps'); // 확인 with the values it shows
+    assert(history.top() === top, 'clip dialog unchanged: no empty undo step');
+    // a dragged fade (any frame count) and a volume off the 0.5 dB steps are shown rounded, and stay as they are
+    const odd = { ...T()[0].clips[0], fadeIn: 1234, gain: 0.7 };
+    state.project.tracks = T().map((t, i) => (i ? t : { ...t, clips: [odd, ...t.clips.slice(1)] }));
+    await C.run('clipProps');
+    const k = T()[0].clips[0];
+    assert(history.top() === top && k.fadeIn === 1234 && k.gain === 0.7, `rounded on 확인: ${k.fadeIn} ${k.gain}`);
     await C.run('undo'); assert(T()[0].clips[0].fadeIn === 0 && T()[0].clips[0].gain === 1, 'undo');
   }],
   ['fade shapes: handle right-click menu, new fade takes the last shape, dialog, curve in the mix', async () => {
-    const cv = document.getElementById('timeline'), rc = cv.getBoundingClientRect();
-    Object.assign(state.view, { pxPerSec: 200, scrollX: 0, scrollY: 0 }); state.sel.range = null;
-    state.sel.clipIds = new Set(); changed(); await painted();
-    const id = T()[0].clips[0].id, cl = () => T()[0].clips.find((c) => c.id === id);
-    const xOf = (f) => (f / sr - state.view.scrollX) * state.view.pxPerSec;
-    const at = (type, x, y, target = cv) =>
-      target.dispatchEvent(new MouseEvent(type,
-        { clientX: rc.left + x, clientY: rc.top + y, button: type === 'contextmenu' ? 2 : 0, bubbles: true }));
-    const hx = xOf(cl().start) + 4, hy = 28 + 4 + 18 + 4; // fade-in handle of the first lane's clip
+    const { id, cl, xOf, at, hx, hy } = await fadeKit();
     at('contextmenu', hx, hy);
     const items = [...document.querySelectorAll('.menu .item')];
     assert(items.length === 4 && items[0].getAttribute('aria-checked') === 'true', 'shape menu '
       + items.map((b) => b.textContent));
     items.find((b) => b.textContent.includes('천천히')).click();
     assert(cl().fadeInShape === 'slow' && !document.querySelector('.menu'), 'menu sets the shape');
+    const top = history.top();
+    at('contextmenu', hx, hy);
+    [...document.querySelectorAll('.menu .item')].find((b) => b.textContent.includes('천천히')).click();
+    assert(history.top() === top && cl().fadeInShape === 'slow', 'the shape it has again: no empty undo step');
     await C.run('undo'); assert(!cl().fadeInShape, 'undo shape');
     at('mousedown', hx, hy); at('mousemove', hx + 50, hy, window); at('mousemove', hx + 100, hy, window);
     at('mouseup', hx + 100, hy, window);
@@ -140,7 +163,14 @@ module.exports = [
     state.sel.clipIds = new Set([id]); stub.modal = { fis: 'fast', fos: 'smooth' }; await C.run('clipProps');
     stub.modal = {};
     assert(cl().fadeInShape === 'fast' && cl().fadeOutShape === 'smooth', 'dialog shapes');
-    for (let i = 0; i < 4; i++) await C.run('undo');
+    const fx = xOf(cl().start + cl().fadeIn); // the handle dragged back to the clip start: no fade, no shape left
+    at('mousedown', fx, hy); at('mousemove', hx - 50, hy, window); at('mouseup', hx - 50, hy, window);
+    assert(!cl().fadeIn && !cl().fadeInShape, `fade dragged away: ${cl().fadeIn} ${cl().fadeInShape}`);
+    C.setFadeShape(id, 'fadeIn', 'slow'); // picked for no fade yet: a drag out and back in keeps it
+    at('mousedown', hx, hy); at('mousemove', hx + 50, hy, window); at('mousemove', hx - 50, hy, window);
+    at('mouseup', hx - 50, hy, window);
+    assert(!cl().fadeIn && cl().fadeInShape === 'slow', `picked shape kept: ${cl().fadeIn} ${cl().fadeInShape}`);
+    for (let i = 0; i < 6; i++) await C.run('undo');
     assert(!cl().fadeIn && !cl().fadeInShape && !cl().fadeOutShape, 'undo chain');
     state.sel.clipIds = new Set();
   }],

@@ -9,10 +9,10 @@ const { RULER, FONT, LH, cv, T, v, pps, frameToX, laneTop, rgba, hexOf } = V;
 // ---------- ruler ticks ----------
 const STEPS = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800,
   3600];
+// rounded before the minutes are split off: 59.9996 s reads 1:00.000, never 0:60.000
 function fmtTime(s, step) {
-  const m = Math.floor(s / 60), sec = s - m * 60;
-  const dec = step >= 1 ? 0 : step >= 0.1 ? 1 : step >= 0.01 ? 2 : 3;
-  return `${m}:${sec.toFixed(dec).padStart(dec ? dec + 3 : 2, '0')}`;
+  const dec = step >= 1 ? 0 : step >= 0.1 ? 1 : step >= 0.01 ? 2 : 3, r = +s.toFixed(dec), m = Math.floor(r / 60);
+  return `${m}:${(r - m * 60).toFixed(dec).padStart(dec ? dec + 3 : 2, '0')}`;
 }
 // beats mode: labels every `unit` (>= 90 px), grid lines on beats (bars when beats get dense)
 function beatGrid() {
@@ -137,4 +137,4 @@ function draw() {
   drawPlayhead();
 }
 
-module.exports = { draw };
+module.exports = { draw, fmtTime };

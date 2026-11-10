@@ -62,8 +62,9 @@ function setupDrop(wrap) {
   wrap.addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; hintEl.hidden = true; } });
   wrap.addEventListener('dragover', (e) => {
     e.preventDefault();
-    const h = hit(e.offsetX, e.offsetY);
-    hintEl.textContent = h.zone === 'lane' ? `'${h.track.name}' 트랙의 이 위치에 놓아요` : '여기에 놓으면 새 트랙으로 추가돼요';
+    const h = hit(e.offsetX, e.offsetY), take = !!C.curLine(); // a script project: files become takes
+    hintEl.textContent = h.zone === 'lane' ? `'${h.track.name}'${take ? '' : ' 트랙'}의 이 위치에 놓아요`
+      : `여기에 놓으면 새 ${take ? '테이크' : '트랙'}로 추가돼요`;
   });
   wrap.addEventListener('drop', (e) => {
     e.preventDefault(); depth = 0; hintEl.hidden = true;

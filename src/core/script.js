@@ -62,6 +62,9 @@ function decodeText(bytes) {
   }
 }
 
+// a script copied out of a Markdown page (e.g. a Notion export) has \[ \] \~ \, : the backslash before ASCII
+// punctuation goes (CommonMark's escapes), so the line reads as written
+const unescape = (s) => String(s ?? '').replace(/\\([!-/:-@[-`{-~])/g, '$1');
 // (지문) in the text becomes the memo
 function splitMemo(s) {
   const memo = [];
@@ -84,8 +87,9 @@ const TIME = /^(?:[^:：]*\s)?\d{1,2}[:：]/;
 function fromTxt(s) {
   const rows = [];
   for (const raw of s.split(/\r?\n/)) {
-    const ln = raw.trim();
-    if (!ln || ln.startsWith('#')) continue;
+    const t = raw.trim();
+    if (!t || t.startsWith('#')) continue; // a comment; an escaped \# is text
+    const ln = unescape(t);
     const m = !TIME.test(ln) && NAMED.exec(ln);
     if (m) rows.push({ ...parseName(m[1]), raw: m[2] });
     else if (rows.length) rows[rows.length - 1].raw += ' ' + ln; // text before the first name (a title) is dropped
@@ -122,7 +126,7 @@ const HEAD = {
   memo: /^(메모|지문|감정|연기|비고|note|notes|memo|direction)$/i,
 };
 function fromTable(table) {
-  const rows = table.map((r) => (r || []).map((c) => String(c ?? '').trim())).filter((r) => r.some(Boolean));
+  const rows = table.map((r) => (r || []).map((c) => unescape(c).trim())).filter((r) => r.some(Boolean));
   const col = {};
   const name = (h, i) => {
     for (const [k, re] of Object.entries(HEAD)) if (col[k] === undefined && re.test(h)) col[k] = i;
@@ -207,6 +211,6 @@ function merge(old, fresh) {
 }
 
 module.exports = {
-  toNum, pad, lineName, linesNow, starTake, isDone, nextTakeName, takeRef, withStar, editLine, addChars,
+  toNum, pad, lineName, unescape, linesNow, starTake, isDone, nextTakeName, takeRef, withStar, editLine, addChars,
   exportPick, takeView, unscript, decodeText, splitMemo, parseName, fromTxt, parseCsv, fromTable, number, merge,
 };

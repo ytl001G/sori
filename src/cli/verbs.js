@@ -23,7 +23,7 @@ const BATCH = {
     + 'new, export, script export',
 };
 const VERBS = [...require('./tracks').VERBS, ...require('./clips').VERBS, ...require('./lines').VERBS,
-  ...require('./measure').VERBS, BATCH]
+  ...require('./split').VERBS, ...require('./measure').VERBS, BATCH]
   .map((v) => (v.takes ? { ...v, script: 'any', flags: scope.takeFlags(v.flags) } : v));
 const PATHS = new Set(['project', 'out', 'files', 'file']); // positionals resolved against the caller's folder
 
@@ -53,7 +53,7 @@ function parse(argv, live = false) {
 }
 
 // One file command. Never throws: returns { ok: true, ...result } or { ok: false, error, message }.
-// on: run it on this project object instead of a file (sori live, src/ui/live.js; a batch's lines): nothing is
+// on: run it on this project object instead of a file (sori live, src/ui/live/; a batch's lines): nothing is
 // loaded or saved; where names it in errors (default: the app's).
 async function execute(argv, { cwd = process.cwd(), audio, on, where } = {}) {
   try {

@@ -6,28 +6,19 @@ const path = require('path');
 const E = require('../../core/edit');
 const IO = require('../../core/fileio');
 const { peak } = require('../../core/effects');
-const { writeAtomic, uniquePaths } = require('../../core/safewrite');
+const { writeAtomic, uniquePaths, newFolders } = require('../../core/safewrite');
 const { pool, RENDERS } = require('../../core/pool');
 const SCR = require('../../core/script');
 const S = require('../../core/settings');
 const engine = require('../../audio/engine');
 const MP3 = require('../../audio/mp3');
 const D = require('../dialogs');
-const { def, T, frames, hasAudio, SC, curLine } = require('./core');
+const { def, T, hasAudio, SC, curLine } = require('./core');
 const { baseName } = require('./files');
 const { state, trackById, sr } = require('../../core/state');
 
 const { safeName } = IO;
-// [start, end, name] between markers (and project start/end); empty pieces skipped
-function markerSegments(end = E.projectEnd(T())) {
-  const ms = state.project.markers.filter((m) => m.frame < end), out = [];
-  const cuts = [{ frame: 0, name: '시작' }, ...ms];
-  cuts.forEach((m, i) => {
-    const a = m.frame, b = i + 1 < cuts.length ? cuts[i + 1].frame : end;
-    if (b - a >= frames(0.01)) out.push([a, b, m.name]);
-  });
-  return out;
-}
+const markerSegments = (end = E.projectEnd(T())) => E.markerSegments(state.project.markers, end, sr());
 
 let clipped = false; // a rendered sample went past 0 dBFS in this export (the export says so)
 // onPart(fraction): the render's progress (engine.mixdown); encoding after it is not counted
@@ -40,10 +31,10 @@ async function renderFile(fmt, a, b, tracks, onPart) {
 }
 const doneToast = (msg) => D.toast(clipped ? `${msg} · 0dB를 넘어 잘린 곳이 있어요 — 마스터 음량이나 리미터를 확인하세요` : msg);
 // a folder of files; names that clash get ' (2)'; asks before replacing existing ones. Each goes to
-// `<name>.part` (a progress step per file, the render's progress inside it) and all are renamed at the end, so 멈추기
-// or an error while rendering leaves no new file and replaces none; a failed rename at the end can leave the files
-// renamed before it in place. render(f, onPart) -> bytes (or their Promise), k files at once (MP3.jobsFor; a stop
-// waits for the MP3 encodes in flight). false = not done (declined or stopped; a stop says so)
+// `<name>.part` (a progress step per file, the render's progress inside it) and all are renamed at the end, so
+// 멈추기 or an error while rendering leaves no new file or folder and replaces none; a failed rename at the end can
+// leave the files renamed before it in place. render(f, onPart) -> bytes (or their Promise), k files at once
+// (MP3.jobsFor; a stop waits for the MP3 encodes in flight). false = not done (declined or stopped; a stop says so)
 async function writeAll(list, busyText, render, k = RENDERS) {
   const files = uniquePaths(list.map((f) => f.path)).map((p, i) => ({ ...list[i], path: p }));
   clipped = false;
@@ -51,7 +42,7 @@ async function writeAll(list, busyText, render, k = RENDERS) {
   const over = () => D.ask({ title: `같은 이름의 파일 ${exist}개가 이미 있어요.`, note: '덮어쓸까요?', yes: true,
     buttons: [{ label: '취소', value: false }, { label: '덮어쓰기', value: true, primary: true }] });
   if (exist && !(await over())) return false;
-  const parts = [], doing = new Map(), n = files.length;
+  const parts = [], made = newFolders(files.map((f) => f.path)), doing = new Map(), n = files.length;
   let done = 0;
   const r = await D.busy(busyText, async (step) => {
     // RENDERS files at once: the bar = files done + the parts rendered of those in flight
@@ -65,7 +56,7 @@ async function writeAll(list, busyText, render, k = RENDERS) {
         const f = files[i];
         await at(i)(0);
         const data = await render(f, at(i));
-        await fs.promises.mkdir(path.dirname(f.path), { recursive: true }); // 대사별: a folder per character
+        await fs.promises.mkdir(path.dirname(f.path), { recursive: true });
         parts.push(f.path + '.part');
         await fs.promises.writeFile(f.path + '.part', data);
         doing.delete(i); done++;
@@ -73,6 +64,7 @@ async function writeAll(list, busyText, render, k = RENDERS) {
       for (const f of files) await fs.promises.rename(f.path + '.part', f.path);
     } catch (e) {
       await Promise.all(parts.map((p) => fs.promises.rm(p, { force: true })));
+      for (const d of made) await fs.promises.rmdir(d).catch(() => {}); // deepest first; only when empty
       throw e;
     }
   });

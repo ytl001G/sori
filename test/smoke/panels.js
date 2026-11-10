@@ -7,7 +7,7 @@ const mic = require('../../src/audio/mic');
 const S = require('../../src/core/settings');
 const P = require('../../src/core/fxparams');
 const spectro = require('../../src/core/spectro');
-const { state, history } = require('../../src/core/state');
+const { state, history, setDirty } = require('../../src/core/state');
 const { errors, dir, stub, wait, painted, assert, sr, T, sel } = require('./kit');
 
 module.exports = [
@@ -74,6 +74,10 @@ module.exports = [
     S.set({ countIn: 1, metronome: true }); C.setTempo(240, 2); // count-in 0.5 s
     state.sel.range = null; state.sel.playhead = 0;
     const n = T().length, m0 = state.project.markers.length;
+    // stopped during the count-in: no take, and a saved project stays saved with no backup due
+    setDirty(false); state.backupDue = false;
+    await C.run('record'); await C.run('record');
+    assert(T().length === n && !state.dirty && !state.backupDue, 'a cancelled recording left the project unsaved');
     // a step to undo while recording
     state.sel.playhead = Math.round(sr * 0.123); await C.run('addMarker'); state.sel.playhead = 0;
     await C.run('record'); assert(state.recording, 'not recording');
@@ -100,9 +104,24 @@ module.exports = [
     assert(T().length === n + 1 && T()[n].clips.length === 1, 'Ctrl+Z brings it back with its sound');
     await C.run('undo'); assert(T().length === n, 'and the take step');
   }],
-  ['latency measure returns ms or null, never throws', async () => {
+  ['latency measure returns ms or null, never throws; one recorder at a time', async () => {
     const ms = await mic.measureLatency('', 1);
     assert(ms === null || (ms >= 0 && ms <= 500), 'ms ' + ms);
+    // two starts while the mic opens (R and sori live --latencyMs auto): one is refused, none left running
+    const two = await Promise.allSettled([engine.startRecording(), engine.startRecording()]);
+    await engine.stopRecording();
+    assert(two.filter((x) => x.status === 'rejected').length === 1 && !engine.recording(), 'two starts at once');
+    // 마이크 테스트 pressed twice, or stopped (settings closed) while the mic opens: no mic left on
+    const md = navigator.mediaDevices, gum = md.getUserMedia, streams = [];
+    md.getUserMedia = async (c) => { const s = await gum.call(md, c); streams.push(s); return s; };
+    try {
+      const t = await Promise.all([mic.startInputTest('', 1), mic.startInputTest('', 1)]);
+      const u = mic.startInputTest('', 1); mic.stopInputTest();
+      assert(t[0] === null && t[1] === false && (await u) === null, 'superseded tests say so ' + t);
+      mic.stopInputTest();
+    } finally { md.getUserMedia = gum; }
+    const live = streams.flatMap((s) => s.getTracks()).filter((x) => x.readyState === 'live');
+    assert(streams.length === 3 && !live.length, `mic tracks left on: ${live.length} of ${streams.length}`);
   }],
   ['settings window: 4 tabs render, lane height + zoom apply, Esc closes', async () => {
     const p = C.run('settings'); await wait(300);
@@ -116,6 +135,9 @@ module.exports = [
       assert(!unnamed.length,
         `unnamed choice group in ${b.textContent}: ${unnamed.map((x) => x.textContent).join(' | ')}`);
     }
+    tabs[0].click(); tabs[1].click(); await wait(300); // ↓ before the audio tab's device list came
+    const rows = [...document.querySelectorAll('.spanel .slabel')].map((x) => x.textContent);
+    assert(rows[0] === '카운트인' && !rows.includes('마이크'), 'two tabs at once: ' + rows.join(', '));
     S.set({ laneH: 128, zoom: 110 }); await wait(80);
     assert(document.querySelector('.track-h').offsetHeight === 128, 'lane '
       + document.querySelector('.track-h').offsetHeight);
@@ -125,7 +147,7 @@ module.exports = [
     assert(!D.isModalOpen(), 'still open');
   }],
   ['shortcut remap via settings: new key works, old key freed', async () => {
-    const p = require('../../src/ui/settingsui').open('view'); await wait(250);
+    const p = require('../../src/ui/settings').open('view'); await wait(250);
     document.querySelector('.keyrow[data-cmd="addMarker"] .btn').click();
     const e0 = errors.length;
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Tab', key: 'Tab', bubbles: true }));

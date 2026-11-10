@@ -116,7 +116,8 @@ Rules that match the app (architecture.md "Edit semantics"):
   `--track N` = only that track as solo plays it (its mute ignored). Format from the extension (`.wav` = wav16,
   `.mp3` = mp3_192) or `--format wav16|wav24|mp3_128|mp3_192|mp3_320`. `--markers`: `<out>` is a folder, one file per
   segment named `01 마커이름.wav` (first segment `시작`). Existing files are refused (`EXISTS`) unless `--overwrite`. The
-  reply lists each file's `frames` (stereo sample frames) and seconds; reverb/echo tails are included.
+  reply lists each file's `frames` (stereo sample frames) and seconds; reverb/echo tails are included. A failed
+  export (here and `script export`) writes no file and removes the folders it made.
 - import/export start a hidden Sori window (about 1 s); it never touches the user's settings or autosave and works while
   the app is open.
 
@@ -174,11 +175,12 @@ The script commands do the rest of the app's script-mode work with the same rule
 
 | command | does |
 |---|---|
-| `script info <p>` | `current` line, `progress`, `characters` (color, done/lines, effects + preset), `lines` (name, char, num, text, memo, state, done, star, takes: name, length, star, volumeDb, pan, view and clips numbered as in `info`) |
+| `script info <p>` | `current` line, `progress`, `characters` (color, done/lines, effects + preset), `lines` (name, char, num, text, memo, state, done, star, takes: name, length, star, volumeDb, pan and clips numbered as in `info`) |
 | `script import <p> <script> [--rate 44100\|48000] [--dry-run]` | like 대본 넣기, from `.txt` / `.csv` / `.tsv` / `.xlsx`. `action`: `created` (no file yet; `--rate`, default 48000), `converted` (a plain project becomes a script project, its `deletedTracks` tracks are deleted) or `updated` (a script project: the new script is the base, `counts` + `added` / `changed` / `gone` line names; lines match by name and keep their takes, a recorded line with new text becomes `redo`, a missing line is deleted with its takes, `counts.goneTakes`). Numbers optional: `철수-005: …` keeps 005, others count on per character; `renumbered` = repeated numbers given new ones. `--dry-run` reports and saves nothing |
 | `script unscript <p> [--dry-run]` | like 보통 프로젝트로 바꾸기: every take becomes a track named `철수-001 테이크 1` (script order, then recording order, from 0 s) with its character color and effects; lines, memos and ★ are gone. `tracks` = the new track names |
 | `script line set <p> --line NAME [--text T] [--memo T]` | like 대사 고치기 (text up to 1000, memo 300 characters); a recorded line whose text changes becomes `redo` |
 | `script take add <p> --line NAME <audio...>` | each file = a new take (`테이크 n`, from 0 s), like dropping it in the app |
+| `script split <p> --line NAME <audio> [--cut S,S…] [--every-gap] [--gap 0.3..5] [--join] [--char NAME[,NAME…]] [--todo] [--dry-run]` | like 긴 녹음 나누기: one long recording of several lines -> new takes (`테이크 n`, ★ if the line had none). Lines: `--line`, then the ones after it in script order (`--char` / `--todo` keep only those, like the app's list). A new line starts only at a `--cut` (seconds, like N while recording: moved to the middle of the nearest quiet stretch over 0.2 s within 2 s) or, with `--every-gap`, before every piece. Pieces = speech apart by more than `--gap` s (default 1), 0.3 s of quiet kept each side, shorter than 0.3 s is no piece; each piece of a line is its own take, `--join` makes one take per line (the quiet between kept). Reply: `pieces` (line, from, to in the audio), `boundaries` (s), `over` (pieces past the last line, left out). `--dry-run` reports and saves nothing |
 | `script take set <p> --line NAME --take N\|NAME [--name T] [--volume DB] [--pan P]` | a take's header and mixer values, like `track set` (no M/S; color and effects come from the character) |
 | `script take remove <p> --line NAME --take N` | delete a take (the ★ one leaves the line without ★) |
 | `script take move <p> --line NAME --take N --to M` | put the take at position M among the line's takes, like dragging its grip (names stay) |
@@ -191,6 +193,7 @@ The script commands do the rest of the app's script-mode work with the same rule
 sori script import 대본.vproj 대본.xlsx
 sori script take add 대본.vproj --line 철수-001 take1.wav take2.wav
 sori script star 대본.vproj --line 철수-001 --take 2
+sori script split 대본.vproj --line 철수-001 긴녹음.wav --cut 12.5,30.2 --dry-run
 sori script import 대본.vproj 고친대본.txt --dry-run
 sori script export 대본.vproj 납품
 ```
@@ -234,9 +237,10 @@ script star --line 철수-001 --take 2
   taken back when a later line fails; run them after the batch) and `batch`.
 - The reply: `commands` = `[{ line, command, touches, result }]` (each line's usual reply in `result`) and `waves`.
   `touches` is what the line changes or reads: `line 철수-001`, `character 철수`, `track 2`, `master`, `markers`,
-  `tempo`, or `all` (info, track add/remove/move/sort, range edits, 대본 넣기, and anything not known). `waves` lists
-  line numbers that could run at the same time: each line goes one wave after the last earlier line it shares
-  something with (`all` shares with everything; a line shares with its character). The lines still run one by one.
+  `tempo`, or `all` (info, track add/remove/move/sort, range edits, 대본 넣기, script split, and anything not
+  known); an `apply` of fxTempo, voiceGaps or voiceClean also touches `markers` (they follow a length change). `waves` lists line numbers that could run at the same time: each line goes one wave after the last
+  earlier line it shares something with (`all` shares with everything; a line shares with its character). The lines
+  still run one by one.
 - `--check` runs nothing and saves nothing: the same `commands` (without `result`) and `waves`, plus `dryRun: true`.
 - With an `import` line, a file batch runs in the hidden window. `sori live batch` waits up to an hour for the app.
 

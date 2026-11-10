@@ -1,16 +1,17 @@
 // Bottom mixer panel: one strip per track + master. Vertical fader, pan, stereo peak meter
 // with clip latch, M/S, effect button (opens that channel in the effect panel).
-const C = require('./commands');
-const engine = require('../audio/engine');
-const S = require('../core/settings');
-const { el } = require('./dialogs');
+const C = require('../commands');
+const engine = require('../../audio/engine');
+const S = require('../../core/settings');
+const { el } = require('../dialogs');
 const { gainToDb, dbToGain, dbText, panText } = require('./tracks');
-const { state, trackById } = require('../core/state');
-const R = require('./commands/record');
+const { state, trackById } = require('../../core/state');
+const R = require('../commands/record');
 // the take being recorded shows the mic input level and clip light
 const meterId = (id) => (R.recInfo() && R.recInfo().trackId === id ? 'input' : id);
 
 let root, inner, sig = null, strips = new Map(), lastT = 0;
+let dragH = null; // the height while its edge is dragged (saved on release); the redraw must not put the old one back
 const MIN = -60, TOP = 6; // meter scale (dB)
 // FL-style: one gradient from green to red; a bar shows the colors up to its level
 const STOPS = [[MIN, '--meter-g'], [-24, '--meter-g'], [-18, '--meter-l'], [-12, '--meter-y'], [-6, '--meter-o'],
@@ -126,7 +127,7 @@ function render() {
     for (const x of strips.values()) { x.disp = [MIN, MIN]; x.hold = [MIN, MIN]; }
     return;
   }
-  root.style.height = S.get().mixerH + 'px';
+  root.style.height = (dragH ?? S.get().mixerH) + 'px';
   rebuild(state.project.tracks);
   const now = performance.now(), dt = Math.min(0.1, (now - (lastT || now)) / 1000);
   lastT = now;
@@ -152,11 +153,12 @@ function init() {
   grip.addEventListener('mousedown', (e) => {
     e.preventDefault();
     const y0 = e.clientY, h0 = root.offsetHeight;
-    let h = h0;
-    const move = (ev) => { h = setH(h0 + y0 - ev.clientY); };
+    const move = (ev) => { dragH = setH(h0 + y0 - ev.clientY); };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', () => {
       window.removeEventListener('mousemove', move);
+      const h = dragH ?? h0;
+      dragH = null;
       S.set({ mixerH: h });
     }, { once: true });
   });

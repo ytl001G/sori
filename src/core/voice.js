@@ -163,7 +163,7 @@ const STEPS = {
   noise(ch, sr, lv) {
     const q = quietest(ch, sr);
     if (!q) return null;
-    if (q.db <= SILENT) return ch.map((c) => c.slice()); // pauses of digital silence: no noise to take out
+    if (q.db <= SILENT) return ch; // pauses of digital silence: no noise to take out (unchanged: no new clip)
     const profile = FX.noiseProfile(ch.map((c) => c.subarray(q.start, q.start + q.len)));
     return FX.noiseReduce(ch, sr, { ...preset('noise', lv), profile });
   },

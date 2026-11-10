@@ -1,20 +1,20 @@
 // `sori live` (docs/cli.md): requests from the AI command line arrive from main.js and act in the app like the user:
-// menu commands (liverun.js), the file commands on the open project (verb), the settings (livesettings.js), the line
+// menu commands (run.js), the file commands on the open project (verb), the settings (settings.js), the line
 // list, the selection. The user sees it happen; Ctrl+Z undoes edits.
 const path = require('path');
 const { ipcRenderer } = require('electron');
-const engine = require('../audio/engine');
-const V = require('../cli/verbs');
-const C = require('./commands');
-const D = require('./dialogs');
-const E = require('../core/edit');
-const SCR = require('../core/script');
-const A = require('../core/args');
-const { takeByRef } = require('../cli/project');
-const { run } = require('./liverun');
-const { settings, RECORDING } = require('./livesettings');
-const { describe, describeScript } = require('../core/summary');
-const { state, history, changed, trackIndex } = require('../core/state');
+const engine = require('../../audio/engine');
+const V = require('../../cli/verbs');
+const C = require('../commands');
+const D = require('../dialogs');
+const E = require('../../core/edit');
+const SCR = require('../../core/script');
+const A = require('../../core/args');
+const { takeByRef } = require('../../cli/project');
+const { run } = require('./run');
+const { settings, RECORDING } = require('./settings');
+const { describe, describeScript } = require('../../core/summary');
+const { state, history, changed, trackIndex } = require('../../core/state');
 
 const bad = (message) => ({ ok: false, error: 'BAD_ARG', message });
 
@@ -50,9 +50,9 @@ async function script({ what, ref, view }) {
     const o = view && typeof view === 'object' ? view : {}, patch = {};
     if (o.char !== undefined && o.all) return bad('give --char or --all, not both');
     if (o.char !== undefined) {
-      const all = state.project.script.chars;
-      if (typeof o.char !== 'string' || !Object.hasOwn(all, o.char)) {
-        const message = `no character "${o.char}"; characters: ${Object.keys(all).join(', ')}`;
+      const all = [...new Set(SCR.linesNow(state.project).map((x) => x.char))]; // the characters with lines
+      if (typeof o.char !== 'string' || !all.includes(o.char)) {
+        const message = `no character "${o.char}"; characters: ${all.join(', ')}`;
         return { ok: false, error: 'NO_CHAR', message };
       }
       patch.char = o.char;
@@ -75,9 +75,12 @@ async function script({ what, ref, view }) {
 }
 // panels and list view: what the user sees besides the project
 const ui = () => ({ mixer: state.ui.mixer, fxPanel: state.ui.fxPanel, spectrogram: state.view.spec,
-  ...(state.project.script && {
-  list: { ...state.ui.scriptView, visible: C.visibleLines().map(SCR.lineName) },
-}) });
+  ...(state.project.script && list()) });
+// visible first: it may set the view back to 전체
+const list = () => {
+  const visible = C.visibleLines().map(SCR.lineName);
+  return { list: { ...state.ui.scriptView, visible } };
+};
 
 const commands = () => ({ ok: true, commands: Object.values(C.cmds).map((c) => ({
   name: c.name, label: c.label, enabled: !c.enabled || !!c.enabled(), dialog: c.label.endsWith('…'),

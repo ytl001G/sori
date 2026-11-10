@@ -2,14 +2,14 @@
 // panel, mixer height, the next fade's shape), checked like the window (choices must match, numbers clamped to their
 // range), and the window's buttons: 자동 측정 (--latencyMs auto), 마이크 테스트 (--mic-test SEC), 단축키 바꾸기 /
 // 기본값 (--key CMD=KEY|default, --keys default), 최근 파일 목록 지우기 (--recent clear, or one PATH).
-const engine = require('../audio/engine');
-const MIC = require('../audio/mic');
-const C = require('./commands');
-const S = require('../core/settings');
-const K = require('../core/shortcuts');
-const KUI = require('./keysui');
-const { autoLatency } = require('./audiotab');
-const { state } = require('../core/state');
+const engine = require('../../audio/engine');
+const MIC = require('../../audio/mic');
+const C = require('../commands');
+const S = require('../../core/settings');
+const K = require('../../core/shortcuts');
+const KUI = require('../settings/keys');
+const { autoLatency } = require('../settings/audio');
+const { state } = require('../../core/state');
 
 const bad = (message) => ({ ok: false, error: 'BAD_ARG', message });
 const RECORDING = {
@@ -125,6 +125,7 @@ async function settings(set) {
 async function micTest(sec) {
   let fellBack;
   try { fellBack = await MIC.startInputTest(S.get().inputId, S.get().recChannels); } catch { return null; }
+  if (fellBack === null) return null; // a test in the settings window took over
   engine.resetClip('input'); // and the held peak
   const db = [], end = Date.now() + sec * 1000;
   while (Date.now() < end) {

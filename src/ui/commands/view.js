@@ -18,7 +18,7 @@ def('zoomSel', '선택 구간 확대', () => {
   D.toast('확대할 구간이나 클립을 선택하세요');
 }, hasSel);
 def('toggleTheme', '테마 전환', () => S.set({ theme: S.get().theme === 'dark' ? 'light' : 'dark' }));
-def('settings', '설정…', () => require('../settingsui').open());
-def('shortcuts', '단축키 보기', () => require('../keysui').openShortcuts());
+def('settings', '설정…', () => require('../settings').open());
+def('shortcuts', '단축키 보기', () => require('../settings/keys').openShortcuts());
 def('devtools', '개발자 도구', () => ipcRenderer.send('toggle-devtools'));
 def('contextMenu', '메뉴 열기', () => tl().openContextAtPlayhead());

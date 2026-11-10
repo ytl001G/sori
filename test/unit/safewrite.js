@@ -21,8 +21,26 @@ t('safewrite: writes and replaces whole files; a failure leaves the old file and
   assert.deepStrictEqual(left(), [], 'no temp file left');
   assert.strictEqual(fs.readFileSync(f, 'utf8').length, 1e6, 'the target untouched');
 });
+t('cli export: a failure removes the parts and the folders the export made, not one that was there', async () => {
+  const { writeAll } = require('../../src/cli/project');
+  const out = path.join(dir, 'export'), f = (...p) => path.join(out, ...p);
+  fs.mkdirSync(f('old'), { recursive: true });
+  const files = [f('new', 'A', 'a-001.wav'), f('new', 'B', 'b-001.wav'), f('old', 'c.wav')];
+  const make = (i) => (i === 1 ? Promise.reject(new Error('render failed')) : 'x');
+  await assert.rejects(writeAll(files, make, 1), /render failed/);
+  assert.deepStrictEqual(fs.readdirSync(out), ['old'], 'new/A, new/B and new are gone');
+  assert.deepStrictEqual(fs.readdirSync(f('old')), [], 'no part left');
+  await writeAll(files, () => 'x');
+  assert(files.every((x) => fs.readFileSync(x, 'utf8') === 'x'), 'written when all succeed');
+});
 t('safewrite: names Windows sees as the same file get (2), (3)', () => {
   const p = (n) => path.join('out', n);
   assert.deepStrictEqual(W.uniquePaths([p('캐릭터A-001.wav'), p('캐릭터a-001.wav'), p('캐릭터A-001.WAV'), p('b.wav')]),
     [p('캐릭터A-001.wav'), p('캐릭터a-001 (2).wav'), p('캐릭터A-001 (3).WAV'), p('b.wav')]);
+});
+t('safewrite: newFolders ends at a drive that is not there (no endless loop)', () => {
+  const drive = [...'ZYXWVUTSRQPONMLKJIHG'].map((c) => c + ':/').find((d) => !fs.existsSync(d));
+  if (process.platform !== 'win32' || !drive) return; // every letter taken: nothing to check here
+  assert.deepStrictEqual(W.newFolders([path.join(drive, 'a', 'b', 'x.wav')]),
+    [path.join(drive, 'a', 'b'), path.join(drive, 'a')]);
 });

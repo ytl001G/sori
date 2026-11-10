@@ -109,6 +109,17 @@ t('vproj v3 script project: lines, takes, star, character fx; current line takes
   assert(near(bl[0].takes[0].clips[0].src.ch[0][5], src.ch[0][5]), 'samples');
 });
 
+t('vproj: a script saved with Markdown escapes opens without them; the character keeps its color and effects', () => {
+  const P = require('../../src/core/fxparams');
+  const fx = P.defaultFx(P.TRACK_KINDS); fx.eq = { ...fx.eq, on: true, low: 2 };
+  const old = String.raw`A\-1`, lines = [{ id: 'l1', char: old, num: 1, text: String.raw`\[작게\] 하나`, memo: '',
+    takes: [] }];
+  const script = { lines, lineId: 'l1', chars: { [old]: { color: '#123456', fx } } };
+  const back = IO.loadProject(IO.saveProject({ sampleRate: sr, tracks: [], script })).script;
+  assert.deepStrictEqual([back.lines[0].char, back.lines[0].text], ['A-1', '[작게] 하나']);
+  assert.deepStrictEqual([back.chars['A-1'].color, back.chars['A-1'].fx.eq.low], ['#123456', 2]);
+});
+
 t('vproj v4: packed sound (smaller, 16-bit exact), saved again unchanged; a backup takes its sound from the pool',
   () => {
   const s16 = E.makeSource([Float32Array.from(sine(9600, 220, sr), (v) => Math.round(v * 32768) / 32768)]);

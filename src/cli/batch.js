@@ -10,8 +10,9 @@ const { fail } = require('./project');
 const ALL = 'all';
 // shortcut: no export in a batch (files written cannot be taken back when a later line fails); run it after
 const REFUSED = /^(new|batch|export|script export)$/;
-// commands that read or reorder everything: they wait for all before them, all after wait for them
-const WHOLE = /^(info|script info|script import|script unscript|track (add|remove|move|sort))$/;
+// commands that read or reorder everything (script split fills the lines after --line too): they wait for all before
+// them, all after wait for them
+const WHOLE = /^(info|script info|script import|script unscript|script split|track (add|remove|move|sort))$/;
 
 // one line -> words: spaces split, "..." or '...' keep spaces, backslashes stay (Windows paths)
 function words(text) {
@@ -50,8 +51,14 @@ function read(file) {
 }
 
 // what one command changes or reads, as keys: 'line 철수-001', 'character 철수', 'track 2', 'master', 'markers',
-// 'tempo', or 'all' (also when unknown: safe, it only means waiting)
-function touches(name, o, charOf) {
+// 'tempo', or 'all' (also when unknown: safe, it only means waiting). effect: apply's effect
+function touches(name, o, charOf, effect) {
+  const keys = targets(name, o, charOf);
+  // a length change (fxTempo, 긴 침묵 줄이기) moves the markers when it covers every track
+  return name === 'apply' && MOVES.test(effect) && !keys.includes(ALL) ? [...keys, 'markers'] : keys;
+}
+const MOVES = /^(fxTempo|voiceGaps|voiceClean)$/;
+function targets(name, o, charOf) {
   if (WHOLE.test(name) || o['all-lines']) return [ALL];
   const list = (x) => String(x).split(',').map((y) => y.trim()).filter(Boolean);
   if (o.line !== undefined) {
@@ -102,7 +109,7 @@ function plan(file, p) {
           + 'run it after the batch';
       throw at(k, Object.assign(new Error(why), { code: 'BAD_ARG' }));
     }
-    Object.assign(k, { verb: job.verb, touches: touches(job.verb.name, job.o, charOf) });
+    Object.assign(k, { verb: job.verb, touches: touches(job.verb.name, job.o, charOf, job.pos[1]) });
   }
   return { cmds, waves: waves(cmds, charOf) };
 }

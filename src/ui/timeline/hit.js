@@ -43,7 +43,8 @@ const CURSORS = { ruler: 'pointer', marker: 'grab', lane: 'text', strip: 'grab',
 function hover(x, y) {
   const h = hit(x, y), key = h.zone === 'lane' && h.clip && h.part !== 'body' ? h.part : h.zone;
   cv.canvas.style.cursor = CURSORS[key] || 'default';
-  document.getElementById('hint').textContent = HINTS[key] || '';
+  const text = HINTS[key] || ''; // a script project's lanes are a line's takes
+  document.getElementById('hint').textContent = state.project.script ? text.replace('여러 트랙', '여러 테이크') : text;
 }
 
 // snap candidate frames: other clip edges, markers, playhead, 0 (+ beats in beat-grid mode)
