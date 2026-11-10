@@ -15,7 +15,7 @@ shortcuts and only the features that matter. It has a **script recording mode** 
   that change the sound itself (gain, normalize, fades, tempo, pitch, noise reduction…)
 - **Voice cleanup**: one pass for noise, rumble, evening out, shortening long pauses and loudness
 - **Script recording mode**: load a .txt / .csv / .xlsx script, record takes for each line, star the best one and
-  export one file per line
+  export one file per line. You can also record many lines in one long take and split it into lines
 - **Export**: WAV (16/24-bit), MP3 (128/192/320 kbps): the whole project, a range, one track, marker segments, per line
 - **Safety**: autosave with crash recovery, and the last 10 automatic backups per project
 - **CLI for AIs**: edit a `.vproj` without the app, or drive the running app (`sori live …`). Every command prints
@@ -23,7 +23,9 @@ shortcuts and only the features that matter. It has a **script recording mode** 
 
 ## Install
 
-Windows 10/11 (64-bit). The installer is coming soon; for now, run it from source (below).
+Windows 10/11 (64-bit). Download `Sori Setup <version>.exe` from
+[Releases](https://github.com/ytl001G/sori/releases/latest) and run it. The installer is not code-signed, so on the
+first run Windows may show "Windows protected your PC": click **More info → Run anyway**.
 
 ## Run from source
 
