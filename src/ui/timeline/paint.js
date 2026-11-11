@@ -112,21 +112,40 @@ function drawMarkers() {
     cv.markerHits.push({ m, x0: x - 3, x1: x + w });
   }
 }
-// the playhead is an element over the canvas (#playhead): moving it while playing repaints nothing
+// the playhead is an element over the canvas (#playhead). While it moves, the compositor moves it (a 1 s linear
+// animation, started again when it ends or the real position is more than 1 px off: a seek, a loop pass, a page flip),
+// so playing costs the page no style, layout or paint per frame
+let glide = null; // { x0, t0, anim }
 function placePlayhead() {
-  const ph = document.getElementById('playhead'), px = Math.round(frameToX(state.sel.playhead));
-  const show = px >= -8 && px <= cv.W + 8, t = `translateX(${px - 6}px)`;
+  const ph = document.getElementById('playhead'), px = frameToX(state.sel.playhead), now = performance.now();
+  const show = px >= -8 && px <= cv.W + 8, moving = show && state.playing && !engine.countingIn();
+  const on = glide && moving && now - glide.t0 < 900;
+  if (on && Math.abs(glide.x0 + pps() * (now - glide.t0) / 1000 - px) < 1) return;
+  if (glide) { glide.anim.cancel(); glide = null; }
   if (ph.hidden === show) ph.hidden = !show;
-  if (ph.style.transform !== t) ph.style.transform = t;
+  const at = (x) => `translateX(${Math.round(x) - 6}px)`;
+  if (ph.style.transform !== at(px)) ph.style.transform = at(px);
+  if (moving) {
+    // whole-pixel steps: a slow playhead (zoomed out) changes the screen only when it moves a pixel
+    const frames = [{ transform: at(px) }, { transform: at(px + pps()) }];
+    const easing = `steps(${Math.max(1, Math.round(px + pps()) - Math.round(px))}, end)`;
+    glide = { x0: px, t0: now, anim: ph.animate(frames, { duration: 1000, easing }) };
+  }
 }
 
 // the canvas is drawn again only when something on it changed: a state change (full, changed()), the view, or the
-// take being recorded (its sound and 이어 녹음's N marks come without changed())
-let drawnKey = '';
-const recKey = () => {
-  const r = engine.recording(), i = C.recInfo();
-  return r ? r.length + ':' + (i && i.cont ? i.cont.marks.length : 0) : -1;
-};
+// take being recorded (its sound comes without changed())
+let drawn = { view: '', len: -1 };
+const recLen = () => { const r = engine.recording(); return r ? r.length : -1; };
+// only the take being recorded grew: its lane from where its sound ended last time (every layer drawn again there)
+function recBand(prevLen) {
+  const i = C.recInfo();
+  if (!i || prevLen < 0) return null;
+  const lane = i.cont ? T().length : T().findIndex((t) => t.id === i.trackId);
+  if (lane < 0) return null;
+  const x0 = Math.max(0, Math.floor(frameToX(i.start + prevLen - C.recTrim(engine.recLead()))) - 8);
+  return [x0, laneTop(lane), cv.W - x0, LH()];
+}
 function draw(full = true) {
   const { g, W, H } = cv;
   if (!g || !W) return;
@@ -134,10 +153,16 @@ function draw(full = true) {
   if (state.playing) V.follow();
   v.scrollY = Math.min(v.scrollY, V.maxScrollY()); // tracks removed
   placePlayhead();
-  const key = [v.scrollX, v.scrollY, v.pxPerSec, W, H, cv.dpr, recKey()].join();
-  if (!full && key === drawnKey) return;
-  drawnKey = key;
+  const view = [v.scrollX, v.scrollY, v.pxPerSec, W, H, cv.dpr].join(), len = recLen();
+  if (!full && view === drawn.view && len === drawn.len) return;
+  const band = !full && view === drawn.view && recBand(drawn.len);
+  drawn = { view, len };
   g.setTransform(cv.dpr, 0, 0, cv.dpr, 0, 0);
+  if (band) { g.save(); g.beginPath(); g.rect(...band); g.clip(); }
+  try { paint(); } finally { if (band) g.restore(); }
+}
+function paint() {
+  const { g, W, H } = cv;
   g.fillStyle = cv.col.bg; g.fillRect(0, 0, W, H);
   const step = STEPS.find((s) => s * pps() >= 90) || 3600, bg = state.project.grid === 'beats' ? beatGrid() : null;
   const t0 = v.scrollX, t1 = v.scrollX + W / pps(), r = state.sel.range;

@@ -82,7 +82,8 @@ function liveInfo() {
   const r = engine.recording(), sec = r ? Math.floor(r.length / engine.sampleRate()) : 0;
   setText(live.firstChild, `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`);
   const pk = Math.max(...engine.level('input'));
-  live.lastChild.firstChild.style.width = Math.min(100, Math.round(pk * 100)) + '%';
+  const bar = live.lastChild.firstChild, t = `scaleX(${Math.min(100, Math.round(pk * 100)) / 100})`; // no layout
+  if (bar.style.transform !== t) bar.style.transform = t;
   live.classList.toggle('clip', engine.isClipped('input'));
 }
 
@@ -92,9 +93,10 @@ function heads(cueing) {
   setText($('empty').querySelector('.empty-title'), 'R 을 눌러 이 대사를 녹음하세요');
   setText($('empty').querySelector('.empty-sub'), '녹음할 때마다 테이크가 하나씩 생겨요. 내보낼 테이크는 ★로 골라요');
   setText(count, `테이크 ${C.takeCount()}개`);
-  count.nextElementSibling.disabled = !C.cmds.addTrack.enabled(); // [+ 테이크]: not while recording
-  const cont = bar.querySelector('.cont-rec');
-  cont.disabled = state.recording && !cueing; // during R: no; during 이어 녹음 it stops it
+  const add = count.nextElementSibling, noAdd = !C.cmds.addTrack.enabled(); // [+ 테이크]: not while recording
+  if (add.disabled !== noAdd) add.disabled = noAdd;
+  const cont = bar.querySelector('.cont-rec'), noCont = state.recording && !cueing; // 이어 녹음: it stops it
+  if (cont.disabled !== noCont) cont.disabled = noCont;
   setText(cont.lastChild, cueing ? '이어 녹음 멈춤' : '이어 녹음');
   cont.classList.toggle('on', cueing);
 }
@@ -108,7 +110,7 @@ function render() {
     if (!on) { $('empty').querySelector('.empty-title').textContent = emptyText[0]; sub.innerHTML = emptyText[1]; }
     lastLines = null;
   }
-  panel.hidden = bar.hidden = !on;
+  for (const x of [panel, bar]) if (x.hidden === on) x.hidden = !on;
   if (!on) return;
   heads(!!C.cue());
   const v = state.ui.scriptView;

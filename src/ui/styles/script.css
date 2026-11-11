@@ -67,8 +67,9 @@ body.script .track-h .tbtn.m, body.script .track-h .tbtn.s, body.script #mixer .
 .sb-live { display: flex; align-items: center; gap: 8px; font-size: 13px; font-variant-numeric: tabular-nums;
   color: var(--danger); }
 .sb-live[hidden] { display: none; }
-.sb-meter { width: 80px; height: 6px; border-radius: 3px; background: var(--surface); overflow: hidden; }
-.sb-meter i { display: block; height: 100%; width: 0; background: var(--meter-g); }
+.sb-meter { width: 80px; height: 6px; border-radius: 3px; background: var(--surface); overflow: hidden;
+  contain: strict; }
+.sb-meter i { display: block; height: 100%; background: var(--meter-g); transform-origin: left; transform: scaleX(0); }
 .sb-live.clip .sb-meter i { background: var(--meter-r); }
 
 /* 긴 녹음 나누기 window */

@@ -199,17 +199,19 @@ function* packSteps(chs) {
 // runs a pack to its end (a save that cannot wait)
 const finish = (gen) => { let r = gen.next(); while (!r.done) r = gen.next(); return r.value; };
 const pack = (chs) => finish(packSteps(chs));
-// Float32Array[] (each channel `length` long) from a blob
-function unpack(b, channels, length) {
+// Float32Array[] (each channel `length` long) from a blob; into `out` when given (an AudioBuffer's own arrays)
+function unpack(b, channels, length, out = null) {
   if (b[0] === 0) {
     if (b.length !== 1 + channels * length * 4) throw bad();
     const at = (k) => 1 + k * length * 4;
     const part = (k) => Uint8Array.prototype.slice.call(b, at(k), at(k + 1)); // a copy, also from a Buffer
-    return Array.from({ length: channels }, (_, k) => new Float32Array(part(k).buffer));
+    const chs = Array.from({ length: channels }, (_, k) => new Float32Array(part(k).buffer));
+    if (out) chs.forEach((c, k) => out[k].set(c));
+    return out || chs;
   }
   if (b[0] !== 16 && b[0] !== 24) throw bad();
   const s = 1 / scale(b[0]), r = { b, i: 1, acc: 0, bits: 0 };
-  const out = Array.from({ length: channels }, () => new Float32Array(length));
+  out = out || Array.from({ length: channels }, () => new Float32Array(length));
   for (let a = 0; a < length; a += BLOCK) {
     const n = Math.min(BLOCK, length - a);
     for (const f of out) {

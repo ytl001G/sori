@@ -98,6 +98,7 @@ src/cli/   (the AI command line, docs/cli.md; plain Node except headless.*)
 src/audio/
   engine.js             AudioContext, decode, live graph, loop passes (next one queued 0.5 s ahead), mixdown,
                         recording, devices
+  buffers.js            Source -> AudioBuffer cache, decoding; samples shared with the buffers (one copy)
   metro.js              metronome + count-in clicks on the beat grid of each pass (straight to the speakers)
   meters.js             level meters: latest peak per track / master / input, held peak (>= 1 = clipped light)
   mic.js                설정 window audio tools: device list, mic input test, 자동 측정 (latency)
@@ -369,10 +370,12 @@ master chain: eq -> comp -> reverb -> echo -> gain (gainDb) -> limiter -> [maste
   clicks not over yet are kept (`p.clicks`) and `MET.silence` stops them: on `stop()` and at once on
   `stopRecording()` (before its flush), which also ends the pump (`p.metro = null`). Count-in delays `t0` by
   `countIn bars × beats × 60 / bpm`.
-- AudioBuffers are cached per Source in a Map pruned to the current project's Sources on every
-  play/mixdown, so history never keeps a second copy of old takes alive. One copy of the samples, not two: a new
-  buffer is filled from `src.ch` and the source then uses the buffer's own arrays (`parked.adopt`); a decoded file's
-  arrays already are its AudioBuffer's (`owner`, used as is). Sources never write their samples, so sharing is safe. Playhead = `from + (ctx.currentTime - t0) * sr`.
+- AudioBuffers (`buffers.js`) are cached per Source in a Map pruned to the current project's Sources on every
+  play/mixdown, so history never keeps a second copy of old takes alive. One copy of the samples, not two: a decoded
+  file's arrays and a saved take's unpacked samples (`parked.setAlloc`: unpacked straight into a new AudioBuffer)
+  already are an AudioBuffer's own (`owner`, used as is); any other source is copied once into a buffer and then uses
+  its arrays (`parked.adopt`). Sources never write their samples, so sharing is safe.
+  Playhead = `from + (ctx.currentTime - t0) * sr`.
 - Mixdown (export): OfflineAudioContext (stereo, project rate), same `buildGraph` without meters.
   Length = range + longest reverb/echo tail; the limiter delay is removed from the start; trailing
   output below 1e-4 is cut back to the range end.
@@ -458,16 +461,25 @@ timeline draws what is ready and redraws as columns arrive. Only while the view 
 unfinished ones of sources no longer in the project (`prune`), so they never keep old sound alive.
 
 ## Redraw (app.js, timeline/paint.js)
-Measured 2026-11-11 (8 stereo tracks × 3 min, 4 with comp + reverb): repainting everything every frame cost about
-1.9 cores while playing (1.1 of them GPU) and 0.8 with the mixer open while stopped. So:
-- Frames run only while needed: a `changed()` call wakes the loop; it keeps going while playing, recording, counting
-  in, a shown spectrogram is being computed or mixer meters still fall (`mixer.render()` returns that). An idle window
-  asks for no frames. The frame where playing ends by itself (tick) redraws once (`wasLive`).
+Measured 2026-11-11 on a 144 Hz screen (8 stereo tracks × 3 min, 4 with comp + reverb; a script project of 400 lines
+and 800 takes): repainting everything every frame cost about 1.9 cores while playing (1.1 of them GPU), 0.8 with the
+mixer open while stopped, 0.65 while recording a take and 0.8 during 이어 녹음. Now about 0.2-0.4 while playing and
+0.2 while recording; what is left is the audio thread. So:
+- Frames run only while needed. A `changed()` call draws on the next frame. While playing, recording or counting
+  in, or while mixer meters still fall (`mixer.render()` returns that), the loop runs about 30 times a second
+  (`LIVE_MS`, a timer then a frame); a shown spectrogram being computed takes every frame. An idle window asks for
+  no frames. The frame where playing ends by itself (tick) redraws once (`wasLive`). A command that changes what is
+  on screen calls `changed()` (N / Shift+N do): the live loop no longer repaints everything anyway.
+- The playhead is an element over the canvas (`#playhead`). While it moves the compositor moves it: a 1 s linear
+  animation in whole-pixel steps (a slow, zoomed-out playhead changes the screen only when it moves a pixel), started
+  again when it ends or the real position is over 1 px off (seek, loop pass, page flip). Playing costs the page no
+  style, layout or paint per frame.
+- The canvas is drawn only on a change or a new view (scroll, zoom, size). New recorded sound (it comes without
+  `changed()`) redraws only the recording lane from where its sound ended last time (`recBand`, a clip rect; every
+  layer is drawn there, so it looks the same as a full redraw).
 - Track headers, the effect panel and the find box render only on a change; the 이어 녹음 time / level and the chrome
-  (time, buttons) every live frame, but `D.setText` / `D.setAttr` write the DOM only when the value differs.
-- The canvas is drawn only on a change, a new view (scroll, zoom, size) or new recorded sound (`recKey`: its length
-  and 이어 녹음's N marks, which come without `changed()`). The playhead is an element over it (`#playhead`, moved by
-  `transform`), so playing repaints nothing.
+  (time, buttons) on live frames, but `D.setText` / `D.setAttr` write the DOM only when the value differs. `#time` is
+  a fixed box with `contain: strict` (its digits never lay out the page); the 이어 녹음 level bar moves by `transform`.
 - Mixer meters draw only when they look different (`x.look`); theme colors are read once per theme.
 
 ## File formats

@@ -8,7 +8,7 @@ const engine = require('../../audio/engine');
 const { def, T, SC, curLine, setLine } = require('./core');
 const { afterEdit } = require('./play');
 const { visibleLines, viewTakes } = require('./script');
-const { state, history, setHolding, sr } = require('../../core/state');
+const { state, history, setHolding, sr, changed } = require('../../core/state');
 
 const R = () => require('./record'); // lazy: record.js requires this file on stop
 const ui = () => require('../split'); // lazy: the window requires dialogs, which load after commands
@@ -35,12 +35,14 @@ def('cueNext', '다음 대사 (이어 녹음 중)', () => {
   if (c.at >= c.order.length - 1) return D.toast('마지막 대사예요. Shift+R로 멈추세요');
   c.marks.push(engine.recording().length);
   c.at++;
+  changed();
 }, () => !!cont());
 def('cueBack', '다음 대사 되돌리기 (이어 녹음 중)', () => {
   const c = cont();
   if (!c.marks.length) return;
   c.marks.pop();
   c.at--;
+  changed();
 }, () => !!cont());
 
 const pickAudio = async () => {

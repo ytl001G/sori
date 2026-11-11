@@ -43,3 +43,11 @@ t('audiopack: unpack reads the whole stream (trailing bytes are damage)', () => 
   assert.throws(() => AP.unpack(longer, 1, x.length), /손상/);
   assert.throws(() => AP.unpack(b, 1, x.length - 100), /손상/, 'a stated length shorter than the stream');
 });
+t('audiopack: unpack fills given arrays (an AudioBuffer\'s own), packed and raw', () => {
+  const x = Float32Array.from({ length: 5000 }, (_, i) => Math.round(9000 * Math.sin(i / 7)) / 32768 + 0); // + 0: no -0
+  for (const chs of [[x, x.map((v) => 0 - v)], [x.map((v) => v * 3)]]) { // 16-bit, and raw (|x| > 1)
+    const out = chs.map(() => new Float32Array(x.length)), got = AP.unpack(AP.pack(chs), chs.length, x.length, out);
+    assert.strictEqual(got, out, 'the same arrays');
+    assert.deepStrictEqual(out, chs);
+  }
+});

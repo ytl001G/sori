@@ -116,10 +116,14 @@ setInterval(() => {
 }, 5000);
 
 // ---------- redraw loop ----------
-// frames run only while there is something to draw: a change (changed()), playing / recording / count-in, a
-// spectrogram being computed, mixer meters still falling. An idle window asks for no frames (no CPU, no GPU)
-let dirty = true, queued = false, wasLive = false;
+// frames run only while there is something to draw. A change (changed()) draws on the next frame; while playing,
+// recording or counting in, or mixer meters fall, the loop runs about 30 times a second (the playhead itself moves on
+// the compositor, see paint.js; a 144 Hz screen would otherwise lay out and paint the page 144 times a second); a
+// shown spectrogram being computed takes every frame. An idle window asks for no frames (no CPU, no GPU)
+let dirty = true, queued = false, wasLive = false, soon = null;
+const LIVE_MS = 1000 / 30;
 function wake() {
+  clearTimeout(soon); soon = null;
   if (!queued) { queued = true; requestAnimationFrame(frame); }
 }
 state.listeners.add(() => { dirty = true; wake(); });
@@ -167,29 +171,33 @@ function updateChrome() {
 
 function frame() {
   queued = false;
-  let more = true;
-  try { more = draw(); } finally { if (more) wake(); } // a render that throws must not stop the loop
+  let more = 'now';
+  try { more = draw(); } finally { // a render that throws must not stop the loop
+    if (more === 'now') wake();
+    else if (more && !soon && !queued) soon = setTimeout(wake, LIVE_MS);
+  }
 }
-// returns whether the next frame is needed
+// returns when the next frame is needed: 'now', 'soon' (LIVE_MS) or null
 function draw() {
   C.tick();
   // spectrogram columns are computed a slice per frame, only while it is shown
   const spec = state.view.spec && spectro.isPending();
   if (spec && spectro.work(8)) dirty = true;
-  const meters = mixer.render(); // meters animate every frame while the mixer is open
+  const meters = mixer.render(); // meters animate while the mixer is open
   const live = state.playing || state.recording || engine.countingIn();
   if (wasLive && !live) dirty = true; // playback ended by itself (tick): the buttons and time show it once more
   wasLive = live;
   if (dirty || live) {
     const full = dirty;
     dirty = false;
-    scriptui.render(); // its 이어 녹음 time and input level move every frame
+    scriptui.render(); // its 이어 녹음 time and input level move while recording
     if (full) { tracks.render(); fxpanel.render(); findbox.render(); } // the rest changes only through changed()
     timeline.draw(full);
     timeline.syncScrollbar();
     updateChrome();
   }
-  return live || meters || (state.view.spec && spectro.isPending()); // drawing may have just queued spectrograms
+  if (state.view.spec && spectro.isPending()) return 'now'; // drawing may have just queued spectrograms
+  return live || meters ? 'soon' : null;
 }
 wake();
 

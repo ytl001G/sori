@@ -77,7 +77,7 @@ module.exports = [
     await C.run('playPause'); await painted();
     const l1 = engine.looping(); await painted(); await painted();
     assert(l1 && engine.looping() === l1, 'no restart while nothing changes');
-    sel(0.3, 0.7); await painted();
+    sel(0.3, 0.7); changed(); await painted(); // as a drag or sori live select does
     const l2 = engine.looping(); await painted();
     assert(l2 !== l1 && l2.a === Math.round(0.3 * sr) && engine.looping() === l2, 'one restart on the new range');
     const ev = (type, sec, target = window) => target.dispatchEvent(new MouseEvent(type,

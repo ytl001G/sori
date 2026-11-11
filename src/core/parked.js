@@ -17,7 +17,7 @@ function park(s, blob, decoded, dims) {
   Object.defineProperty(s, 'ch', {
     enumerable: true,
     get() {
-      if (!e.ch) e.ch = AP.unpack(blob, channels, frames);
+      if (!e.ch) e.ch = AP.unpack(blob, channels, frames, alloc && alloc(channels, frames));
       e.used = Date.now(); awake.set(s, e);
       return e.ch;
     },
@@ -36,4 +36,8 @@ function adopt(s, ch) {
   if (e) e.ch = ch; else s.ch = ch;
 }
 
-module.exports = { park, sweep, awakeCount, adopt, IDLE_MS };
+// the app decodes into AudioBuffer arrays (engine.js), so playing a decoded take makes no second copy; plain Node: null
+let alloc = null;
+const setAlloc = (f) => { alloc = f; };
+
+module.exports = { park, sweep, awakeCount, adopt, setAlloc, IDLE_MS };
