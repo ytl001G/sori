@@ -69,8 +69,9 @@ function tick() {
   let pos = engine.position();
   const end = E.projectEnd(audible()); // script mode: the end of the take being heard
   const tail = engine.tailLen(audible(), state.project.master); // plays on until the reverb/echo tail ends, as export
-  const want = loopRange(), has = engine.looping(); // the engine repeats by itself; 반복 or the range changed: restart
-  if (!state.recording && (want ? !has || has.a !== want.a || has.b !== want.b : has)) {
+  // the engine repeats by itself; 반복 or the range changed: restart once (a range being dragged: on release)
+  const want = loopRange(), has = engine.looping();
+  if (!state.recording && !tl().dragging() && (want ? !has || has.a !== want.a || has.b !== want.b : has)) {
     startPlay(pos); pos = engine.position();
   } else if (!state.recording && pos >= end + tail + frames(0.05)) {
     engine.stop(); state.playing = false; pos = landAt(end);

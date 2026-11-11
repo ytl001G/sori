@@ -4,7 +4,7 @@ const { clipEnd, fades, envAt, envBreaks } = require('../core/edit');
 const CH = require('./chain');
 const M = require('./meters');
 const MET = require('./metro');
-const { passAt, frameAt } = require('../core/passes');
+const { due, frameAt } = require('../core/passes');
 const { toStereo } = require('../core/downmix');
 
 let ctx, ready, sinkId = '';
@@ -101,7 +101,7 @@ function addClips(c, g, tracks, from, to, when) {
       s.connect(env).connect(input);
       scheduleEnv(env.gain, clip, fd.get(clip), skip, (k) => when + (clip.start + k - from) / sr);
       s.start(when + Math.max(0, clip.start - from) / sr, (clip.offset + skip) / sr, len / sr);
-      s.onended = () => { g.sources.delete(s); s.disconnect(); };
+      s.onended = () => { g.sources.delete(s); s.disconnect(); env.disconnect(); }; // a long loop leaves none behind
       g.sources.add(s);
     }
   }
@@ -121,9 +121,7 @@ function play(tracks, master, from, opts = {}) {
   const p = play_ = { from, t0, lat, loop: opts.loop || null, timer: null, queued: 0,
     graph: buildGraph(ctx, tracks, master, ctx.destination, true) };
   const ahead = () => {
-    for (let s; (s = passAt(p, p.queued, sr)) && (!p.queued || s.at < ctx.currentTime + 0.5); p.queued++) {
-      addClips(ctx, p.graph, tracks, s.from, s.to, s.at);
-    }
+    for (const s of due(p, ctx.currentTime, sr)) addClips(ctx, p.graph, tracks, s.from, s.to, s.at);
   };
   ahead();
   if (opts.metro) MET.start(ctx, p, opts.metro, countIn);

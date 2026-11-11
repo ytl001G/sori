@@ -374,8 +374,10 @@ Playback runs on through the reverb/echo tail (`engine.tailLen`, built on chain 
 clip end. Echo tail = until -60 dB, at most 60 s (`FX.echoTail`, shared); the destructive echo fades its last 0.5 s.
 A live parameter's first value is set exactly, later changes glide. Loop: the engine plays passes (core/passes.js) and
 queues the next one 0.5 s before it is due on its 25 ms timer, into the same chains, so the seam has no gap and the
-loop runs on while the window is minimized (no redraw needed); a source leaves the graph when it ends. play.js restarts
-playback only when 반복 or the range changes. Files with more than 2 channels mix to stereo on import (core/downmix.js:
+loop runs on while the window is minimized (no redraw needed); a source and its envelope leave the graph when it ends.
+At most 20 passes are queued a call and a pass already late is skipped (`passes.due`): a loop under about 1 ms plays
+rough instead of flooding the graph. play.js restarts playback only when 반복 or the range changes, and not while a
+range is being dragged (once, on release). Files with more than 2 channels mix to stereo on import (core/downmix.js:
 3-8 channels by WAV order, other counts evenly). mixdown returns subarray views: consumers respect
 byteOffset. Export: the mix file goes through safewrite; folder exports run names through uniquePaths; a render with a
 sample over 1.0 adds the 0 dB warning to the success toast. Noise profile: only frames fully inside the piece.

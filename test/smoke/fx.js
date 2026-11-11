@@ -70,6 +70,27 @@ module.exports = [
     assert(p >= 0.2 && p < 0.65, 'loop stopped while minimized, position ' + p.toFixed(2) + ' s');
     assert(lp && lp.a === Math.round(0.2 * sr) && lp.b === Math.round(0.6 * sr), 'the engine repeats the range itself');
   }],
+  ['loop: a range change restarts playback once; a range being dragged waits for the release', async () => {
+    const cv = document.getElementById('timeline'), rc = cv.getBoundingClientRect();
+    Object.assign(state.view, { pxPerSec: 200, scrollX: 0, scrollY: 0 });
+    sel(0.2, 0.6); state.loop = true; state.sel.playhead = Math.round(0.2 * sr); changed();
+    await C.run('playPause'); await painted();
+    const l1 = engine.looping(); await painted(); await painted();
+    assert(l1 && engine.looping() === l1, 'no restart while nothing changes');
+    sel(0.3, 0.7); await painted();
+    const l2 = engine.looping(); await painted();
+    assert(l2 !== l1 && l2.a === Math.round(0.3 * sr) && engine.looping() === l2, 'one restart on the new range');
+    const ev = (type, sec, target = window) => target.dispatchEvent(new MouseEvent(type,
+      { clientX: rc.left + sec * 200, clientY: rc.top + 80, button: 0, bubbles: true }));
+    ev('mousedown', 0.1, cv); ev('mousemove', 0.3); await painted(); ev('mousemove', 0.5); await painted();
+    const during = engine.looping();
+    ev('mouseup', 0.5); await painted();
+    const after = engine.looping();
+    await C.run('playPause'); state.loop = false; state.sel.range = null;
+    assert(!during, 'no loop restarts while dragging (the press cleared the range)');
+    assert(after && Math.abs(after.a - 0.1 * sr) < sr * 0.01 && Math.abs(after.b - 0.5 * sr) < sr * 0.01,
+      'the dragged range loops after the release ' + JSON.stringify(after));
+  }],
   ['export wav + mp3', async () => {
     stub.save = path.join(dir, 'out.wav'); state.sel.range = null;
     await C.run('export'); assert(fs.statSync(stub.save).size > 44 + sr * 2 * 2 * 2 - 100, 'wav size');

@@ -73,7 +73,9 @@ function zoomFit() {
   changed();
 }
 // vertical scroll shared by the lanes and the track header column
-const maxScrollY = () => Math.max(0, T().length * LH() - (cv.H - RULER) + 48);
+// 이어 녹음 has its own lane under the takes (lazy: commands load after the timeline)
+const lanes = () => { const r = require('../commands').recInfo(); return T().length + (r && r.cont ? 1 : 0); };
+const maxScrollY = () => Math.max(0, lanes() * LH() - (cv.H - RULER) + 48);
 function scrollV(dy) {
   v.scrollY = Math.max(0, Math.min(maxScrollY(), v.scrollY + dy));
   changed();

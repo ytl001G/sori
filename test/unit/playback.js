@@ -24,3 +24,16 @@ t('3 to 8 channels mix into stereo with nothing dropped (LFE aside); other count
     [[0.707, 0.707], [0, 0.707], [0, 0], [0.5, 0.5], [0.707, 0], [0, 0.707]]);
   assert.deepStrictEqual([lr(4, 0), lr(6, 0), lr(10, 9)], [[0.5, 0], [1, 0], [0.1, 0.1]]);
 });
+
+t('a loop too short to keep up is scheduled at most 20 passes a call, late passes skipped', () => {
+  const sr = 48000, p = { t0: 1, from: 0, loop: { a: 0, b: 2 }, queued: 0 }; // 2 frames: 24000 passes a second
+  const first = P.due(p, 0.95, sr);
+  assert.deepStrictEqual([first.length, first[0].at, p.queued], [20, 1, 20]);
+  const later = P.due(p, 2, sr); // 1 s on: the passes in between are skipped, none starts in the past
+  assert(later.length === 20 && later.every((s) => s.at >= 2) && later[0].at - 2 < 2 / sr, JSON.stringify(later[0]));
+  const plain = { t0: 1, from: 5, loop: null, queued: 0 };
+  assert.deepStrictEqual([P.due(plain, 0.95, sr).length, P.due(plain, 9, sr).length], [1, 0]);
+  const slow = { t0: 1, from: 0, loop: { a: 0, b: 48000 }, queued: 0 }; // 1 s loop: only what starts within 0.5 s
+  assert.deepStrictEqual([P.due(slow, 0.95, sr).length, P.due(slow, 0.95, sr).length, P.due(slow, 1.6, sr).length],
+    [1, 0, 1]);
+});

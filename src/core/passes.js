@@ -14,5 +14,16 @@ function frameAt(p, t, sr) {
 }
 // context time where pass k ends
 const passEnd = (s, sr) => s.at + (s.to - s.from) / sr;
+// the passes to schedule at context time `now`, from p.queued on (moved past them): those starting within `ahead` s,
+// at most `max` a call. A loop under about 1 ms needs more than that and plays rough: a pass already late is skipped,
+// never started late, so a tiny loop cannot flood the graph with thousands of sources
+function due(p, now, sr, ahead = 0.5, max = 20) {
+  const out = [];
+  while (p.loop && p.queued && passAt(p, p.queued, sr).at < now) p.queued++;
+  for (let s; out.length < max && (s = passAt(p, p.queued, sr)) && (!p.queued || s.at < now + ahead); p.queued++) {
+    out.push(s);
+  }
+  return out;
+}
 
-module.exports = { passAt, frameAt, passEnd };
+module.exports = { passAt, frameAt, passEnd, due };
