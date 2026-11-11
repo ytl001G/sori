@@ -8,7 +8,7 @@ const S = require('../../src/core/settings');
 const P = require('../../src/core/fxparams');
 const spectro = require('../../src/core/spectro');
 const { state, history, setDirty } = require('../../src/core/state');
-const { errors, dir, stub, wait, painted, assert, sr, T, sel } = require('./kit');
+const { errors, dir, stub, wait, painted, assert, sr, T, sel, until } = require('./kit');
 
 module.exports = [
   ['mixer panel: strips, fader, double-click, meters move', async () => {
@@ -129,7 +129,7 @@ module.exports = [
     assert(tabs.length === 4, 'tabs ' + tabs.length);
     for (const b of tabs) {
       b.click(); await wait(200);
-      assert(document.querySelector('.spanel').children.length > 2, 'empty tab ' + b.textContent);
+      await until(() => document.querySelector('.spanel').children.length > 2, 'empty tab ' + b.textContent);
       const unnamed = [...document.querySelectorAll('.spanel [role=group]')].filter((x) =>
         !x.getAttribute('aria-label'));
       assert(!unnamed.length,

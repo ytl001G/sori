@@ -6,7 +6,7 @@ const LR = require('../../src/ui/commands/longrec');
 const SW = require('../../src/ui/split');
 const SCR = require('../../src/core/script');
 const { state } = require('../../src/core/state');
-const { dir, wait, painted, assert, sr, invokeOrig, shots, rowsOf } = require('./kit');
+const { dir, wait, painted, assert, sr, invokeOrig, shots, rowsOf, until } = require('./kit');
 
 const shot = async (n) => {
   if (shots) { await painted(); await wait(150); await invokeOrig('capture', path.join(shots, n + '.png')); }
@@ -15,7 +15,6 @@ const shot = async (n) => {
 const s = () => state.project.script, $ = (q) => document.querySelector(q);
 const win = () => $('#modal-layer.open .sheet-body.spl');
 const btn = (text) => [...document.querySelectorAll('#modal-layer button')].find((b) => b.textContent.startsWith(text));
-const until = async (f, what) => { for (let i = 0; i < 100 && !f(); i++) await wait(30); assert(f(), what); };
 const press = (code, more = {}) => document.dispatchEvent(new KeyboardEvent('keydown', { code, key: code, ...more }));
 // speech (a tone) 1 s, quiet 2 s, speech 1 s, quiet 2 s, speech 1 s
 const long = () => {

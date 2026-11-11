@@ -61,7 +61,7 @@ function resetProject(project) {
   state.sel.markerId = null;
   state.sel.activeTrackId = project.tracks[0] ? project.tracks[0].id : null;
   state.ui.fxTarget = 'master';
-  state.ui.scriptView = { char: '', todo: false, q: '' };
+  state.ui.scriptView = { char: '', todo: false };
   state.noiseProfile = null;
   state.backupDue = false; state.saveHint = null;
   history.clear();

@@ -256,7 +256,7 @@ Commands act on the **selection**, exactly as when the user presses a key: set i
 
 | command | does |
 |---|---|
-| `live state` | `app` (filePath, dirty, playing, recording, canUndo, canRedo), `selection`, `project` (same shape as `info`), `ui` (mixer, fxPanel, spectrogram = 스펙트로그램 보기 for the whole timeline; script: list = tab / todo / search + visible line names) |
+| `live state` | `app` (filePath, dirty, playing, recording, canUndo, canRedo), `selection`, `project` (same shape as `info`), `ui` (mixer, fxPanel, spectrogram = 스펙트로그램 보기 for the whole timeline; script: list = tab / todo + visible line names) |
 | `live commands` | every menu command: `name`, `label`, `enabled`, `dialog` (true = takes field values), `checked` for toggles |
 | `live select [--from S] [--to S] [--track N,M] [--clip T:K,...] [--active N] [--marker N] [--playhead S] [--none]` | a time range (on `--track` or all tracks), or clips (`2:1` = track 2 clip 1), the current track, a marker, the play position; `--none` clears range, clips and marker |
 | `live run <name> [--preset NAME] [--FIELD V ...] [--path P ...] [--yes]` | run one command; the reply has `edited` (it made, undid or redid an undo step, or opened another project), the app's `toasts`, `canUndo` |
@@ -264,7 +264,8 @@ Commands act on the **selection**, exactly as when the user presses a key: set i
 | `live settings [--NAME VALUE ...]` | everything the app remembers. Without options: `settings`, audio `devices` (id, name), `recent` files and `shortcuts` (command, label, keys, `changed`). Options change them, checked like the window or menu: `inputId`/`outputId` (a device id, `""` = Windows default), `recChannels` 1\|2, `latencyMs` 0-500 or `auto` (자동 측정: plays 4 clicks, sets it; `measuredMs`), `countIn` 0\|1\|2, `metroVol` 0-100, `metronome`/`snap`/`mixer`/`fxPanel`/`follow`/`stopReturn` on\|off, `mixerH` 120-600, `autosaveMin` 0\|1\|2\|5\|10, `exportFormat`, `sampleRate` (new projects), `undoOnlyGB`, `theme` dark\|light, `zoom` 90\|100\|110\|125, `laneH` 64\|96\|128. Buttons: `--key CMD=KEY` (like Ctrl+S, Shift+F5; the key leaves the command that had it: `keyTakenFrom`) or `CMD=default`, `--keys default` (all), `--recent clear` or `--recent PATH` (one), `--mic-test SEC` 1-10 (`micTest`: peakDb, avgDb, clipped) |
 | `live script line <NAME>` | script project: go to that line, as clicking it in the list (not an undo step; a recording stops first, its take kept, and playback stops) |
 | `live script star <N\|NAME>` | script project: ★ a take of the current line (undoable) |
-| `live script view [--char NAME \| --all] [--todo on\|off] [--search TEXT]` | script project: the line list's character tab, 녹음 안 한 것만, search (what `prevLine` / `nextLine` walk through; not an undo step) |
+| `live script view [--char NAME \| --all] [--todo on\|off]` | script project: the line list's character tab and 녹음 안 한 것만 (what `prevLine` / `nextLine` and `live find` walk through; not an undo step) |
+| `live find TEXT [--clips] [--markers] [--memo] [--next \| --prev]` | Ctrl+F: goes to what matches TEXT (a part; case and spaces ignored): track names, or in a script project the listed lines (number, text). `--clips` / `--markers` / `--memo` also look in clip names, marker names, line memos. Without `--next` / `--prev` it stays on a match it is on, else goes to the first from the current track / line on. Reply: `count`, `at` (1-based, null when none), `hit` {kind, name}, `selection`, `line` (script). Not an undo step |
 
 In a script project `live state` also has `script` (same shape as `script info`); its `project.tracks` are the current
 line's takes (all on screen). Menu commands for script mode work with `live run`: `prevLine`, `nextLine`,

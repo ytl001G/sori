@@ -18,7 +18,7 @@ const DEFAULT_KEYS = {
   'Shift+F10': 'contextMenu', 'ContextMenu': 'contextMenu',
   'KeyM': 'addMarker', 'BracketLeft': 'prevMarker', 'BracketRight': 'nextMarker',
   'Ctrl+Equal': 'zoomIn', 'Ctrl+NumpadAdd': 'zoomIn', 'Ctrl+Minus': 'zoomOut', 'Ctrl+NumpadSubtract': 'zoomOut',
-  'Ctrl+Digit0': 'zoomFit', 'Ctrl+Shift+KeyF': 'zoomSel', 'KeyG': 'toggleSnap',
+  'Ctrl+Digit0': 'zoomFit', 'Ctrl+Shift+KeyF': 'zoomSel', 'Ctrl+KeyF': 'find', 'KeyG': 'toggleSnap',
   'F9': 'toggleMixer', 'F8': 'toggleFxPanel',
   'Ctrl+KeyN': 'newProject', 'Ctrl+KeyO': 'open', 'Ctrl+KeyS': 'save', 'Ctrl+Shift+KeyS': 'saveAs',
   'Ctrl+KeyE': 'export',

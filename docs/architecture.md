@@ -65,6 +65,9 @@ src/core/  (plain Node, no DOM / AudioContext)
   split.js              긴 녹음 나누기 for the app's window and sori script split: sound runs (voicedit.quietLevels'
                         between-words threshold), N snapped to quiet, pieces per gap, line boundaries, window edits,
                         plan (pieces -> line index), addTakes
+  find.js               찾기 (Ctrl+F, sori live find): hits(project, text, listed lines, {clips, markers, memo}) = what
+                        matches (a part, case and spaces ignored) in the order Enter walks — lines or tracks in list
+                        order, then clips and markers by time; pick() = where typing / Enter / Shift+Enter lands
   peaks.js              waveform peak cache (min/max pyramid per Source)
   spectro.js            spectrogram columns per Source, computed a slice per frame
   settings.js           app settings (localStorage), validated, change listeners
@@ -113,13 +116,16 @@ src/ui/
                         script, files, export, edit, tracks, effects, markers, view, voice (목소리 정리), backup
                         (자동 백업 + 백업에서 열기), longrec (이어 녹음, N / Shift+N, 긴 녹음 나누기…, apply);
                         outside.js = requests from main (the window's X, a .vproj opened while running);
-                        take.js = sori live file commands
+                        take.js = sori live file commands; find.js = 찾기: core/find.js on the open project, going
+                        to a hit (a line via goLine, a track / clip made current and scrolled into view, a clip or
+                        marker sets the play position); the box and sori live find both call find()
   timeline/             the canvas: index.js (events, context menu, drop), view.js (geometry, colors, zoom, scroll),
                         paint.js + clips.js (drawing), hit.js (hit test, cursor, snap), mouse.js (press and drag)
   panels/               tracks.js = track header DOM (name, FX, ★ for takes, M/S, volume, pan, delete); mixer.js =
                         bottom mixer (strips, faders, meters); fx.js = right effect panel (always-on effects of master,
                         one track, or one character); eq.js = draggable EQ curve (effect panel + EQ dialog); script.js =
-                        script mode views: line list (tabs, filter, search, progress) + line bar / prompter
+                        script mode views: line list (tabs, filter, progress) + line bar / prompter; find.js =
+                        the Ctrl+F box over the timeline (built on first use, opens fresh each time)
   split/                긴 녹음 나누기 window (sheet): index.js = tools, keys, mouse, foot; edit.js = its state, edits,
                         line list; draw.js = its two waveforms and their hit tests
   settings/             설정 window: index.js = the 4 tabs; audio.js = 오디오 장치 tab; keys.js = the editable shortcut

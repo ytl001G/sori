@@ -82,7 +82,7 @@ window.addEventListener('keydown', (e) => {
   if (menus.isOpen() && e.key !== 'Escape') return;
   const name = K.bindings()[K.keyOf(e)];
   if (!name) return;
-  if (isTyping(e) && !(e.ctrlKey && ['save', 'saveAs', 'export', 'open'].includes(name))) return;
+  if (isTyping(e) && !(e.ctrlKey && ['save', 'saveAs', 'export', 'open', 'find'].includes(name))) return;
   // a focused slider keeps its own arrow keys; Space is always play/pause (Enter still activates buttons)
   if (e.target.closest && e.target.closest('input[type=range]') && /^Arrow/.test(e.code) && !e.altKey) return;
   e.preventDefault();

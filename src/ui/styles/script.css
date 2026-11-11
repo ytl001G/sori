@@ -30,8 +30,6 @@ body.script .track-h .tbtn.m, body.script .track-h .tbtn.s, body.script #mixer .
 .sp-tools { display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid var(--line);
   flex: none; }
 .sp-tools label { font-size: 12px; color: var(--muted); white-space: nowrap; cursor: pointer; }
-#sp-search { flex: 1; min-width: 0; height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px;
-  background: var(--surface); color: var(--text); font: inherit; }
 #sp-list { flex: 1; min-height: 0; overflow-y: auto; }
 .sp-empty { padding: 24px 12px; text-align: center; color: var(--muted); }
 .line-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; width: 100%;

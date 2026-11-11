@@ -55,3 +55,21 @@ input[type=range].fader { writing-mode: vertical-lr; direction: rtl; width: 20px
 .frow label { font-size: 12px; color: var(--muted); }
 .fval { font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
 .eqgraph { width: 100%; display: block; border-radius: 6px; margin-bottom: 6px; }
+
+/* Ctrl+F 찾기 box: top right of the timeline, under the ruler */
+#find { position: absolute; top: 34px; right: 12px; z-index: 6; width: 360px; padding: 6px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-lg);
+  animation: fade-in var(--dur-in) ease-out; }
+#find[hidden] { display: none; }
+.find-row { display: flex; align-items: center; gap: 2px; }
+.find-row input { flex: 1; min-width: 0; height: 28px; padding: 0 8px; border: 1px solid var(--line);
+  border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; }
+.find-row .icon { width: 28px; height: 28px; }
+.find-count { min-width: 44px; padding: 0 4px; text-align: right; font-size: 12px; color: var(--muted); }
+.find-count.none { color: var(--danger); }
+.find-more { margin: 0 2px; }
+.find-more[aria-expanded="true"] { color: var(--secondary); }
+.find-adv { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 8px 4px 2px; }
+.find-adv[hidden] { display: none; }
+.find-adv label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; }
+.find-adv label[hidden] { display: none; }

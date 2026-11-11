@@ -125,9 +125,14 @@ Settings and on/off states (theme, panels, snap) are the app's state, not a wind
 - Split button (`+ 트랙 [▾]`): left part runs the default (빈 트랙), [▾] opens a list menu (`data-list` → menus.js
   `LISTS`), `aria-haspopup=menu` + `aria-expanded`; the two halves share one border.
 - Line list (script mode): character tabs = 26px pills (dot in the character color, `done/total` in `--subtle`, pressed =
-  `--sel` + `--secondary` border); search field 28px; '녹음 안 한 것만' = `.switch` + label. Rows are buttons:
+  `--sel` + `--secondary` border); '녹음 안 한 것만' = `.switch` + label. Rows are buttons:
   `캐릭터-번호` 12px/600 + take count right (`★ 테이크 n` in `--secondary` when recorded, `녹음 전` in `--subtle`), the line
   13px (2 lines max), memo 12px `--muted`, badge '다시 녹음 필요' in `--accent` on a 16% tint. Current row: `--sel` background + 3px left edge in the character color, `aria-current`.
+- Find box (Ctrl+F, `#find`, `role=search`): floats over the timeline, top 34px (under the ruler) right 12px, 360px wide,
+  `--panel` + `--line` border, 8px radius, `--shadow-lg`, fades in. One row: text field 28px (`--surface`), count
+  `2/5` 12px tabular `--muted` (`0개` in `--danger`, `aria-live=polite`), 28px icon buttons ▲ 이전 / ▼ 다음, `고급`
+  small button (`aria-expanded`, `--secondary` when open), ✕ 닫기. 고급 unfolds checkboxes below (12px `--muted`):
+  클립 이름 · 마커 이름 · 대사 메모 (script projects only). Esc closes and gives the keys back to the timeline.
 - Line bar / prompter (script mode): 4px left edge in the character color (`--danger` while recording), `캐릭터-번호`
   13px/700 `--muted`, the line 20px/600 (32px while recording, max 30vh then scrolls), memo 13px, hint right 12px; while
   recording the next line shows below in 14px `--subtle` ("다음 · 영희-005 …").
@@ -198,7 +203,8 @@ removes all transitions and the pulse (spinner becomes static text).
 | 나누기 window, piece row | click → choose (Ctrl / Shift add); double-click → listen | Space listen, Ctrl+J merge, Delete drop, N new line; Ctrl+Z / Ctrl+Y undo inside the window |
 | Mixer top edge | drag → panel height (120px to 60% of the window; a saved height is capped the same way when the window shrinks) | focus the edge, ↑/↓ 20px |
 Keyboard focus rules: shortcuts are off only while typing in a text field. Space is always play/pause
-(buttons are activated with Enter); a focused slider keeps ←/→. Mouse clicks on the ruler/lanes never
+(buttons are activated with Enter); a focused slider keeps ←/→. Ctrl+F works in text fields too (it opens the find
+box, or selects its text); in the find box Enter / Shift+Enter / Esc are the box's own. Mouse clicks on the ruler/lanes never
 scroll the view; keyboard moves of the playhead scroll it into view.
 Cursors: `text` over lanes, `grab`/`grabbing` on name strip, EQ points and the track grip, `ew-resize` on edges and markers,
 `ns-resize` on the mixer edge, `pointer` on buttons/menu items.

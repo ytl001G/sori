@@ -7,7 +7,7 @@ const engine = require('../../audio/engine');
 const { state } = require('../../core/state');
 
 const $ = (id) => document.getElementById(id);
-let panel, bar, tabs, list, search, todo, count, live; // live: 이어 녹음's time + level
+let panel, bar, tabs, list, todo, count, live; // live: 이어 녹음's time + level
 let lastLines = null, lastChars = null, lastKey = '', lastLine = null, emptyText = null;
 const setText = (e, t) => { if (e.textContent !== t) e.textContent = t; }; // per frame: touch the DOM only on change
 
@@ -111,12 +111,11 @@ function render() {
   if (!on) return;
   heads(!!C.cue());
   const v = state.ui.scriptView;
-  if (document.activeElement !== search && search.value !== v.q) search.value = v.q;
   // emptying the ★ take changes it
   const l = C.curLine(), done = SCR.isDone({ ...l, takes: state.project.tracks });
   const cue = C.cue();
   if (cue) liveInfo();
-  const key = `${s.lineId}|${state.project.tracks.length}|${done}|${v.char}|${v.todo}|${v.q}|${state.recording}|`
+  const key = `${s.lineId}|${state.project.tracks.length}|${done}|${v.char}|${v.todo}|${state.recording}|`
     + (cue ? cue.id : '');
   // chars: a color set from the CLI (script color) replaces it
   if (s.lines === lastLines && s.chars === lastChars && key === lastKey) return;
@@ -127,13 +126,8 @@ function render() {
 
 function init() {
   panel = $('script-panel'); bar = $('script-bar'); tabs = $('sp-tabs'); list = $('sp-list');
-  search = $('sp-search'); todo = $('sp-todo');
+  todo = $('sp-todo');
   emptyText = [$('empty').querySelector('.empty-title').textContent, $('empty').querySelector('.empty-sub').innerHTML];
-  search.oninput = () => C.setScriptView({ q: search.value });
-  search.onkeydown = (e) => {
-    if (e.key === 'Escape' && search.value) { e.stopPropagation(); search.value = ''; C.setScriptView({ q: '' }); }
-    else if (e.key === 'Enter' || e.key === 'Escape') search.blur();
-  };
   todo.onclick = () => C.setScriptView({ todo: !state.ui.scriptView.todo });
   count = $('headers-top').querySelector('.takes-count');
   live = el('div', { className: 'sb-live', hidden: true }, el('span'), el('span', { className: 'sb-meter' }, el('i')));

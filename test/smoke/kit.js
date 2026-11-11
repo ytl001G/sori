@@ -22,6 +22,8 @@ const stubModal = async ({ fields = [] }) =>
 const invokeOrig = ipcRenderer.invoke.bind(ipcRenderer);
 const realAsk = D.ask, stubAsk = (o) => Promise.resolve(stub.ask !== undefined ? stub.ask : o.yes);
 const assert = (c, m) => { if (!c) throw new Error(m); };
+// waits up to 3 s for f() (a device list, a window) instead of a fixed time that a busy machine can miss
+const until = async (f, what) => { for (let i = 0; i < 100 && !f(); i++) await wait(30); assert(f(), what); };
 const sr = engine.sampleRate(), T = () => state.project.tracks, end = () => E.projectEnd(T());
 const sel = (a, b, tracks = T()) => {
   state.sel.clipIds = new Set();
@@ -79,5 +81,5 @@ async function rowsOf(menu) {
 
 module.exports = {
   log, errors, toasts, dir, stub, wait, painted, realModal, stubModal, invokeOrig, assert, sr, T, end, sel, tone, wav,
-  packaged, shots, install, step, realAsk, stubAsk, cli, ok, rowsOf,
+  packaged, shots, install, step, realAsk, stubAsk, cli, ok, rowsOf, until,
 };

@@ -14,6 +14,7 @@ const { FADE_SHAPES, shapeOf, setFadeShape } = require('./effects');
 const { moveMarker, setTempo } = require('./markers');
 require('./view');
 require('./voice');
+const { find } = require('./find');
 const { backupNow, EVERY_MS: BACKUP_MS } = require('./backup');
 const { takeProject } = require('./take');
 const { cue, cueNextLine } = require('./longrec');
@@ -24,5 +25,5 @@ module.exports = {
   writeProject: F.writeProject, autosave: F.autosave, clearAutosave: F.clearAutosave,
   recoverAutosave: F.recoverAutosave, backupNow, BACKUP_MS,
   removeTrack, moveTrack, mixer, setFx, showFx, fxKey, FADE_SHAPES, setFadeShape, shapeOf, setTempo, moveMarker,
-  curLine, cue, cueNextLine, takeCount, goLine, visibleLines, lineAfter, setScriptView, setStar, importScript,
+  find, curLine, cue, cueNextLine, takeCount, goLine, visibleLines, lineAfter, setScriptView, setStar, importScript,
 };

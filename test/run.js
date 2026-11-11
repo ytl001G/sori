@@ -4,7 +4,7 @@ const H = require('./unit/helpers');
 
 const FILES = ['edit', 'effects', 'voice', 'history', 'audiopack', 'fileio', 'settings', 'worklets', 'script', 'args',
   'split', 'live', 'cli', 'scriptcli', 'takescli', 'batch', 'measure', 'applylines', 'pipe', 'backup', 'safewrite',
-  'playback'];
+  'playback', 'find'];
 
 (async () => {
   let passed = 0;

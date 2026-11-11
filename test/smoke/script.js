@@ -173,7 +173,7 @@ module.exports = [
     assert(SCR.lineName(cur()) === '철수-001' && T().length === 2 && cur().star === T()[1].id
       && !takesOf('영희-005').length, 'back as it was, again');
   }],
-  ['script mode: character effects, search and tabs, 대사 고치기 -> redo, save and reopen', async () => {
+  ['script mode: character effects, tabs, 대사 고치기 -> redo, save and reopen', async () => {
     C.showFx(T()[0].id); assert(state.ui.fxTarget === 'char:철수', 'take effects = character effects');
     C.setFx('char:철수', 'eq', { on: true, low: 5 });
     assert(T().length === 2 && T().every((t) => t.fx.eq.on && t.fx.eq.low === 5), 'character eq on its takes');
@@ -183,8 +183,7 @@ module.exports = [
     await shot('script-dark');
     await C.run('toggleTheme'); await shot('script-light'); await C.run('toggleTheme');
     await C.run('toggleFxPanel');
-    C.setScriptView({ q: '둘째' }); assert(C.visibleLines().length === 1, 'search');
-    C.setScriptView({ q: '', char: '영희' });
+    C.setScriptView({ char: '영희' });
     assert(SCR.lineName(cur()) === '영희-005', 'a character tab goes to its lines');
     C.setScriptView({ char: '', todo: true });
     assert(C.visibleLines().map((l) => SCR.lineName(l)).join() === '영희-005,철수-002', 'only unrecorded');

@@ -45,7 +45,7 @@ function snapshot() {
 async function script({ what, ref, view }) {
   const l = C.curLine();
   if (!l) return { ok: false, error: 'NOT_SCRIPT', message: 'the app has no script project open' };
-  // the list's character tab, '녹음 안 한 것만' and search: what ↑/↓ (prevLine / nextLine) walk through
+  // the list's character tab and '녹음 안 한 것만': what ↑/↓ (prevLine / nextLine) and Ctrl+F walk through
   if (what === 'view') {
     const o = view && typeof view === 'object' ? view : {}, patch = {};
     if (o.char !== undefined && o.all) return bad('give --char or --all, not both');
@@ -59,7 +59,6 @@ async function script({ what, ref, view }) {
     }
     if (o.all === true) patch.char = '';
     if (o.todo !== undefined) patch.todo = o.todo === true;
-    if (o.search !== undefined) patch.q = String(o.search).slice(0, 100);
     await C.setScriptView(patch);
   } else if (what === 'line') {
     const to = SCR.linesNow(state.project).find((x) => SCR.lineName(x) === String(ref).trim());
@@ -164,6 +163,16 @@ function select(o) {
   return { ok: true, selection: snapshot().selection };
 }
 
+// `live find`: Ctrl+F from the command line (commands/find.js); it goes to the hit like the box does
+async function find({ text, clips, markers, memo, dir }) {
+  if (typeof text !== 'string' || !text.trim()) return bad('give the text to find');
+  const o = { clips: !!clips, markers: !!markers, memo: !!memo };
+  const r = await C.find(text, o, [1, -1].includes(dir) ? dir : 0);
+  const hit = r.hit && { kind: r.hit.kind, name: r.hit.name };
+  return { ok: true, count: r.count, at: r.at + 1 || null, hit, selection: snapshot().selection,
+    ...(state.project.script && { line: SCR.lineName(C.curLine()) }) };
+}
+
 function handle(req) {
   // the CLI gave up waiting (it reported TIMEOUT): a request still queued then must not act late
   if (Number.isFinite(req.deadline) && Date.now() > req.deadline) {
@@ -178,6 +187,7 @@ function handle(req) {
     return { ok: false, error: 'BUSY', message: 'a dialog is open in the app; close it and try again' };
   }
   if (req.op === 'select') return select(req);
+  if (req.op === 'find') return find(req);
   if (req.op === 'run') {
     const args = req.args && typeof req.args === 'object' ? req.args : {};
     return run(req.name, args, { path: req.path, yes: req.yes === true });

@@ -53,7 +53,7 @@ module.exports = [
     assert(tops.join() === '파일,편집,녹음,트랙,마커,보기,효과', 'menubar ' + tops);
     assert((await rowsOf('record')).join() === '녹음,—,메트로놈', 'record (no script) ' + await rowsOf('record'));
     const edit = await rowsOf('edit'), track = await rowsOf('track');
-    assert(edit.length === 17 && edit.at(-1) === '선택 해제' && !edit.includes('대사 고치기…'), 'edit ' + edit);
+    assert(edit.length === 19 && edit.at(-1) === '찾기' && !edit.includes('대사 고치기…'), 'edit ' + edit);
     assert(track.at(-1) === '이름순 정렬' && track.length === 11, 'track ' + track);
     assert((await rowsOf('marker')).join() === '마커 추가,이전 마커로,다음 마커로', 'marker');
   }],

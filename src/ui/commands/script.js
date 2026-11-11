@@ -52,14 +52,13 @@ async function goLine(id) {
   if (T().some((t) => t.clips.length)) cmds.zoomFit.run();
   changed();
 }
-// the list: character tab, '녹음 안 한 것만' (a line leaves it once done, the current one too), search
+// the list: character tab, '녹음 안 한 것만' (a line leaves it once done, the current one too); Ctrl+F looks in it
 function visibleLines() {
   if (!SC()) return [];
-  const now = SCR.linesNow(state.project), v = state.ui.scriptView, q = v.q.trim().toLowerCase();
+  const now = SCR.linesNow(state.project), v = state.ui.scriptView;
   // a tab whose character has no lines any more (a re-import, Ctrl+Z) is 전체 again: no tab would show it
   if (v.char && !now.some((l) => l.char === v.char)) v.char = '';
-  return now.filter((l) => (!v.char || l.char === v.char) && (!v.todo || !SCR.isDone(l))
-    && (!q || `${SCR.lineName(l)} ${l.text} ${l.memo}`.toLowerCase().includes(q)));
+  return now.filter((l) => (!v.char || l.char === v.char) && (!v.todo || !SCR.isDone(l)));
 }
 // next/previous line in the list, in script order (works when the current line is filtered out)
 function lineAfter(d) {
@@ -114,7 +113,7 @@ def('importScript', '대본 넣기…', async () => {
 function enterScript() {
   clearSel();
   state.ui.fxTarget = 'master';
-  state.ui.scriptView = { char: '', todo: false, q: '' };
+  state.ui.scriptView = { char: '', todo: false };
   showLine(SC().lines[0]);
 }
 function leaveScript() {

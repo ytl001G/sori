@@ -11,7 +11,7 @@ const MENUS = {
   file: ['newProject', 'open', 'openBackup', '@recent', '|', 'save', 'saveAs', '|', 'importScript', 'unscript',
     'export', '|', 'settings'],
   edit: ['undo', 'redo', '|', 'cut', 'copy', 'paste', 'delete', '|',
-    'split', 'merge', 'duplicate', 'keep', 'insertSilence', 'clipProps', '|', 'selectAll', 'deselect', '|',
+    'split', 'merge', 'duplicate', 'keep', 'insertSilence', 'clipProps', '|', 'selectAll', 'deselect', '|', 'find', '|',
     'editLine', 'prevLine', 'nextLine'],
   record: ['record', 'contRecord', '|', 'splitFile', '|', 'toggleMetro'],
   track: ['addTrack', 'dupTrack', '|', 'addVoiceTrack', 'addMusicTrack', 'addSfxTrack', '|', 'trackUp', 'trackDown',

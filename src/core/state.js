@@ -13,8 +13,8 @@ const state = {
   // 스펙트로그램 보기 is for the whole timeline; not saved anywhere, every launch starts as 파형
   view: { pxPerSec: 80, scrollX: 0, scrollY: 0, follow: true, laneH: 96, spec: false },
   // fxTarget: 'master', a track id, or 'char:<name>' (script mode: one effect set per character)
-  // scriptView: line list filter (script mode) — character tab ('' = all), only unrecorded, search text
-  ui: { mixer: false, fxPanel: false, fxTarget: 'master', scriptView: { char: '', todo: false, q: '' } },
+  // scriptView: line list filter (script mode) — character tab ('' = all), only unrecorded
+  ui: { mixer: false, fxPanel: false, fxTarget: 'master', scriptView: { char: '', todo: false } },
   playing: false, loop: false, recording: false,
   filePath: null, dirty: false, clipboard: null, noiseProfile: null,
   // 자동 백업 (ui/commands/backup.js): a change since the last backup; saveHint: where 저장 suggests for an opened backup

@@ -96,5 +96,6 @@ function init() {
 
 module.exports = {
   init, draw, openContextAtPlayhead, syncScrollbar: V.syncScrollbar, zoomBy: V.zoomBy, zoomFit: V.zoomFit,
-  zoomRange: V.zoomRange, reveal: V.reveal, scrollV: V.scrollV, dragging: M.dragging,
+  zoomRange: V.zoomRange, reveal: V.reveal, scrollV: V.scrollV, revealLane: V.revealLane,
+  dragging: M.dragging,
 };

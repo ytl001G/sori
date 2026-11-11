@@ -32,8 +32,12 @@ const LIVE = [
   ['live script line <NAME>', 'script project: go to that line (철수-001), as clicking it in the list'],
   ['live script star <N|NAME>', 'script project: ★ the current line\'s take N (테이크 N) or the take with that name '
     + '(undoable)'],
-  ['live script view [--char NAME | --all] [--todo on|off] [--search TEXT]', 'script project: the line list\'s '
-    + 'character tab, 녹음 안 한 것만 and search (what prevLine / nextLine walk through); live state ui.list shows it'],
+  ['live script view [--char NAME | --all] [--todo on|off]', 'script project: the line list\'s character tab and '
+    + '녹음 안 한 것만 (what prevLine / nextLine and find walk through); live state ui.list shows it'],
+  ['live find <TEXT> [--clips] [--markers] [--memo] [--next | --prev]', 'Ctrl+F: go to what matches TEXT (a part, '
+    + 'no case or spaces): track names, or in a script project the listed lines (number, text). --clips / --markers '
+    + '/ --memo also look in clip names, marker names, line memos. Without --next/--prev it stays on a match it is '
+    + 'on, else goes to the first from the current track/line on; reply: count, at (1-based), hit'],
 ];
 const LIVE_SELECT = {
   from: 'sec', to: 'sec', track: 'idxs', clip: 'pairs', active: 'idx', marker: 'idx', playhead: 'sec', none: 'bool',
@@ -80,9 +84,16 @@ const LIVE_REQ = {
       return { op: 'script', what: rest[0], ref: rest[1] };
     }
     if (rest[0] !== 'view') return LIVE_REQ.verb(rest, argv);
-    const { pos, o } = A.parse(rest.slice(1), { char: 'str', all: 'bool', todo: 'onoff', search: 'str' });
+    const { pos, o } = A.parse(rest.slice(1), { char: 'str', all: 'bool', todo: 'onoff' });
     if (pos.length) throw A.bad('live script view takes only options');
     return { op: 'script', what: 'view', view: { ...o } };
+  },
+  find(rest) {
+    const { pos, o } = A.parse(rest, { clips: 'bool', markers: 'bool', memo: 'bool', next: 'bool', prev: 'bool' });
+    if (pos.length !== 1 || !String(pos[0]).trim()) throw A.bad('give the text to find: live find TEXT');
+    if (o.next && o.prev) throw A.bad('give --next or --prev, not both');
+    return { op: 'find', text: pos[0], clips: !!o.clips, markers: !!o.markers, memo: !!o.memo,
+      dir: o.next ? 1 : o.prev ? -1 : 0 };
   },
   settings(rest) {
     const { pos, fields } = A.parse(rest, {}, true);
@@ -94,7 +105,7 @@ const LIVE_REQ = {
     return { op: 'verb', argv: argv.slice(1), cwd: process.cwd() };
   },
 };
-const LIVE_LIST = 'live commands: state, commands, select, run, settings, script line|star|view, '
+const LIVE_LIST = 'live commands: state, commands, select, run, find, settings, script line|star|view, '
   + 'or any file command without <project>';
 // ops that may wait for a dialog or a measurement
 const SLOW = ['run', 'verb', 'settings'];

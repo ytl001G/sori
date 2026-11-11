@@ -102,4 +102,19 @@ module.exports = [
       ];
     });
   }, 'shots'],
+  ['layout picture: the find box (Ctrl+F) with 고급 open, both themes', async () => {
+    await C.run('find');
+    const input = $('#find input[type=text]');
+    input.value = '같이'; input.dispatchEvent(new Event('input'));
+    $('#find .find-more').click();
+    // the label hangs under the box (inside it would cover the checkboxes)
+    const f = () => {
+      const r = box('#find');
+      return [[`찾기 칸 (Ctrl+F) · 너비 ${px(r.width)}`, { left: r.left, top: r.top, width: r.width, height: r.height + 22 },
+        'bl']];
+    };
+    await shoot('layout-find', f);
+    await C.run('toggleTheme'); await shoot('layout-find-light', f); await C.run('toggleTheme');
+    require('../../src/ui/panels/find').close();
+  }, 'shots'],
 ];
