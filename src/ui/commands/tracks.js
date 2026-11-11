@@ -92,8 +92,8 @@ function removeTrack(id) {
 // live: heard at once, saved, not an undo step
 function liveChange() {
   engine.updateMix(audible(), state.project.master);
-  state.backupDue = true; // setDirty is skipped while already unsaved (no IPC per slider move)
-  state.dirty || setDirty(true);
+  state.backupDue = true; // setDirty is skipped while already unsaved (no IPC per slider move), the edit still counts
+  if (state.dirty) state.edits++; else setDirty(true);
   changed();
 }
 function mixer(id, patch) { // live, not in history

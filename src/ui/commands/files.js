@@ -1,4 +1,5 @@
-// Files: new project, 열기 (projects and audio), 저장, autosave + crash recovery (userData/autosave.vproj + .json).
+// Files: new project, 열기 (projects and audio), 저장, autosave + crash recovery (userData/autosave.vproj + .json, its
+// sound in userData/autosave/pool).
 const { ipcRenderer } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -6,6 +7,7 @@ const E = require('../../core/edit');
 const IO = require('../../core/fileio');
 const SCR = require('../../core/script');
 const { writeAtomic } = require('../../core/safewrite');
+const BK = require('../../core/backup');
 const S = require('../../core/settings');
 const engine = require('../../audio/engine');
 const D = require('../dialogs');
@@ -15,10 +17,6 @@ const { dropRecording, stopFirst } = require('./record');
 const { newTake, showLine } = require('./script');
 const { state, history, makeTrack, newProjectData, setDirty, trackById } = require('../../core/state');
 
-// shortcut: counts every redraw request while dirty (selection too), so a save may stay dirty needlessly; upgrade
-// to a real edit counter in state.js if that annoys
-let changes = 0;
-state.listeners.add(() => { if (state.dirty) changes++; });
 // autosave/backup failures: one Korean toast per failure streak
 const failing = new Set();
 function writeCause(e) {
@@ -195,10 +193,10 @@ const savable = () => (state.recording
   ? { ...state.project, tracks: state.project.tracks.filter((t) => t.id !== history.hide) } : state.project);
 async function writeProject(p) {
   try {
-    const n = changes;
+    const n = state.edits;
     await writeAtomic(p, IO.saveProject(savable()));
     state.filePath = p;
-    if (changes === n && !state.recording) {
+    if (state.edits === n && !state.recording) {
       setDirty(false);
       clearAutosave();
     }
@@ -223,9 +221,11 @@ def('saveAs', '다른 이름으로 저장…', async () => {
 let userData = null;
 async function autosavePaths() {
   if (!userData) userData = await ipcRenderer.invoke('user-data');
-  return { data: path.join(userData, 'autosave.vproj'), meta: path.join(userData, 'autosave.json') };
+  return { data: path.join(userData, 'autosave.vproj'), meta: path.join(userData, 'autosave.json'),
+    dir: path.join(userData, 'autosave') };
 }
-// shortcut: rewrites all the (packed) audio every time; for projects over ~1 GB write sources once, then the JSON.
+// the project without its sound; each sound goes to the autosave folder once (core/backup.js writeAutosave). The
+// folder stays while the app runs (the next autosave writes only new takes); a normal close empties it (main.js).
 // One at a time; a save that cleaned the project during the write removes the files again
 let autosaving = null;
 async function autosave() {
@@ -233,7 +233,7 @@ async function autosave() {
   autosaving = (async () => {
     const f = await autosavePaths();
     try {
-      await writeAtomic(f.data, IO.saveProject(state.project));
+      await BK.writeAutosave(f.data, f.dir, IO.saveThin(state.project));
       await writeAtomic(f.meta, JSON.stringify({ filePath: state.filePath, time: Date.now() }));
       writeOk('자동 저장하지 못했어요');
     } catch (e) { writeFailed('자동 저장하지 못했어요', e); return false; } // the next interval tries again
@@ -263,7 +263,7 @@ async function askRecover(f, meta) {
     buttons: [{ label: '지우기', value: 'drop' }, { label: '복구', value: 'keep', primary: true }] });
   if (v === 'drop') { await clearAutosave(); return false; }
   try {
-    await loadProjectFile(f.data, false);
+    await loadProjectFile(f.data, false, { pool: BK.poolReader(f.dir) }); // an older, whole autosave: no pool needed
     state.filePath = typeof meta.filePath === 'string' ? meta.filePath : null;
     setDirty(true); // still unsaved: Ctrl+S writes it back to the original file
     D.toast('복구했어요. 저장(Ctrl+S)해야 원래 파일에 반영돼요');
@@ -273,6 +273,7 @@ async function askRecover(f, meta) {
     // kept aside, so the next autosave does not overwrite what might still be rescued
     const aside = path.join(path.dirname(f.data), `autosave-broken-${Date.now()}.vproj`);
     const moved = await fs.promises.rename(f.data, aside).then(() => true, () => false);
+    await fs.promises.rename(f.dir, aside.replace(/\.vproj$/, '')).catch(() => {}); // its sound goes along
     await clearAutosave();
     D.toast('자동 저장 파일을 열 수 없어요: ' + e.message
       + (moved ? `. 그 파일은 ${path.basename(aside)}(으)로 옮겨 두었어요` : ''), 'error');

@@ -39,14 +39,8 @@ async function write(root, group, thin, now = new Date()) {
   const dir = path.join(root, groupName(group.key)), pool = path.join(root, POOL);
   const name = stamp(now) + '.vproj', file = path.join(dir, name);
   await fs.promises.mkdir(dir, { recursive: true });
-  await fs.promises.mkdir(pool, { recursive: true });
   await writeAtomic(path.join(dir, 'about.json'), JSON.stringify({ path: group.path, name: group.name }));
-  for (const b of thin.blobs) {
-    const f = path.join(pool, b.hash + '.snd');
-    // a pool file of the wrong size is a broken one (a crash, a disk error): write it again
-    const st = await fs.promises.stat(f).catch(() => null);
-    if (!st || st.size !== b.blob.byteLength) await writeAtomic(f, b.blob);
-  }
+  await fillPool(pool, thin.blobs);
   await writeAtomic(file, thin.bytes);
   try {
     // never the one just written: with the clock moved back its name sorts oldest
@@ -54,6 +48,31 @@ async function write(root, group, thin, now = new Date()) {
     for (const f of old) await fs.promises.rm(path.join(dir, f), { force: true });
   } catch { /* the backup is made; an extra old one stays until the next backup prunes */ }
   return file;
+}
+// each blob once in <pool>/<sha1>.snd; one already there is not written again
+async function fillPool(pool, blobs) {
+  await fs.promises.mkdir(pool, { recursive: true });
+  for (const b of blobs) {
+    const f = path.join(pool, b.hash + '.snd');
+    // a pool file of the wrong size is a broken one (a crash, a disk error): write it again
+    const st = await fs.promises.stat(f).catch(() => null);
+    if (!st || st.size !== b.blob.byteLength) await writeAtomic(f, b.blob);
+  }
+}
+// pool files whose hash is not in `used` go
+async function prunePool(pool, used) {
+  for (const f of await fs.promises.readdir(pool).catch(() => [])) {
+    if (!used.has(f.replace(/\.snd$/, ''))) await fs.promises.rm(path.join(pool, f), { force: true });
+  }
+}
+// 자동 저장 (crash recovery, ui/commands/files.js): `file` = the project without its sound, <dir>/pool = the sound of
+// the project now, each written once (a 188 MB project: 0.65 MB a time, not 188). Sound the project no longer has
+// goes only after the file names the new set: a crash at any point leaves a file whose sound is all there
+async function writeAutosave(file, dir, thin) {
+  const pool = path.join(dir, POOL);
+  await fillPool(pool, thin.blobs);
+  await writeAtomic(file, thin.bytes);
+  await prunePool(pool, new Set(thin.blobs.map((b) => b.hash)));
 }
 // groups whose newest backup is over DAYS old go (but `keepKey`'s: the open project), then pool files no backup names.
 // Only when every backup was read: a file-system error (a locked or unreadable file, e.code) skips the pool sweep this
@@ -77,14 +96,9 @@ async function tidy(root, keepKey, now = Date.now()) {
       }
     } catch (e) { failed(e); }
   }
-  if (!sure) return;
-  const pool = path.join(root, POOL);
-  const files = await fs.promises.readdir(pool).catch(() => []);
-  for (const f of files) {
-    if (!used.has(f.replace(/\.snd$/, ''))) await fs.promises.rm(path.join(pool, f), { force: true });
-  }
+  if (sure) await prunePool(path.join(root, POOL), used);
 }
-// for fileio.loadProject(bytes, { pool }): a blob by hash
+// for fileio.loadProject(bytes, { pool }): a blob by hash (a backup root, or the autosave's folder)
 const poolReader = (root) => (hash) => {
   try { return fs.readFileSync(path.join(root, POOL, hash + '.snd')); } catch {
     throw new Error('백업의 소리 파일이 없어요');
@@ -112,4 +126,4 @@ async function list(root) {
   return out.sort((a, b) => b.time - a.time);
 }
 
-module.exports = { KEEP, DAYS, write, tidy, list, poolReader };
+module.exports = { KEEP, DAYS, write, writeAutosave, tidy, list, poolReader };

@@ -28,7 +28,8 @@ The AI command line (`src/cli`) adds no package: argument parsing, the pipe (`ne
 ## Files
 ```
 main.js                 Electron main: window, single instance, dialogs + user-data path (IPC), close guard,
-                        removes the autosave on a normal close; --smoke: temp userData + fake mic + own live pipe;
+                        removes the autosave and its sound folder on a normal close; --smoke: temp userData + fake
+                        mic + own live pipe;
                         sori live pipe -> window; --cli=<dir>: hidden window for one CLI job (no lock, temp userData);
                         a .vproj argument (double-click): `start-file` (asked once after crash recovery) or
                         `open-path` to the running window (second-instance) -> openProject
@@ -430,16 +431,24 @@ redo stack. A timeline or marker drag ends when the state changes under it (drag
 (newTake, ★ when the line has none).
 
 ## Autosave + recovery (commands/files.js, main.js)
-Every `autosaveMin` minutes, if the project is dirty and not recording: `userData/autosave.vproj` (full
-project) + `autosave.json` (`{ filePath, time }`), both written atomically (temp file + rename).
-A normal close (saved, or 저장하지 않고 닫기), New and Open remove them. At startup, if they exist, the user
-picks 복구 / 지우기; a recovered project stays dirty and keeps its original file path for Ctrl+S.
+Every `autosaveMin` minutes, if the project is dirty and not recording: `userData/autosave.vproj` (the
+project without its sound, `fileio.saveThin`) + `autosave.json` (`{ filePath, time }`), both written atomically
+(temp file + rename). The sound goes to `userData/autosave/pool/<sha1>.snd` (`backup.writeAutosave`, the same pool
+code as the backups but its own folder, so a backup tidy never removes what a recovery needs): a sound already there
+is not written again, sound the project no longer has goes after the new file is written, so a crash at any point
+leaves a file with all its sound. A 188 MB project: 0.65 MB and about 10 ms a time instead of 188 MB and 0.27 s
+(and no 188 MB buffer in memory). Recovery reads the pool (`backup.poolReader`); an older whole autosave still
+opens. A normal close (saved, or 저장하지 않고 닫기), New and Open remove the file and meta; the pool stays while the
+app runs (the next autosave writes only new takes) and a normal close empties it (main.js `dropAutosave`). At
+startup, if they exist, the user picks 복구 / 지우기; a recovered project stays dirty and keeps its original file
+path for Ctrl+S.
 `requestSingleInstanceLock` keeps a second window from overwriting the autosave.
 Audit 2026-11-08: one autosave at a time; after it writes, if the project is no longer dirty the files are removed
 again. While the recovery question or load runs the page sends `recovery` true (IPC) and main keeps the autosave on
 close; a second-instance path waits in `startFile` until the page asks 'start-file'. A recovery file that will not
-load is renamed to `userData/autosave-broken-<ms>.vproj`. Save: a change counter (state.listeners, while dirty) around
-the write; clean only if nothing changed and not recording; Ctrl+S while recording saves without the take being
+load is renamed to `userData/autosave-broken-<ms>.vproj` (its pool to `autosave-broken-<ms>/`). Save:
+`state.edits` (counted by `setDirty(true)` and the mixer's live changes, not by redraws or selection) around the
+write; clean only if no edit came meanwhile and not recording; Ctrl+S while recording saves without the take being
 recorded (`history.hide`) and stays dirty. Autosave/backup failures: `writeFailed`/`writeOk` (files.js) toast once per
 streak with the cause (ENOSPC, EBUSY/EPERM/EACCES, other). app.js frame() re-arms in finally. Smoke deletes its
 temp userData on exit.

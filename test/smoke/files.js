@@ -8,7 +8,7 @@ const S = require('../../src/core/settings');
 const engine = require('../../src/audio/engine');
 const BF = require('../../src/audio/buffers');
 const PK = require('../../src/core/parked');
-const { state, history } = require('../../src/core/state');
+const { state, history, changed } = require('../../src/core/state');
 const { dir, stub, wait, invokeOrig, assert, sr, T, end, sel, painted, realAsk, stubAsk } = require('./kit');
 
 // answers the app's own question window with one of its buttons, after checking them
@@ -27,8 +27,18 @@ module.exports = [
     assert(state.dirty && await C.autosave(), 'autosave wrote');
     const ud = await invokeOrig('user-data');
     assert(fs.existsSync(path.join(ud, 'autosave.vproj')), 'no file');
+    // the file holds no sound; each take's sound is in the autosave folder once, not written again next time
+    const pool = path.join(ud, 'autosave', 'pool'), snd = fs.readdirSync(pool), before = T()[0].clips[0].src.ch[0];
+    const sound = snd.reduce((n, f) => n + fs.statSync(path.join(pool, f)).size, 0);
+    assert(snd.length > 0 && fs.statSync(path.join(ud, 'autosave.vproj')).size < sound / 10, 'sound in the file');
+    const when = snd.map((f) => fs.statSync(path.join(pool, f)).mtimeMs);
+    await C.autosave();
+    assert(snd.every((f, k) => fs.statSync(path.join(pool, f)).mtimeMs === when[k]), 'sound written again');
     assert(await C.recoverAutosave(), 'not recovered');
-    assert(end() === len && state.dirty, 'recovered project');
+    const back = T()[0].clips[0].src.ch[0];
+    const same = back.length === before.length && back.every((x, k) => Math.abs(x - before[k]) < 1e-6);
+    assert(end() === len && state.dirty && same,
+      'recovered project');
     await C.clearAutosave(); assert(!fs.existsSync(path.join(ud, 'autosave.vproj')), 'not cleared');
   }],
   ['save + reopen (a double-clicked .vproj) keeps tempo, markers, effects; adds to recent', async () => {
@@ -47,6 +57,21 @@ module.exports = [
     assert(q.bpm === 100 && q.beats === 3 && q.markers.length === 1 && T()[0].fx.eq.low === 4 && q.master.gainDb === -2,
       'v2 fields');
     C.setTempo(120, 4); C.setFx(T()[0].id, 'eq', { on: false }); C.setFx('master', 'gain', { gainDb: 0 });
+  }],
+  ['a save leaves the project saved after a click during the write, unsaved after an edit during it', async () => {
+    const p = path.join(dir, 'p.vproj');
+    const mark = (sec) => {
+      state.sel.range = null; state.sel.playhead = Math.round(sec * sr);
+      return C.run('addMarker');
+    };
+    await mark(0.3); assert(state.dirty, 'an edit');
+    let w = C.writeProject(p);
+    sel(0, 0.2); changed(); // a click while the file is written: not an edit
+    assert(await w && !state.dirty, 'a selection during the save kept the project unsaved');
+    w = C.writeProject(p);
+    await mark(0.7); // an edit while the file is written: not in the file
+    assert(await w && state.dirty, 'an edit made during the save was taken as saved');
+    await C.run('undo'); await C.run('undo');
   }],
   ['one copy of a take: playback uses its own arrays, also after its samples were let go and an undo', async () => {
     const s = T()[0].clips[0].src, ctx = engine.context(), id = T()[0].id;

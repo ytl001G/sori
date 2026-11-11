@@ -16,7 +16,7 @@ const state = {
   // scriptView: line list filter (script mode) — character tab ('' = all), only unrecorded
   ui: { mixer: false, fxPanel: false, fxTarget: 'master', scriptView: { char: '', todo: false } },
   playing: false, loop: false, recording: false,
-  filePath: null, dirty: false, clipboard: null, noiseProfile: null,
+  filePath: null, dirty: false, edits: 0, clipboard: null, noiseProfile: null,
   // 자동 백업 (ui/commands/backup.js): a change since the last backup; saveHint: where 저장 suggests for an opened backup
   backupDue: false, saveHint: null,
   listeners: new Set(),
@@ -147,14 +147,18 @@ const history = {
 
 // main asks before the window closes while this is true: unsaved changes, or a long recording that lives only in
 // memory (state.holding: 이어 녹음 and its 나누기 window, spec §5-5)
+// state.edits counts the changes that made the project unsaved: a save compares it before and after the write, so
+// only an edit made meanwhile keeps the project unsaved (a click, a selection or a redraw does not)
 function setDirty(v) {
   state.dirty = v;
-  if (v) state.backupDue = true;
-  const { ipcRenderer } = require('electron'); // undefined under plain Node (tests)
-  if (ipcRenderer) ipcRenderer.send('set-dirty', v || !!state.holding);
-  changed();
+  if (v) { state.backupDue = true; state.edits++; }
+  tellMain(); changed();
 }
-function setHolding(v) { state.holding = v; setDirty(state.dirty); }
+function setHolding(v) { state.holding = v; tellMain(); changed(); }
+function tellMain() {
+  const { ipcRenderer } = require('electron'); // undefined under plain Node (tests)
+  if (ipcRenderer) ipcRenderer.send('set-dirty', state.dirty || !!state.holding);
+}
 
 // views subscribe; app batches redraw
 function changed() { for (const f of state.listeners) f(); }

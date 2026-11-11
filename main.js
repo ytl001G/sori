@@ -45,11 +45,13 @@ app.on('second-instance', (_e, argv, cwd) => {
 });
 ipcMain.handle('start-file', () => { const f = startFile; startFile = null; startAsked = true; return f; });
 
-// autosave files are only for crash recovery: a normal close removes them
+// autosave files are only for crash recovery: a normal close removes them, and the folder holding their sound
 const dropAutosave = () => {
+  const fs = require('fs'), dir = app.getPath('userData');
   for (const f of ['autosave.vproj', 'autosave.json']) {
-    try { require('fs').unlinkSync(path.join(app.getPath('userData'), f)); } catch { /* none */ }
+    try { fs.unlinkSync(path.join(dir, f)); } catch { /* none */ }
   }
+  try { fs.rmSync(path.join(dir, 'autosave'), { recursive: true, force: true }); } catch { /* kept */ }
 };
 
 function createWindow() {

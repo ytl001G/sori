@@ -32,6 +32,22 @@ t('backup: newest 10 per project, named by local time; each sound stored once in
   assert(back.tracks[1].clips[0].src.ch[0].length === 4800, 'opens with its sound from the pool');
   assert(all.some((b) => b.path === null && b.name === '새 프로젝트'), 'the unsaved group');
 });
+t('autosave: the file without sound, each sound once in its folder; sound no longer used goes', async () => {
+  const dir = path.join(cliDir, 'autosave'), file = path.join(cliDir, 'autosave.vproj'), snd = path.join(dir, 'pool');
+  await BK.writeAutosave(file, dir, IO.saveThin(proj(take)));
+  const [a] = ls(snd);
+  fs.utimesSync(path.join(snd, a), 1000, 1000); // marks it: a rewrite would change the time
+  await BK.writeAutosave(file, dir, IO.saveThin(proj(take, take2)));
+  assert.strictEqual(ls(snd).length, 2, 'a new take adds one');
+  assert.strictEqual(fs.statSync(path.join(snd, a)).mtimeMs, 1000000, 'the sound already there was written again');
+  await BK.writeAutosave(file, dir, IO.saveThin(proj(take2)));
+  assert(ls(snd).length === 1 && !ls(snd).includes(a), 'the take no longer in it stayed');
+  const back = IO.loadProject(fs.readFileSync(file), { pool: BK.poolReader(dir) });
+  const ch = back.tracks[0].clips[0].src.ch[0]; // 24-bit packed: within 1e-6
+  assert(fs.statSync(file).size < 4800 && ch.every((x, k) => Math.abs(x - take2.ch[0][k]) < 1e-6),
+    'opens with its sound from the folder');
+});
+
 t('backup: tidy drops groups idle over 30 days (not the open one) and pool files nobody uses', async () => {
   const old = (Date.now() - 40 * 864e5) / 1000, gone = { key: 'file:c:/a/옛날.vproj', path: 'C:/a/옛날.vproj', name: '옛날' };
   const solo = E.makeSource([sine(4800, 550, sr)]);
