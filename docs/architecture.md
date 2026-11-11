@@ -365,7 +365,9 @@ master chain: eq -> comp -> reverb -> echo -> gain (gainDb) -> limiter -> [maste
 - Meters (`sori-meter`, live only): pass-through, post [peakL, peakR] every 8 quanta (~21 ms);
   a peak ≥ 1.0 latches the clip indicator until clicked. Input meter uses the same node.
 - Metronome + count-in: short oscillator clicks straight to `destination` (never exported). A 25 ms
-  timer schedules clicks 150 ms ahead on the project beat grid. Count-in delays `t0` by
+  timer schedules clicks 150 ms ahead on the project beat grid. The count-in is scheduled whole at the start, so the
+  clicks not over yet are kept (`p.clicks`) and `MET.silence` stops them: on `stop()` and at once on
+  `stopRecording()` (before its flush), which also ends the pump (`p.metro = null`). Count-in delays `t0` by
   `countIn bars × beats × 60 / bpm`.
 - AudioBuffers are cached per Source in a Map pruned to the current project's Sources on every
   play/mixdown, so history never keeps a second copy of old takes alive. One copy of the samples, not two: a new

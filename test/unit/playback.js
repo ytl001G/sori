@@ -37,3 +37,23 @@ t('a loop too short to keep up is scheduled at most 20 passes a call, late passe
   assert.deepStrictEqual([P.due(slow, 0.95, sr).length, P.due(slow, 0.95, sr).length, P.due(slow, 1.6, sr).length],
     [1, 0, 1]);
 });
+
+t('stopping silences the count-in clicks still to come, and no new ones are scheduled', () => {
+  const MET = require('../../src/audio/metro');
+  const made = [], node = () => ({ connect: (x) => x, disconnect() { this.off = true; } });
+  const ramp = { setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} };
+  const osc = () => {
+    const o = { ...node(), frequency: {}, start() {}, stop() { o.stops = (o.stops || 0) + 1; } };
+    made.push(o);
+    return o;
+  };
+  const ctx = { currentTime: 0, sampleRate: 100, destination: {}, createOscillator: osc,
+    createGain: () => ({ ...node(), gain: ramp }) };
+  const p = { t0: 2, from: 0, loop: null };
+  MET.start(ctx, p, { on: true, bpm: 120, beats: 4, volume: 1 }, 2); // 4 clicks before t0
+  assert.strictEqual(p.clicks.length, 4, 'the count-in is scheduled whole');
+  MET.silence(p);
+  assert(made.every((o) => o.stops === 2) && p.clicks.length === 0 && p.metro === null, 'all stopped now');
+  MET.pump(ctx, p);
+  assert.strictEqual(made.length, 4, 'nothing new after stopping');
+});

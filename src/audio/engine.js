@@ -152,6 +152,7 @@ function stop() {
     if (n.meter) { n.meter.disconnect(); CH.stopNode(n.meter); }
   }
   play_.graph.mchain.dispose();
+  MET.silence(play_);
   play_ = null;
   M.clearLevels();
 }
@@ -272,6 +273,7 @@ async function startRecording({ deviceId = '', channels = 1 } = {}) {
 async function stopRecording() {
   if (!rec) return null;
   const r = rec; rec = null;
+  if (play_) MET.silence(play_); // the count-in / metronome stops now, not after the flush
   const lead = leadSec(r);
   await new Promise((res) => { r.flushed = res; r.node.port.postMessage('flush'); setTimeout(res, 500); });
   r.src.disconnect(); r.node.disconnect(); r.sink.disconnect();

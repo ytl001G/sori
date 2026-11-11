@@ -2,7 +2,8 @@
 // wherever playback is (each loop pass starts on its own project time, core/passes.js).
 const { passAt, passEnd } = require('../core/passes');
 
-function click(ctx, t, accent, vol) {
+// p.clicks: the clicks scheduled and not over yet, so stopping silences them at once (a count-in is scheduled whole)
+function click(ctx, p, t, accent, vol) {
   const o = ctx.createOscillator(), g = ctx.createGain();
   o.frequency.value = accent ? 1600 : 1000;
   g.gain.setValueAtTime(0, t);
@@ -10,6 +11,17 @@ function click(ctx, t, accent, vol) {
   g.gain.exponentialRampToValueAtTime(0.0005, t + 0.05);
   o.connect(g).connect(ctx.destination);
   o.start(t); o.stop(t + 0.06);
+  p.clicks = (p.clicks || []).filter((c) => c.t + 0.06 > ctx.currentTime);
+  p.clicks.push({ t, o, g });
+}
+// playback or recording stops: the clicks still to come never sound, and no new ones are scheduled
+function silence(p) {
+  for (const c of p.clicks || []) {
+    try { c.o.stop(); } catch { /* already stopped */ }
+    c.g.disconnect();
+  }
+  p.clicks = [];
+  p.metro = null;
 }
 
 // p: the playback (core/passes.js fields); metro: { on, bpm, beats, volume 0..1 }; countIn: seconds before p.t0.
@@ -19,7 +31,7 @@ function start(ctx, p, metro, countIn) {
   const bar = (n) => ((n % metro.beats) + metro.beats) % metro.beats === 0;
   const n0 = Math.round(countIn / beat), nf = metro.on ? Math.ceil((p.t0 - base) / beat - 1e-6) : n0;
   const lead = metro.on ? base + nf * beat : p.t0;
-  for (let j = 0; j < n0; j++) click(ctx, lead - (n0 - j) * beat, bar(nf - n0 + j), metro.volume);
+  for (let j = 0; j < n0; j++) click(ctx, p, lead - (n0 - j) * beat, bar(nf - n0 + j), metro.volume);
   Object.assign(p, { metro, next: p.t0, beatPass: 0 });
 }
 // every 25 ms: clicks up to 0.15 s ahead. Reads p.metro each time so toggles and tempo changes apply without a restart
@@ -31,10 +43,10 @@ function pump(ctx, p) {
   for (let k = p.beatPass, s; (s = passAt(p, k, sr)) && s.at < hi; k++) {
     const base = s.at - s.from / sr, end = Math.min(hi, passEnd(s, sr));
     for (let n = Math.ceil((Math.max(lo, s.at) - base) / b - 1e-6), t; (t = base + n * b) < end; n++) {
-      click(ctx, t, n % m.beats === 0, m.volume);
+      click(ctx, p, t, n % m.beats === 0, m.volume);
       p.next = t + 1e-3;
     }
   }
 }
 
-module.exports = { start, pump };
+module.exports = { start, pump, silence };
