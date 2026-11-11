@@ -9,7 +9,7 @@ const { safeName } = require('../core/fileio');
 const { describe } = require('../core/summary');
 const { state, makeTrack, newProjectData, sortByName } = require('../core/state');
 const {
-  fail, frames, secs, byId, setClips, track, span, where, trackInfo, name, hexColor,
+  fail, frames, secs, byId, setClips, track, clipOf, span, where, trackInfo, name, hexColor,
   checkOverwrite, decodeFiles, baseName, writeAll, uniquePaths,
 } = require('./project');
 const R = require('./recipes');
@@ -89,8 +89,8 @@ function setTempo(c) {
   return { bpm: p.bpm, beats: p.beats, grid: p.grid };
 }
 
-// [[from, to, file]]: one file, or one per marker segment into a folder
-function exportPlan(c, end) {
+// [[from, to, file]]: one file, or one per marker segment into a folder; part = [a, b) instead of --from/--to
+function exportPlan(c, end, part) {
   const out = c.a.out;
   if (c.o.markers) {
     if (c.o.from !== undefined || c.o.to !== undefined) {
@@ -110,13 +110,24 @@ function exportPlan(c, end) {
   if (R.extOf(fmt) !== ext) fail('BAD_ARG', `--format ${fmt} does not match ${ext}`);
   // one file goes into a folder that is there (--markers makes its folder)
   if (!fs.existsSync(path.dirname(out))) fail('WRITE_FAILED', `${path.dirname(out)} does not exist`);
-  return { fmt, files: [[...span(c, end), out]] };
+  return { fmt, files: [[...(part || span(c, end)), out]] };
+}
+// --clip K (with --track N): that clip alone from its start to its end, as its track sounds (이 클립만 내보내기)
+function clipPart(c) {
+  if (c.o.clip === undefined) return null;
+  if (!c.o.track) fail('BAD_ARG', '--clip needs --track N (the clip numbers of sori info)');
+  if (c.o.from !== undefined || c.o.to !== undefined || c.o.markers) {
+    fail('BAD_ARG', '--clip exports that clip from its start to its end; leave out --from/--to/--markers');
+  }
+  const x = clipOf(track(c, c.o.track), c.o.track, c.o.clip);
+  return { x, part: [x.start, E.clipEnd(x)] };
 }
 async function exportMix(c) {
-  const only = c.o.track && track(c, c.o.track), tracks = only ? [{ ...only, mute: false, solo: false }] : c.p.tracks;
+  const one = clipPart(c), only = c.o.track && track(c, c.o.track);
+  const tracks = only ? [{ ...only, mute: false, solo: false, ...(one && { clips: [one.x] }) }] : c.p.tracks;
   const end = E.projectEnd(tracks), sr = c.p.sampleRate;
   if (!end) fail('NOTHING_TO_EXPORT', only ? `track ${c.o.track} has no sound` : 'the project has no sound');
-  const { fmt, files } = exportPlan(c, end);
+  const { fmt, files } = exportPlan(c, end, one && one.part);
   const paths = uniquePaths(files.map((x) => x[2]));
   checkOverwrite(c, paths);
   const written = [];
@@ -216,11 +227,12 @@ const VERBS = [
     flags: { bpm: 'num', beats: 'int', grid: ['time', 'beats'] } },
 
   { name: 'export', usage: `export <project> <out.wav|out.mp3|folder> [--format ${R.FORMATS.join('|')}] `
-      + '[--from SEC] [--to SEC] [--track N] [--markers] [--overwrite]',
+      + '[--from SEC] [--to SEC] [--track N [--clip K]] [--markers] [--overwrite]',
     about: 'render like 내보내기: all tracks mixed (or only track N, as solo plays it), whole / range / one file per '
-      + 'marker segment into a folder. An existing file is refused (EXISTS) unless --overwrite, as the app asks first',
+      + 'marker segment into a folder; --clip K: only that clip of track N, from its start to its end (이 클립만 '
+      + '내보내기). An existing file is refused (EXISTS) unless --overwrite, as the app asks first',
     audio: true, use: 'script export', args: ['project', 'out'], run: exportMix,
-    flags: { format: R.FORMATS, from: SEC, to: SEC, track: IDX, markers: 'bool', overwrite: 'bool' } },
+    flags: { format: R.FORMATS, from: SEC, to: SEC, track: IDX, clip: IDX, markers: 'bool', overwrite: 'bool' } },
 ];
 
 module.exports = { VERBS };

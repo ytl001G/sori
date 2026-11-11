@@ -100,6 +100,26 @@ module.exports = [
     assert(m.length > 20000 && m[0] === 0xff && (m[1] & 0xe0) === 0xe0, 'mp3 from the encoding worker: size, sync');
     assert(require('../../src/core/workers').WORKERS >= 1 && typeof Worker === 'function', 'workers in the renderer');
   }],
+  ['이 클립만 내보내기: one selected clip alone, from its start to its end; in the right-click menu', async () => {
+    const M = require('../../src/ui/menus'), x0 = T()[0].clips[0];
+    state.sel.range = null; state.sel.clipIds = new Set([x0.id]); state.sel.playhead = x0.start + Math.round(sr * 0.3);
+    await C.run('split');
+    const [a, x] = T()[0].clips;
+    state.sel.clipIds = new Set([x.id]);
+    M.openContext(10, 10); await painted();
+    const rows = [...document.querySelectorAll('.menu > *')].map((r) => r.textContent).join();
+    M.close();
+    assert(rows.includes('이 클립만 내보내기…') && C.cmds.exportClip.enabled(), 'right-click menu ' + rows);
+    stub.save = path.join(dir, 'clip.wav'); stub.modal = { format: 'wav16' };
+    await C.run('exportClip'); stub.modal = {};
+    const frames = () => (fs.statSync(stub.save).size - 44) / 4, n = frames();
+    state.sel.clipIds = new Set([a.id]); stub.save = path.join(dir, 'clip0.wav'); stub.modal = { format: 'wav16' };
+    await C.run('exportClip'); stub.modal = {};
+    // each file is its clip alone: the same effect tail after each
+    assert(n - x.length === frames() - a.length && frames() - a.length >= 0, `clip frames ${n} ${frames()}`);
+    state.sel.clipIds = new Set(); assert(!C.cmds.exportClip.enabled(), 'greyed without one clip');
+    await C.run('undo'); assert(T()[0].clips[0] === x0, 'undo the split');
+  }],
   ['export only the current track: muted track still exports, empty track refuses', async () => {
     await C.run('addTrack'); const empty = T().find((t) => t.id === state.sel.activeTrackId), t0 = T()[0];
     C.mixer(t0.id, { mute: true }); state.sel.range = null; state.sel.activeTrackId = t0.id;

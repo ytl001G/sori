@@ -86,7 +86,7 @@ and they read the saved file: unsaved changes in the open app are not in it (`li
 | `range insert <p> --at S --length S [--track N,M]` | insert silence, push later audio right |
 | `marker add <p> --at S [--name T]` / `marker remove <p> --marker N` / `marker set <p> --marker N [--name T] [--at S]` | markers |
 | `tempo <p> [--bpm 20..300] [--beats 1..12] [--grid time\|beats]` | tempo, beats per bar, beat grid |
-| `export <p> <out.wav\|out.mp3\|folder> [--format F] [--from S] [--to S] [--track N] [--markers] [--overwrite]` | render as the app does (see below). Existing files are refused (`EXISTS`, the app asks first) unless `--overwrite` |
+| `export <p> <out.wav\|out.mp3\|folder> [--format F] [--from S] [--to S] [--track N [--clip K]] [--markers] [--overwrite]` | render as the app does (see below). `--clip K`: only clip K of track N, from its start to its end (이 클립만 내보내기); not with `--from` / `--to` / `--markers`. Existing files are refused (`EXISTS`, the app asks first) unless `--overwrite` |
 
 `apply` effects (names = the app's menu commands) and their fields; a field left out takes the dialog's default:
 `fxGain --db` (-24..24, default 3) · `fxNormalize --db` (-12..0, -1) · `fxFadeIn` · `fxFadeOut` · `fxSilence` · `fxReverse` ·
@@ -187,7 +187,7 @@ The script commands do the rest of the app's script-mode work with the same rule
 | `script star <p> --line NAME --take N` | ★ that take; picking ★ (even the same one) clears `redo` |
 | `script fx <p> --char NAME <eq\|comp\|reverb\|echo> [--preset NAME] [--on\|--off] [--FIELD V ...]` | the character's effects (all its lines and takes), same rule as `fx` |
 | `script color <p> --char NAME --color RRGGBB` | the character's color: all its lines and takes (any hex code, `#` optional, 6 digits, stored upper case; CLI only, like `track set --color`) |
-| `script export <p> <folder> [--format F] [--char NAME[,NAME…] \| --line NAME] [--overwrite]` | like 대사별 내보내기: the ★ take of every line (or the characters given, `--char 철수,영희`, or one line) with the character + master effects. Every line and `--char`: a folder per character, `<folder>/철수/철수-001.wav` (the app makes `<folder>` itself, '녹음 대사 2026-11-09 17-40', in the folder picked; here `<folder>` is that folder); `--line`: `<folder>/철수-001.wav`. Lines without ★ are listed in `skipped`; `redo` lines with ★ are exported and listed in `redo`. Existing files are refused (`EXISTS`) unless `--overwrite` |
+| `script export <p> <folder> [--format F] [--char NAME[,NAME…] \| --line NAME [--take N\|NAME] [--clip K]] [--overwrite]` | like 대사별 내보내기: the ★ take of every line (or the characters given, `--char 철수,영희`, or one line) with the character + master effects. Every line and `--char`: a folder per character, `<folder>/철수/철수-001.wav` (the app makes `<folder>` itself, '녹음 대사 2026-11-09 17-40', in the folder picked; here `<folder>` is that folder); `--line`: `<folder>/철수-001.wav`; with `--take N` that take instead of the ★ (as `measure`), with `--clip K` only clip K of it (the ★ take's without `--take`), from its start to its end (이 클립만 내보내기; the reply's file has `clip`). Lines without ★ are listed in `skipped`; `redo` lines with ★ are exported and listed in `redo`. Existing files are refused (`EXISTS`) unless `--overwrite` |
 
 ```
 sori script import 대본.vproj 대본.xlsx

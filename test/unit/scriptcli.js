@@ -102,7 +102,7 @@ t('cli script: new text -> redo, export lists it, ★ again clears it; character
   await fails('BAD_ARG', 'script', 'color', S, '--char', '철수', '--color', 'F4B');
 });
 
-t('cli script: re-import (dry run, a gone line takes its take), export, unscript', async () => {
+t('cli script: re-import (dry run, a gone line takes its take), export', async () => {
   const fs = require('fs'), path = require('path');
   fs.writeFileSync(cp('대본2.txt'), '철수: 안녕하세요\n영희-005: 반가워\n영희: 새 대사\n');
   await run('script', 'take', 'add', S, '--line', '철수-002', 't.wav');
@@ -128,6 +128,23 @@ t('cli script: re-import (dry run, a gone line takes its take), export, unscript
   assert.deepStrictEqual(two.files.map((f) => rel(f.file)), ['철수/철수-001.wav', '영희/영희-005.wav']);
   await fails('NO_CHAR', 'script', 'export', S, '납품3', '--char', '철수,캐릭터Z');
   await fails('BAD_ARG', 'script', 'export', S, '납품3', '--char', ',');
+});
+
+t('cli script: export one take (not the ★) or one clip of it', async () => {
+  const path = require('path');
+  const rel = (f) => path.relative(cp('.'), f).split(path.sep).slice(-2).join('/');
+  // <folder>/철수-001.wav, like --line
+  await run('clip', 'split', S, ...L1, '--take', '4', '--at', '0.4');
+  const one = await run('script', 'export', S, '납품4', ...L1, '--take', '4', '--clip', '2');
+  assert.deepStrictEqual(one.files.map((f) => [rel(f.file), f.take, f.clip, f.seconds]),
+    [['납품4/철수-001.wav', '테이크 4', 2, 0.6]], 'one clip of a take');
+  await fails('NO_CLIP', 'script', 'export', S, '납품4', ...L1, '--take', '4', '--clip', '3');
+  await fails('BAD_ARG', 'script', 'export', S, '납품4', '--clip', '1');
+  await fails('NO_TAKE', 'script', 'export', S, '납품4', ...L1, '--take', '9');
+  await run('clip', 'merge', S, ...L1, '--take', '4');
+});
+
+t('cli script: unscript', async () => {
   const un = await run('script', 'unscript', S, '--dry-run');
   assert.deepStrictEqual(un.tracks, ['철수-001 테이크 1', '철수-001 테이크 4', '영희-005 테이크 1']);
   await run('script', 'unscript', S);

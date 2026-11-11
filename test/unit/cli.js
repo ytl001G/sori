@@ -108,6 +108,13 @@ t('cli: export (by markers, one track, overwrite), errors, a no-op round trip', 
   await fails('EXISTS', 'export', P, 'only.wav'); // the app asks before overwriting
   await run('export', P, 'only.wav', '--overwrite');
   await fails('BAD_ARG', 'export', P, 'x.mp3', '--format', 'wav16');
+  // --clip: that clip alone, from its start to its end
+  const c3 = (await info()).tracks[2].clips[0];
+  r = await run('export', P, 'clip.wav', '--track', '3', '--clip', '1');
+  assert.deepStrictEqual([r.files[0].frames, r.files[0].from], [c3.lengthFrames, c3.start], 'one clip');
+  await fails('BAD_ARG', 'export', P, 'clip.wav', '--clip', '1');
+  await fails('BAD_ARG', 'export', P, 'clip2.wav', '--track', '3', '--clip', '1', '--from', '0');
+  await fails('NO_CLIP', 'export', P, 'clip2.wav', '--track', '3', '--clip', '9');
   await run('marker', 'remove', P, '--marker', '1');
   const d = await info();
   assert.deepStrictEqual([d.markers.length, d.tracks.map((x) => x.name), d.bpm], [0, ['목소리', '배경음악', '내레이션'], 300]);

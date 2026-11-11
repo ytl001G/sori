@@ -87,26 +87,42 @@ function setCharFx(c) {
   return { char: c.o.char, kind, fx: { ...next, preset: P.matchPreset(kind, next) } };
 }
 
+// what script export renders: [{ l, t (the take as heard), a, b }]. The ★ take of each line (every line or --char);
+// --line: its ★ take, or --take N instead (as measure), and --clip K only that clip from its start to its end
+function exportJobs(c) {
+  const view = (l, t) => ({ ...SC.takeView(t, c.p.script.chars[l.char]), mute: false, solo: false });
+  const whole = (l, t) => { const v = view(l, t); return { l, t: v, a: 0, b: E.projectEnd([v]) }; };
+  if (c.o.line === undefined) {
+    if (c.o.take !== undefined || c.o.clip !== undefined) fail('BAD_ARG', '--take / --clip need --line NAME');
+    const { ready, skipped } = SC.exportPick(linesOf(c), c.o.char !== undefined ? { chars: charsOf(c) } : {});
+    return { jobs: ready.map((l) => whole(l, SC.starTake(l))), skipped };
+  }
+  const l = lineOf(c, c.o.line), t = c.o.take !== undefined ? takeOf(l, c.o.take) : SC.starTake(l);
+  if (!t) return { jobs: [], skipped: [l] };
+  if (!t.clips.length) fail('NOTHING_TO_EXPORT', `${SC.lineName(l)} ${t.name} has no sound`);
+  if (c.o.clip === undefined) return { jobs: [whole(l, t)], skipped: [] };
+  const x = t.clips[c.o.clip - 1];
+  if (!x) fail('NO_CLIP', `${SC.lineName(l)} ${t.name} has no clip ${c.o.clip}; it has ${t.clips.length}`);
+  return { jobs: [{ l, t: { ...view(l, t), clips: [x] }, a: x.start, b: E.clipEnd(x) }], skipped: [] };
+}
 // 대사별 내보내기: the ★ take of each chosen line through its character's and the master effects. Every line or
-// --char 철수,영희: a folder per character; --line: in <folder> itself
+// --char 철수,영희: a folder per character; --line: in <folder> itself (also one take or one clip of it)
 async function exportLines(c) {
   if (c.o.char !== undefined && c.o.line !== undefined) fail('BAD_ARG', 'give --char or --line, not both');
-  let range = {};
-  if (c.o.line !== undefined) range = { line: lineOf(c, c.o.line).id };
-  else if (c.o.char !== undefined) range = { chars: charsOf(c) };
-  const { ready, skipped } = SC.exportPick(linesOf(c), range), sr = c.p.sampleRate, fmt = c.o.format || 'wav16';
-  if (!ready.length) fail('NOTHING_TO_EXPORT', `no line there has a ★ take (${skipped.length} without)`);
-  const sub = (l) => (range.line ? [] : [safeName(l.char)]);
-  const paths = uniquePaths(ready.map((l) => path.join(c.a.out, ...sub(l), safeName(SC.lineName(l)) + R.extOf(fmt))));
+  const { jobs, skipped } = exportJobs(c), sr = c.p.sampleRate, fmt = c.o.format || 'wav16';
+  if (!jobs.length) fail('NOTHING_TO_EXPORT', `no line there has a ★ take (${skipped.length} without)`);
+  const sub = (l) => (c.o.line !== undefined ? [] : [safeName(l.char)]);
+  const file = ({ l }) => path.join(c.a.out, ...sub(l), safeName(SC.lineName(l)) + R.extOf(fmt));
+  const paths = uniquePaths(jobs.map(file));
   checkOverwrite(c, paths);
   const files = [];
   await writeAll(paths, async (i) => {
-    const l = ready[i], t = { ...SC.takeView(SC.starTake(l), c.p.script.chars[l.char]), mute: false, solo: false };
-    const ch = await c.audio.mixdown([t], c.p.master, 0, E.projectEnd([t]), sr);
-    files[i] = { line: SC.lineName(l), take: t.name, file: paths[i], seconds: secs(c, ch[0].length) };
+    const { l, t, a, b } = jobs[i], ch = await c.audio.mixdown([t], c.p.master, a, b, sr);
+    files[i] = { line: SC.lineName(l), take: t.name, ...(c.o.clip !== undefined && { clip: c.o.clip }),
+      file: paths[i], seconds: secs(c, ch[0].length) };
     return R.encode(fmt, ch, sr);
   }, R.jobsFor(fmt));
-  const redo = ready.filter((l) => l.state === 'redo').map(SC.lineName);
+  const redo = jobs.filter((j) => j.l.state === 'redo').map((j) => SC.lineName(j.l));
   return { format: fmt, sampleRate: sr, files, skipped: skipped.map(SC.lineName), redo };
 }
 
@@ -201,12 +217,13 @@ const VERBS = [
     } },
 
   { name: 'script export', usage: `script export <project> <folder> [--format ${R.FORMATS.join('|')}] `
-      + '[--char NAME[,NAME…] | --line NAME] [--overwrite]',
+      + '[--char NAME[,NAME…] | --line NAME [--take N|NAME] [--clip K]] [--overwrite]',
     script: true, audio: true, args: ['project', 'out'], run: exportLines,
-    flags: { format: R.FORMATS, char: 'str', line: 'str', overwrite: 'bool' },
+    flags: { format: R.FORMATS, char: 'str', line: 'str', take: 'str', clip: 'idx', overwrite: 'bool' },
     about: 'like 대사별 내보내기: the ★ take of each line (character + master effects) as '
       + '<folder>/캐릭터/캐릭터-번호.wav: every line, or the characters given (--char 철수,영희); --line NAME: that one line '
-      + 'as <folder>/캐릭터-번호.wav. An existing file is refused (EXISTS) unless --overwrite, as the '
+      + 'as <folder>/캐릭터-번호.wav, with --take N that take instead of the ★, with --clip K only that clip of it '
+      + 'from its start to its end (이 클립만 내보내기). An existing file is refused (EXISTS) unless --overwrite, as the '
       + 'app asks first. Lines without ★ are skipped (listed); redo lines with ★ are exported and listed in redo' },
 ];
 

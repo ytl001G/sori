@@ -28,8 +28,8 @@ const MENUS = {
 const SCRIPT_ONLY = new Set(['editLine', 'prevLine', 'nextLine', 'contRecord', 'splitFile']);
 // [data-list] buttons
 const LISTS = { addTrack: ['addTrack', 'dupTrack', '|', 'addVoiceTrack', 'addMusicTrack', 'addSfxTrack'] };
-const CONTEXT = ['cut', 'copy', 'paste', 'delete', '|', 'split', 'merge', 'duplicate', 'keep', 'clipProps', '|',
-  'fxFadeIn', 'fxFadeOut', 'fxSilence', '|', 'addMarker', 'selectAll'];
+const CONTEXT = ['cut', 'copy', 'paste', 'delete', '|', 'split', 'merge', 'duplicate', 'keep', 'clipProps',
+  'exportClip', '|', 'fxFadeIn', 'fxFadeOut', 'fxSilence', '|', 'addMarker', 'selectAll'];
 const MARKER_CONTEXT = ['markerRename', 'markerDelete'];
 
 const layer = () => document.getElementById('menu-layer');

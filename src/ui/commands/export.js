@@ -112,16 +112,20 @@ def('export', '내보내기…', async () => {
 async function exportMix(v, ext, only, tracks) {
   const r = state.sel.range, useSel = r && v.range === 'sel';
   const name = (state.filePath ? baseName(state.filePath) : '내보내기') + (only ? ' - ' + safeName(only.name) : '');
+  const [a, b] = useSel ? [r.a, r.b] : [0, E.projectEnd(tracks)];
+  return saveRender(v.format, ext, name, a, b, tracks);
+}
+// one file: the save window (name offered), then [a, b) of the tracks rendered and written
+async function saveRender(fmt, ext, name, a, b, tracks) {
   const out = await ipcRenderer.invoke('save-dialog', {
     title: '내보내기', defaultPath: name + ext,
     filters: [ext === '.mp3' ? { name: 'MP3', extensions: ['mp3'] } : { name: 'WAV', extensions: ['wav'] }],
   });
   if (out.canceled || !out.filePath) return;
-  const [a, b] = useSel ? [r.a, r.b] : [0, E.projectEnd(tracks)];
   try {
     clipped = false;
     const r = await D.busy('내보내는 중', async (step) => {
-      const data = await renderFile(v.format, a, b, tracks, (x) => step(x, 1, '소리 섞는 중'));
+      const data = await renderFile(fmt, a, b, tracks, (x) => step(x, 1, '소리 섞는 중'));
       await writeAtomic(out.filePath, data);
     });
     if (r === D.STOPPED) return D.toast('멈췄어요 — 바뀐 것 없어요');
@@ -130,6 +134,21 @@ async function exportMix(v, ext, only, tracks) {
     D.toast('내보내지 못했어요: ' + e.message, 'error');
   }
 }
+
+// 이 클립만 내보내기 (the clip's right-click menu): the one selected clip alone, from its start to its end, as its track
+// sounds (track or character effects, volume, pan) + the master, like 지금 트랙만. A take's clip is named after its line
+def('exportClip', '이 클립만 내보내기…', async () => {
+  const id = [...state.sel.clipIds][0], t = T().find((x) => x.clips.some((k) => k.id === id));
+  if (!t) return;
+  const x = t.clips.find((k) => k.id === id), fields = [{ key: 'format', label: '형식', value: S.get().exportFormat,
+    options: FORMATS }];
+  const note = '고른 클립 하나만, 트랙 효과 · 볼륨 · 팬 · 마스터 효과대로 파일로 만들어요.';
+  const v = await D.modal({ title: '이 클립만 내보내기', note, fields, okLabel: '내보내기' });
+  if (!v) return;
+  const name = curLine() ? SCR.lineName(curLine()) : safeName(x.name || t.name);
+  const only = { ...t, clips: [x], mute: false, solo: false };
+  return saveRender(v.format, v.format.startsWith('mp3') ? '.mp3' : '.wav', name, x.start, E.clipEnd(x), [only]);
+}, () => state.sel.clipIds.size === 1 && !state.recording);
 
 async function exportSegments(fmt, ext, segs, tracks) {
   const dir = await pickFolder('마커 구간 파일을 저장할 폴더');
