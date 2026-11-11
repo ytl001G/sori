@@ -163,11 +163,12 @@ function select(o) {
   return { ok: true, selection: snapshot().selection };
 }
 
-// `live find`: Ctrl+F from the command line (commands/find.js); it goes to the hit like the box does
+// `live find`: Ctrl+F from the command line (commands/find.js); it goes to the hit like the box does. Without
+// --next/--prev it is typing: while recording only the count (going to another line would stop the recording)
 async function find({ text, clips, markers, memo, dir }) {
   if (typeof text !== 'string' || !text.trim()) return bad('give the text to find');
-  const o = { clips: !!clips, markers: !!markers, memo: !!memo };
-  const r = await C.find(text, o, [1, -1].includes(dir) ? dir : 0);
+  const o = { clips: !!clips, markers: !!markers, memo: !!memo }, d = [1, -1].includes(dir) ? dir : 0;
+  const r = await C.find(text, o, d, d !== 0 || !state.recording);
   const hit = r.hit && { kind: r.hit.kind, name: r.hit.name };
   return { ok: true, count: r.count, at: r.at + 1 || null, hit, selection: snapshot().selection,
     ...(state.project.script && { line: SCR.lineName(C.curLine()) }) };

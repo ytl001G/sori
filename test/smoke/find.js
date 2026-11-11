@@ -80,8 +80,22 @@ module.exports = [
       + JSON.stringify(r));
     assert((await cli('live', 'find', ' ')).error === 'BAD_ARG', 'live find needs text');
   }, 'dev'],
-  ['Ctrl+F steps end: undo the 대본 넣기', async () => {
-    await C.run('undo');
+  ['Ctrl+F while recording: typing and live find only count; the recording goes on', async () => {
+    const name = () => SCR.lineName(C.curLine());
+    await C.goLine(SCR.linesNow(state.project).find((l) => SCR.lineName(l) === '철수-002').id);
+    await C.run('record'); await wait(300);
+    ctrlF(); await settle(); await type('산책');
+    assert(state.recording && name() === '철수-002' && count().textContent === '1개', 'typing: count only');
+    key(input(), { key: 'Escape', code: 'Escape' });
+    if (!require('./kit').packaged) {
+      const r = ok(await cli('live', 'find', '산책'), 'live find while recording');
+      assert(state.recording && r.line === '철수-002' && r.count === 1 && r.at === null, 'live find: count only '
+        + JSON.stringify(r));
+    }
+    await C.run('record'); assert(!state.recording, 'stopped');
+  }],
+  ['Ctrl+F steps end: undo back to before the 대본 넣기', async () => {
+    for (let i = 0; i < 4 && state.project.script; i++) await C.run('undo');
     assert(!state.project.script, 'undo the 대본 넣기');
   }],
 ];
