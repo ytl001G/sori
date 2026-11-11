@@ -9,9 +9,10 @@ let n = 0;
 const tmpOf = (file) => { dropStale(path.dirname(file)); return `${file}.${process.pid}.${++n}.tmp`; };
 // a write killed midway (a crash, power loss) leaves its temp <file>.<pid>.<n>.tmp, up to the file's full size: the
 // first write into a folder in a run removes those of processes no longer running (not this one's, nor a CLI's
-// still writing). Once per folder per run: the killed writes were earlier runs
+// still writing). Once per folder per run: the killed writes were earlier runs. Only temps of the files Sori writes
+// this way (a user's own `notes.2024.11.tmp` in the folder stays)
 const cleaned = new Set();
-const STALE = /\.(\d+)\.\d+\.tmp$/;
+const STALE = /\.(?:vproj|snd|json|wav|mp3|part)\.(\d+)\.\d+\.tmp$/i;
 const running = (pid) => {
   if (pid === process.pid) return true;
   try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } // EPERM: alive, not ours

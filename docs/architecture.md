@@ -59,7 +59,8 @@ src/core/  (plain Node, no DOM / AudioContext)
                         cleanTake = one range's pure work (voiceEdit's clean option runs it elsewhere)
   safewrite.js          every file write: own temp name + fsync + rename (retries a busy Windows rename), uniquePaths
                         The first write into a folder in a run removes temps <file>.<pid>.<n>.tmp of processes no
-                        longer running (a write killed midway leaves one, up to the file's size; 40 kills: 24 -> 0)
+                        longer running (a write killed midway leaves one, up to the file's size; 40 kills: 24 -> 0);
+                        only for the files Sori writes (.vproj .snd .json .wav .mp3 .part), never a user's own .tmp
   encoders.js           WAV / MP3 encoding (moved out of fileio.js, which re-exports it)
   fileio.js             .vproj v4 save (+ thin backups, idle prepack) / load (v1-v4, in steps), WAV/MP3 encode
   parked.js             필요할 때만 풀기: a Source with an exact packed blob decodes `ch` on use and lets it go off screen
