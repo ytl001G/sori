@@ -58,4 +58,18 @@ function bufferFor(c, src) {
   return b;
 }
 
-module.exports = { decode, bufferFor, prune, sweep, clear, setRate };
+// a recording's chunks (engine.stopRecording) as one array per channel, the first `skip` frames left out. Each chunk
+// goes as soon as it is copied: one copy of the take, not two (a 60 min mono take stopped at 1.38 GB, was 2.07 GB with
+// a join, then a cut)
+function join(chunks, channels, length, skip) {
+  const out = Array.from({ length: channels }, () => new Float32Array(length - skip));
+  for (let i = 0, o = -skip; i < chunks.length; i++) {
+    const c = chunks[i], n = c[0].length;
+    chunks[i] = null;
+    if (o + n > 0) out.forEach((d, k) => d.set(o < 0 ? c[k].subarray(-o) : c[k], Math.max(0, o)));
+    o += n;
+  }
+  return out;
+}
+
+module.exports = { decode, bufferFor, prune, sweep, clear, setRate, join };

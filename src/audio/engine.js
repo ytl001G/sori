@@ -233,8 +233,9 @@ async function startRecording({ deviceId = '', channels = 1 } = {}) {
   rec = r;
   return r;
 }
-// returns { ch, lead }: lead (leadSec) is cut; mic latency is the user setting latencyMs (자동 측정 in 설정)
-async function stopRecording() {
+// returns { ch, lead }: lead = leadSec. cut(lead) = frames to drop from the start (record.js: the lead + the mic
+// latency setting latencyMs, 자동 측정 in 설정); ch is then that much shorter, or null when nothing is left
+async function stopRecording(cut = () => 0) {
   if (!rec) return null;
   const r = rec; rec = null;
   if (play_) MET.silence(play_); // the count-in / metronome stops now, not after the flush
@@ -243,11 +244,9 @@ async function stopRecording() {
   r.src.disconnect(); r.node.disconnect(); r.sink.disconnect();
   r.stream.getTracks().forEach((t) => t.stop());
   M.dropLevel('input');
-  if (!r.length) return { ch: null, lead };
-  const out = Array.from({ length: r.channels }, () => new Float32Array(r.length));
-  let o = 0;
-  for (const c of r.chunks) { out.forEach((d, k) => d.set(c[k], o)); o += c[0].length; }
-  return { ch: out, lead, fellBack: r.fellBack };
+  const skip = Math.max(0, cut(lead));
+  if (r.length <= skip) return { ch: null, lead };
+  return { ch: BF.join(r.chunks, r.channels, r.length, skip), lead, fellBack: r.fellBack };
 }
 const recording = () => rec;
 // seconds captured before playback was audible (count-in, start gap, output latency, limiter lookahead); cut on stop

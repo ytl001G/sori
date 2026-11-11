@@ -49,9 +49,8 @@ function keepTake(at, ch, { trackId, start, lineId }, quiet) {
 async function stopRecording(quiet) {
   recBusy = true;
   let res;
-  try { res = (await engine.stopRecording()) || { ch: null, lead: 0 }; } finally { recBusy = false; }
-  const lead = recTrim(res.lead);
-  const ch = res.ch && res.ch[0].length > lead ? res.ch.map((c) => c.slice(lead)) : null;
+  try { res = (await engine.stopRecording(recTrim)) || { ch: null, lead: 0 }; } finally { recBusy = false; }
+  const lead = recTrim(res.lead), ch = res.ch; // cut while joined: no second copy
   engine.stop();
   state.recording = false; state.playing = false;
   const done = rec;

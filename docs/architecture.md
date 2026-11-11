@@ -407,7 +407,8 @@ sample over 1.0 adds the 0 dB warning to the success toast. Noise profile: only 
 `getUserMedia` (chosen device, mono/stereo; echoCancellation/noiseSuppression/autoGainControl off; a
 missing device falls back to the default and the user gets a toast) -> `sori-rec` worklet sends 4096-frame
 chunks with the exact `currentFrame` of its first sample (live ghost waveform + peaks). Stop flushes the
-rest and returns `{ ch, lead }`. The first `lead + latencyMs` seconds are cut so overdubs line up:
+rest and returns `{ ch, lead }`. The first `lead + latencyMs` seconds are cut so overdubs line up (cut while the
+chunks are joined, `buffers.join`, each chunk let go once copied: one copy of the take at stop, not two):
 `lead` = capture start → audible playback start (count-in, start gap, `outputLatency`), `latencyMs` =
 설정 > 녹음 지연 보정 (input latency, which Web Audio cannot see). 자동 측정 plays 4 clicks, finds them in
 the mic signal and takes the median offset minus `outputLatency` (needs speakers, fails → null).

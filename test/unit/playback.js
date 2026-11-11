@@ -57,3 +57,14 @@ t('stopping silences the count-in clicks still to come, and no new ones are sche
   MET.pump(ctx, p);
   assert.strictEqual(made.length, 4, 'nothing new after stopping');
 });
+
+t('a stopped recording: its chunks joined with the lead cut, at every place the cut can fall; chunks let go', () => {
+  const BF = require('../../src/audio/buffers');
+  const make = () => [0, 1, 2].map((j) => [0, 1].map((k) => Float32Array.from([0, 1, 2], (x) => k * 100 + j * 3 + x)));
+  for (const skip of [0, 1, 2, 3, 4, 8]) {
+    const chunks = make(), out = BF.join(chunks, 2, 9, skip);
+    const want = (k) => Array.from({ length: 9 - skip }, (_, i) => k * 100 + skip + i);
+    assert.deepStrictEqual(out.map((d) => Array.from(d)), [want(0), want(1)], 'skip ' + skip);
+    assert(chunks.every((c) => c === null), 'a chunk was kept');
+  }
+});
