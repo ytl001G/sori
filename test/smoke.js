@@ -7,7 +7,7 @@ const K = require('./smoke/kit');
 
 // SORI_PERF=<a copy of a .vproj>: only the speed steps (perf.js)
 const GROUPS = process.env.SORI_PERF ? ['perf']
-  : ['edit', 'fx', 'voice', 'panels', 'files', 'script', 'longrec', 'cli', 'cliscript', 'view', 'shots'];
+  : ['edit', 'fx', 'voice', 'panels', 'files', 'script', 'longrec', 'cli', 'cliscript', 'view', 'shots', 'layout'];
 
 async function run() {
   K.install();

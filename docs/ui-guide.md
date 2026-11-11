@@ -8,22 +8,17 @@ motion and Google Fonts link do not apply (desktop app, offline).
 Reference feel: FL Studio playlist (colored clip blocks with a name strip), Audacity editing model.
 
 ## Layout
-```
-┌ topbar 48px ──────────────────────────────────────────────────────────────────────────────────┐
-│ Sori │ 파일 편집 보기 효과 │ ⏮ ▶ ■ ● ⟲ 𝅘𝅥 │ 00:12.340 │ 120 BPM 4/4 ♫ ⧉ │   − + ↔ │ 믹서 효과 │ ⚙ ? ☾ │
-├ header col 224px ┬ ruler 28px (+ markers) ─────────────────────────────┬ effect panel 300px ──┤
-│ + 트랙            │ 0:00   ▼마커 1   0:05      0:10                     │ 효과 [마스터 ▾]   ✕ │
-├──────────────────┼───────────────────────────────────────────────────┤ note                 │
-│ ▌목소리 ≡ M S ✕   │ ┌clip name──────────┐                              │ ┌ 마스터 볼륨 ──────┐│
-│ 볼륨 ──●── -3.0dB │ │∿∿∿waveform∿∿∿∿∿│   lane (설정: 64/96/128px)    │ ├ ● EQ [프리셋 ▾] ─┤│
-│ 팬   ───●─  C     │ └──────────────────┘                              │ │  EQ curve 140px  ││
-├──────────────────┴───────────────────────────────────────────────────┤ │  sliders         ││
-│ horizontal scrollbar 12px                                             │ ├ ● 컴프레서 …      ┤│
-├ mixer (F9, resizable 120px–60% height, default 220px) ───────────────┤ └──────────────────┘│
-│ [tone][효과][pan][fader|meter][dB][M S] [트랙 2] …            [마스터] │                      │
-└───────────────────────────────────────────────────────────────────────┴──────────────────────┘
- status 24px: hint (left) · 선택 a – b (n초) · 48000 Hz · 트랙 n개 · 길이 (right)
-```
+![The editor: areas outlined with their measured sizes](images/layout.png)
+![A script project: line list, line bar, take headers](images/layout-script.png)
+
+The pictures are the real app with made-up data; each box and size is measured in the run that took it
+(`SORI_SHOTS=<folder> npm run smoke`, steps in `test/smoke/layout.js`; copy `layout*.png` here after a layout change).
+What they do not show:
+- Top bar, left to right: Sori · menus · transport (처음 · 재생 · 정지 · 녹음 · 반복 · 메트로놈) · time · BPM, beats,
+  grid, snap · zoom − + ↔ · 믹서 · 효과 패널 · 설정 · 단축키 · 테마.
+- Lane height: 64 / 96 / 128px (설정). Mixer: 120px to 60% of the window, default 220px; a strip is color tab · 효과 ·
+  pan · fader + meter · dB · M S, the master strip on the right.
+- Status bar: hint (left) · 선택 a – b (n초) · 48000 Hz · 트랙 n개 · 길이 (right).
 Script mode (`body.script`): `#main` becomes `line list 288px | header col 224px | timeline`, with the line bar on top
 of the header col + timeline (the list runs the full height). Header top shows "테이크" instead of the add button.
 Body grid: rows topbar / main / hscroll / mixer / status; the effect panel is a right column from main
