@@ -1,4 +1,4 @@
-// The real sori command line (a child process): it refuses to edit a project the app has open, and sends live
+// The real sori command line (a child process): an edit of a project the app has open runs there, and live
 // requests over the pipe. Needs 단편.vproj from cli.js.
 const path = require('path');
 const { execFile } = require('child_process');
@@ -11,7 +11,7 @@ const cli = (...argv) => new Promise((res, rej) => execFile(process.execPath, [S
     try { res(JSON.parse(out)); } catch { rej(new Error(`sori ${argv.join(' ')}: ${err || e}`)); }
   }));
 
-t('cli: refuses to edit a project the app has open; live requests go over the pipe', async () => {
+t('cli: an edit of a project the app has open runs there (sori live); live requests go over the pipe', async () => {
   const pipe = require('../../src/cli/pipe');
   process.env.SORI_PIPE = 'sori-test-' + process.pid;
   const p = cp('단편.vproj'), got = [];
@@ -21,9 +21,10 @@ t('cli: refuses to edit a project the app has open; live requests go over the pi
     return { ok: true, app: { filePath: p, dirty: true } };
   });
   try {
-    let r = await cli('track', 'add', '단편.vproj');
-    assert.strictEqual(r.error, 'OPEN_IN_APP', JSON.stringify(r));
-    assert.match(r.message, /unsaved changes/);
+    let r = await cli('track', 'add', '--type', 'voice', '단편.vproj');
+    assert(r.ok && r.inApp && r.saved === false && /unsaved changes/.test(r.note), JSON.stringify(r));
+    assert.deepStrictEqual(got.at(-1), { op: 'verb', argv: ['track', 'add', '--type', 'voice'], cwd: cliDir },
+      'the same command, without the project file');
     r = await cli('info', '단편.vproj'); // reading is fine
     assert(r.ok);
     r = await cli('new', 'other.vproj');
@@ -38,4 +39,17 @@ t('cli: refuses to edit a project the app has open; live requests go over the pi
   } finally { srv.close(); }
   const r = await cli('live', 'state');
   assert.strictEqual(r.error, 'NO_APP', JSON.stringify(r));
+});
+t('cli: help for one command or a group, a guess at a mistyped one; "help" as a value is a value', async () => {
+  const text = (...argv) => new Promise((res) => execFile(process.execPath, [SORI, ...argv], { cwd: cliDir },
+    (e, out) => res(out)));
+  assert.match(await text('help', 'export'), /^sori export <project> .*\n {4}render like 내보내기/);
+  assert.match(await text('clip', 'move', '--help'), /^sori clip move <project> --track N\|NAME/);
+  const group = await text('help', 'marker');
+  assert(['marker add', 'marker remove', 'marker set'].every((n) => group.includes('sori ' + n)), group);
+  const r = await cli('help', 'expor');
+  assert(r.error === 'UNKNOWN_COMMAND' && /did you mean "export"/.test(r.message), JSON.stringify(r));
+  await cli('new', 'h.vproj');
+  const m = await cli('marker', 'add', 'h.vproj', '--at', '1:02', '--name', 'help');
+  assert(m.ok && m.marker.name === 'help' && m.marker.at === 62, JSON.stringify(m));
 });

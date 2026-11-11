@@ -54,12 +54,15 @@ module.exports = [
     assert(d.tracks.length === 1 && d.tracks[0].fx.eq.preset === '목소리 또렷하게' && d.master.fx.limiter.on &&
       d.tracks[0].clips.length === 1, 'info');
   }, 'dev'],
-  ['CLI live: state, file commands refused on the open project, commands, select + run, refusals', async () => {
+  ['CLI live: state, a file command on the open project runs in the app, commands, select + run, refusals', async () =>
+  {
     const live = await cli('live', 'state');
     assert(live.ok && live.app.filePath === state.filePath && live.project.tracks.length === T().length, 'state '
       + JSON.stringify(live.app));
-    const open = await cli('track', 'add', state.filePath);
-    assert(open.error === 'OPEN_IN_APP', 'open project not refused: ' + JSON.stringify(open));
+    const n = T().length, open = await cli('track', 'add', state.filePath);
+    assert(open.ok && open.inApp && !open.saved && T().length === n + 1, 'ran in the app: ' + JSON.stringify(open));
+    await C.run('undo');
+    assert(T().length === n, 'one undo step');
     const cs = await cli('live', 'commands');
     assert(cs.commands.some((c) => c.name === 'fxGain' && c.dialog) &&
       cs.commands.some((c) => c.name === 'split' && !c.dialog), 'commands');

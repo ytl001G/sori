@@ -591,8 +591,14 @@ follow the same rules as `ui/commands/`: new tracks right below `--track N` (end
   tracks against that object, not `state.project` (the live copy is not it). Waves come from a fixed table of what a
   verb touches (unknown = `all`), only reported for now: running a wave in parallel needs worker threads.
 - Open in the app: before any write, `sori.js` asks the running app (live pipe, `state`, 3 s) for its `filePath`.
-  The same file -> `OPEN_IN_APP`, dirty or not (the app does not watch files: its next save would overwrite the CLI
-  edit, or the CLI would drop unsaved work). No answer -> `APP_NOT_RESPONDING`. No app -> go ahead.
+  The same file, dirty or not -> the command goes to the app as `live <command>` without the project token
+  (`args.parse` reports each positional's index), reply + `inApp: true, saved: false` (the app does not watch
+  files: editing the file would race its next save). No answer -> `APP_NOT_RESPONDING`. No app -> go ahead.
+- Track names: flag types `trk` / `trks` (a number, or a name kept as text) for `--track` / `--to-track` of every
+  verb (verbs.js) and `live select`; `args.trackNo` turns a name into its number once the project is loaded
+  (`execute`, batch planning against the project before the batch, the app's select). Times: `sec` also reads
+  `m:ss` / `h:mm:ss`. Mistyped commands, options and fields: `args.near` (edit distance, about a third of the
+  letters). `sori help COMMAND`: usage + about + the `sori COMMAND` lines of docs/cli.md (shipped for this).
 
 **Live commands** (`pipe.js`, `main.js`, `src/ui/live/`). The CLI connects to the named pipe
 `\.\pipe\sori-live-<USERNAME>` (`SORI_PIPE` overrides; smoke uses `sori-smoke-<pid>`), writes one JSON request line

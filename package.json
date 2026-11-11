@@ -37,6 +37,7 @@
       "main.js",
       "package.json",
       "LICENSE",
+      "docs/cli.md",
       "THIRD_PARTY_NOTICES.md",
       "licenses/**",
       "src/**",

@@ -15,16 +15,34 @@ t('args: typed flags, --k=v, negative numbers, open fields, errors', () => {
   const err = (tokens, re) =>
     assert.throws(() => A.parse(tokens, spec), (e) => e.code === 'BAD_ARG' && re.test(e.message));
   err(['--nope', '1'], /unknown option --nope/);
-  err(['--at', '-1'], /seconds >= 0/);
+  err(['--at', '-1'], /a time: seconds \(83.5\) or m:ss/);
   err(['--track', '0'], /from 1/);
   err(['--type', 'drums'], /one of: voice, sfx/);
   err(['--at'], /needs a value/);
   err(['--at', '--master'], /needs a value/);
   err(['--master=1'], /takes no value/);
-  err(['--at', '86401'], /at most 86400/);
-  err(['--at', ' '], /needs a number/);
+  err(['--at', '86401'], /at most 24 h/);
+  err(['--at', ' '], /needs a time/);
   assert.strictEqual(A.parse(['--at', ' 86400 '], spec).o.at, 86400, 'trimmed, 24 h is allowed');
   assert.deepStrictEqual(A.parse(['--path', 'a', '--path', 'b'], { path: 'strs' }).o.path, ['a', 'b'], 'strs repeats');
+});
+t('args: times as m:ss / h:mm:ss, tracks by number or name, a guess at a mistyped option', () => {
+  const spec = { at: 'sec', track: 'trks', 'to-track': 'trk' }, o = (...tk) => ({ ...A.parse(tk, spec).o });
+  assert.deepStrictEqual(o('--at', '1:23.5'), { at: 83.5 });
+  assert.deepStrictEqual(o('--at', '1:02:03'), { at: 3723 });
+  assert.deepStrictEqual(o('--at', '90:00'), { at: 5400 }, 'minutes past 59 are fine without hours');
+  assert.throws(() => o('--at', '1:60'), /go up to 59/);
+  assert.throws(() => o('--at', '1:60:00'), /go up to 59/);
+  assert.deepStrictEqual(o('--track', '보컬1, 2', '--to-track', '기타'), { track: ['보컬1', 2], 'to-track': '기타' });
+  assert.throws(() => o('--trakc', '1'), /unknown option --trakc; did you mean --track\?/);
+  const ts = [{ name: '보컬1' }, { name: '기타' }, { name: '기타' }];
+  assert.strictEqual(A.trackNo(ts, '보컬1'), 1);
+  assert.strictEqual(A.trackNo(ts, 3), 3, 'a number passes as it is');
+  const two = /2 tracks are named "기타" \(2, 3\)/;
+  assert.throws(() => A.trackNo(ts, '기타'), (e) => e.code === 'BAD_ARG' && two.test(e.message));
+  assert.throws(() => A.trackNo(ts, '보컬2'), (e) => e.code === 'NO_TRACK' && /did you mean "보컬1"/.test(e.message));
+  assert.strictEqual(A.near('expor', ['export', 'info']), 'export');
+  assert.strictEqual(A.near('zzz', ['export', 'info']), null, 'nothing close: no guess');
 });
 t('args: fill clamps to field ranges, applies presets, checks options and names', () => {
   const P = require('../../src/core/fxparams');

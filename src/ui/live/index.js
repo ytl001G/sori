@@ -123,8 +123,8 @@ function readSelect(o, p) {
     }
     return Math.round(x * p.sampleRate);
   };
-  const tr = (n) => {
-    const t = Number.isInteger(n) && p.tracks[n - 1];
+  const tr = (ref) => { // a number or a track name (core/args trackNo)
+    const n = typeof ref === 'string' ? A.trackNo(p.tracks, ref) : ref, t = Number.isInteger(n) && p.tracks[n - 1];
     if (!t) throw new Error(`track ${n} does not exist; the project has ${p.tracks.length}`);
     return t;
   };

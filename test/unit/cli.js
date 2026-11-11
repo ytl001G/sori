@@ -52,7 +52,7 @@ t('cli: split, markers, ripple delete moves markers only when every track is cut
   // split at 0.5, marker at 0.75, delete 0.25-0.5 on every track: the marker follows to 0.5
   const r = await run('clip', 'split', P, '--at', '0.5');
   assert.deepStrictEqual(r.split, [1]);
-  await run('marker', 'add', P, '--at', '0.75');
+  await run('marker', 'add', P, '--at', '0:00.75'); // m:ss as the app shows times
   await fails('EXISTS', 'marker', 'add', P, '--at', '0.75');
   await run('range', 'delete', P, '--from', '0.25', '--to', '0.5');
   const d = await info();
@@ -91,6 +91,10 @@ t('cli: mixer values, track color, order, tempo', async () => {
   assert.strictEqual((await run('track', 'set', P, ...one, '--color', 'f472b6')).track.color, '#F472B6');
   assert.strictEqual((await run('track', 'set', P, ...one, '--color', '#123ABC')).track.color, '#123ABC');
   for (const bad of ['red', '#12345', '1234567', '']) await fails('BAD_ARG', 'track', 'set', P, ...one, '--color', bad);
+  // a track by its name, as sori info shows it (here track 1 is now 내레이션)
+  r = await run('track', 'set', P, '--track', '내레이션', '--volume', '-6');
+  assert.deepStrictEqual([r.track.index, r.track.name], [1, '내레이션']);
+  await fails('NO_TRACK', 'track', 'set', P, '--track', '내레이숀', '--volume', '-6');
   r = await run('track', 'move', P, ...one, '--to', '9');
   assert.strictEqual(r.track.index, 3);
   r = await run('tempo', P, '--bpm', '999', '--beats', '3', '--grid', 'beats');
@@ -119,7 +123,7 @@ t('cli: export (by markers, one track, overwrite), errors, a no-op round trip', 
   const d = await info();
   assert.deepStrictEqual([d.markers.length, d.tracks.map((x) => x.name), d.bpm], [0, ['목소리', '배경음악', '내레이션'], 300]);
   r = await fails('BAD_ARG', 'clip', 'move', P, '--track', '1');
-  assert.match(r.usage, /^sori clip move <project> --track N --clip K/);
+  assert.match(r.usage, /^sori clip move <project> --track N\|NAME --clip K/);
   await fails('UNKNOWN_COMMAND', 'track', 'paint', P);
   await fails('BAD_PROJECT', 'info', 'voice.wav');
   // load -> save keeps everything: a no-op round trip gives the same summary

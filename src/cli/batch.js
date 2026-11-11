@@ -6,6 +6,7 @@ const fs = require('fs');
 const V = require('./verbs');
 const SC = require('../core/script');
 const { fail } = require('./project');
+const { trackNo } = require('../core/args');
 
 const ALL = 'all';
 // shortcut: no export in a batch (files written cannot be taken back when a later line fails); run it after
@@ -52,13 +53,13 @@ function read(file) {
 
 // what one command changes or reads, as keys: 'line 철수-001', 'character 철수', 'track 2', 'master', 'markers',
 // 'tempo', or 'all' (also when unknown: safe, it only means waiting). effect: apply's effect
-function touches(name, o, charOf, effect) {
-  const keys = targets(name, o, charOf);
+function touches(name, o, charOf, effect, tracks) {
+  const keys = targets(name, o, charOf, tracks);
   // a length change (fxTempo, 긴 침묵 줄이기) moves the markers when it covers every track
   return name === 'apply' && MOVES.test(effect) && !keys.includes(ALL) ? [...keys, 'markers'] : keys;
 }
 const MOVES = /^(fxTempo|voiceGaps|voiceClean)$/;
-function targets(name, o, charOf) {
+function targets(name, o, charOf, tracks) {
   if (WHOLE.test(name) || o['all-lines']) return [ALL];
   const list = (x) => String(x).split(',').map((y) => y.trim()).filter(Boolean);
   if (o.line !== undefined) {
@@ -72,7 +73,10 @@ function targets(name, o, charOf) {
   if (o.master) return ['master'];
   if (name.startsWith('range ')) return [ALL]; // moves markers and later clips
   const ts = [o.track, o['to-track']].flat().filter((x) => x !== undefined);
-  return ts.length ? [...new Set(ts)].map((t) => `track ${t}`) : [ALL];
+  // a name -> its number in the project as it was before the batch; one an earlier line makes: all (safe)
+  const no = (t) => { try { return trackNo(tracks, t); } catch { return ALL; } };
+  const keys = ts.map(no);
+  return !keys.length || keys.includes(ALL) ? [ALL] : [...new Set(keys)].map((t) => `track ${t}`);
 }
 
 // two commands clash when they touch the same thing, a line of a character the other touches, or anything at all
@@ -109,7 +113,7 @@ function plan(file, p) {
           + 'run it after the batch';
       throw at(k, Object.assign(new Error(why), { code: 'BAD_ARG' }));
     }
-    Object.assign(k, { verb: job.verb, touches: touches(job.verb.name, job.o, charOf, job.pos[1]) });
+    Object.assign(k, { verb: job.verb, touches: touches(job.verb.name, job.o, charOf, job.pos[1], p.tracks) });
   }
   return { cmds, waves: waves(cmds, charOf) };
 }

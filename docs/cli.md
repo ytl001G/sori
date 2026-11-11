@@ -5,7 +5,9 @@ Lets Claude and other AIs (and people) work on Sori projects from a terminal. Tw
 2. **Live commands** drive the running app (`sori live ...`): the user watches each edit happen and can undo it with Ctrl+Z.
 
 Run from the Sori folder: `node src/cli/sori.js <command> ...` (after `npm link` once: `sori <command> ...`).
-`sori --help` lists every command with its flags. The Korean feature summary is spec.md §5-4; design: architecture.md "AI command line".
+`sori --help` lists every command with its flags; `sori help COMMAND` (or `sori COMMAND --help`) shows one, with
+its examples from this guide (`sori help clip`: every clip command). A mistyped command or option is answered
+with the closest one (`unknown command "expor"; did you mean "export"?`). The Korean feature summary is spec.md §5-4; design: architecture.md "AI command line".
 
 ## Output
 Every command prints exactly one JSON line on stdout and exits 0 (ok) or 1 (error):
@@ -23,10 +25,9 @@ read the output directly or use `ConvertFrom-Json`.
 | `UNKNOWN_COMMAND` | no such command |
 | `NO_FILE`, `READ_FAILED`, `BAD_PROJECT`, `WRITE_FAILED` | project/audio file missing, unreadable, not a Sori project, cannot be saved |
 | `EXISTS` | `new` on an existing file, a marker already at that time, or an export onto existing files without `--overwrite` |
-| `NO_TRACK`, `NO_CLIP`, `NO_MARKER` | that number does not exist (the message says how many there are) |
+| `NO_TRACK`, `NO_CLIP`, `NO_MARKER` | that number (or track name) does not exist (the message says how many there are, or the names) |
 | `NOTHING_TO_DO`, `NOTHING_TO_EXPORT` | no clip/sound where the command would act |
 | `DECODE_FAILED` | an audio file could not be decoded (nothing was changed) |
-| `OPEN_IN_APP` | the app has this project open: run the same command as `sori live <command>` without the file, or close it in the app first |
 | `SCRIPT_PROJECT` | a command takes do not have, on a script project (대본 녹음 모드, .vproj v3): `track add/remove/move/set`, `info`, `export`; the message names the `sori script ...` command to use |
 | `NOT_SCRIPT` | a `sori script` command, or `--line` / `--take`, on a normal project (or `live script` with no script project open) |
 | `BAD_SCRIPT` | the script file has no lines (a .txt needs `name: text` per line, a table 캐릭터 \| 대사 columns) |
@@ -53,7 +54,11 @@ read the output directly or use `ConvertFrom-Json`.
 - `--take N` / `--take 테이크 N`: a take named exactly like the value comes first, otherwise `N` means `테이크 N`.
 - Tracks, clips and markers are numbered **from 1** in the order `sori info` shows: tracks top to bottom, clips by start
   time, markers by time. Numbers can change after an edit, so read `info` again instead of guessing.
-- Times are **seconds** (decimals fine), rounded to the nearest sample. Volumes are **dB**. Pan is -1 (left) to 1 (right).
+- `--track` / `--to-track` also take a track's name (`--track 보컬1`, lists `--track 보컬1,3`): exact, as `info`
+  shows it. Two tracks with that name -> `BAD_ARG` (give the number); none -> `NO_TRACK` with the closest name. A
+  name made only of digits reads as a number. In a script project the lanes are takes: `--take N|NAME`.
+- Times are **seconds** (decimals fine) or as the app shows them, `m:ss` / `h:mm:ss` (`1:23.5`, `1:02:03`), rounded
+  to the nearest sample. Volumes are **dB**. Pan is -1 (left) to 1 (right).
 - Flags: `--name value` or `--name=value`. Lists are comma separated (`--track 1,3`). Values may be negative (`--volume -6`).
 - Effect fields use the names `info` prints (`--lowcut 80 --midFreq 3000`). Unknown fields are refused with the valid list.
 - Effect presets are the app's built-in ones (`--preset "목소리 또렷하게"`); a wrong name returns the list.
@@ -246,9 +251,10 @@ script star --line 철수-001 --take 2
 
 ### When the app has the project open
 Before saving, file commands ask the running app which file it has open. If it is the same project (saved or not)
-they refuse with `OPEN_IN_APP`: the app does not watch the file, so its next save would overwrite the CLI edit (or the
-CLI would drop the user's unsaved work). Run the same command as `sori live <command>` without the project file
-(see below), or ask the user to close it first.
+the command runs in the app instead, exactly as `sori live <command>` without the project file (see below): one
+undo step there, refused while recording. The reply adds `"inApp": true, "saved": false` and a note: the file
+changes when the project is saved in the app (`sori live run save`). Editing the file itself would race the app,
+which does not watch it: its next save would overwrite the CLI edit, or the CLI would drop unsaved work.
 
 ## Live commands (the running app)
 Live commands use the app's own menu commands, so each edit shows up at once and is one Ctrl+Z step for the user.

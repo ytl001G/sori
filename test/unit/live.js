@@ -10,8 +10,8 @@ t('cli: sori live runs a file command on the open project object: no <project>, 
   assert(r.ok && Math.abs(p.tracks[0].gain - 10 ** (-6 / 20)) < 1e-9, JSON.stringify(r));
   assert.strictEqual(fs.readdirSync(cliDir).length, files, 'nothing written');
   let x = await V.execute(['track', 'set', 'a.vproj', '--track', '1', '--volume', '0'], on);
-  assert(x.error === 'BAD_ARG' && /no <project>/.test(x.message) && /^sori live track set --track N/.test(x.usage),
-    JSON.stringify(x));
+  assert(x.error === 'BAD_ARG' && /no <project>/.test(x.message)
+    && /^sori live track set --track N\|NAME/.test(x.usage), JSON.stringify(x));
   x = await V.execute(['new'], on);
   assert(x.error === 'USE_APP_COMMAND' && /run newProject/.test(x.message), JSON.stringify(x));
   x = await V.execute(['script', 'info'], on); assert.strictEqual(x.error, 'NOT_SCRIPT');

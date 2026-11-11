@@ -40,18 +40,50 @@ const LIVE = [
     + 'on, else goes to the first from the current track/line on; reply: count, at (1-based), hit'],
 ];
 const LIVE_SELECT = {
-  from: 'sec', to: 'sec', track: 'idxs', clip: 'pairs', active: 'idx', marker: 'idx', playhead: 'sec', none: 'bool',
+  from: 'sec', to: 'sec', track: 'trks', clip: 'pairs', active: 'trk', marker: 'idx', playhead: 'sec', none: 'bool',
 };
+
+const LIVE_NAMES = ['state', 'commands', 'select', 'run', 'find', 'settings', 'script line', 'script star',
+  'script view'];
+const TAKES = ' (a script project: --line NAME, --take N|NAME for --track)';
+// every command: name, usage, about (a file command also as sori live, without <project>)
+const ROWS = [...V.VERBS.flatMap((v) => {
+  const about = v.about + (v.takes ? TAKES : '');
+  return [{ name: v.name, usage: 'sori ' + v.usage, about },
+    { name: 'live ' + v.name, usage: 'sori live ' + v.usage.replace(' <project>', ''), about }];
+}), ...LIVE.filter(([u]) => !u.startsWith('live <'))
+  .map(([u, a]) => ({ name: u.split(/ [[<]/)[0], usage: 'sori ' + u, about: a }))];
+// lines of docs/cli.md that run this command (shipped with the app; none if it is missing)
+function examples(name) {
+  let doc = '';
+  try { doc = fs.readFileSync(path.join(__dirname, '../../docs/cli.md'), 'utf8'); } catch { return []; }
+  const start = `sori ${name} `;
+  return [...new Set(doc.split(/\r?\n/).map((l) => l.trim()).filter((l) => (l + ' ').startsWith(start)))].slice(0, 3);
+}
+// sori help COMMAND, sori COMMAND --help: that command, or every one it starts (sori help clip); else a guess
+function helpFor(words) {
+  const w = words.filter((x) => !String(x).startsWith('-')).slice(0, 4);
+  for (let k = w.length; k > 0; k--) {
+    const q = w.slice(0, k).join(' '), one = ROWS.filter((r) => r.name === q || r.name === 'live ' + q).slice(0, 1);
+    const hits = one.length ? one : ROWS.filter((r) => r.name.startsWith(q + ' '));
+    if (!hits.length) continue;
+    const row = (r) => `${r.usage}\n    ${r.about}\n${examples(r.name).map((e) => `  e.g. ${e}\n`).join('')}`;
+    return process.stdout.write(hits.map(row).join('\n'));
+  }
+  const g = V.guess(w[0] === 'live' ? w.slice(1) : w, LIVE_NAMES), hint = g ? `; did you mean "${g}"?` : '';
+  return out({ ok: false, error: 'UNKNOWN_COMMAND', message: `no command "${w.join(' ')}"${hint} (sori --help: all)` });
+}
 
 function help() {
   const row = ([u, a]) => `  sori ${u}\n      ${a}\n`;
   return 'sori: command line for the Sori audio editor. Every command prints one JSON line:\n'
     + '{"ok":true,...} or {"ok":false,"error":"CODE","message":"..."}; exit code 0 or 1. Guide: docs/cli.md\n'
-    + 'Tracks, clips and markers count from 1 (as in sori info). Times are seconds, volumes dB.\n'
+    + 'Tracks, clips and markers count from 1 (as in sori info); --track also takes a track\'s name. Times are '
+    + 'seconds or m:ss (1:23.5), volumes dB. sori help COMMAND (or COMMAND --help): one command with examples.\n'
     + 'A script project (대본 녹음 모드): clip / range / apply / import / fx work on one line\'s takes: give --line NAME,\n'
     + 'and --take N|NAME (--to-take) where they say --track (--to-track); the reply names takes.\n\n'
-    + 'File commands (the app need not run; while the app has that project open, run them as '
-    + 'sori live <command> without <project>):\n'
+    + 'File commands (the app need not run; one that edits a project open in the app runs there, as sori live '
+    + '<command> without <project> does):\n'
     + V.VERBS.map((v) => row([v.usage, v.about])).join('')
     + '\nLive commands (the running app):\n' + LIVE.map(row).join('');
 }
@@ -101,7 +133,7 @@ const LIVE_REQ = {
     return { op: 'settings', set: { ...fields } };
   },
   verb(rest, argv) {
-    V.parse(argv.slice(1), true); // usage errors here, without the app
+    V.parse(argv.slice(1), true, LIVE_NAMES); // usage errors here, without the app
     return { op: 'verb', argv: argv.slice(1), cwd: process.cwd() };
   },
 };
@@ -138,10 +170,16 @@ async function openInApp(file) {
   const fp = res && res.app && res.app.filePath;
   const norm = (p) => (process.platform === 'win32' ? path.resolve(p).toLowerCase() : path.resolve(p));
   if (!fp || norm(fp) !== norm(file)) return null;
-  const message = `this project is open in Sori${res.app.dirty ? ' with unsaved changes' : ''}. Run the same `
-    + 'command as "sori live <command>" without the project file (an undo step there), or close it in the app '
-    + 'first, so neither side\'s work is lost';
-  return { ok: false, error: 'OPEN_IN_APP', message };
+  return { open: true, dirty: !!res.app.dirty };
+}
+// ...so the command runs in the app instead, as sori live does (one undo step there); the file changes when it is
+// saved in the app, and neither side's work is lost
+async function inApp(argv, job, dirty) {
+  const res = await live(['live', ...argv.filter((_, i) => i !== job.at[0])]);
+  if (!res.ok) return res;
+  const note = 'this project is open in Sori, so it ran there (Ctrl+Z undoes it); the file changes when it is saved '
+    + `in the app (sori live run save)${dirty ? '; it already had unsaved changes' : ''}`;
+  return { ...res, inApp: true, saved: false, note };
 }
 
 // import/export need Web Audio: run the same command in a hidden Electron window (main.js --cli=<job dir>)
@@ -189,13 +227,19 @@ async function stdinFile(argv, go) {
 }
 
 async function main(argv) {
-  if (!argv.length || ['help', '--help', '-h'].includes(argv[0])) return process.stdout.write(help());
+  // help: first word; --help anywhere (no value starts with --); -h first or last (a value such as --name -h stays)
+  const isHelp = (x, i) => (i === 0 && ['help', '-h'].includes(x)) || x === '--help'
+    || (x === '-h' && i === argv.length - 1);
+  const ask = argv.filter((x, i) => !isHelp(x, i));
+  if (!ask.length) return process.stdout.write(help());
+  if (ask.length < argv.length) return helpFor(ask);
   if (argv[0] === 'live') return out(await live(argv).catch(errOf));
   let job;
-  try { job = V.parse(argv); } catch (e) { return out(errOf(e)); }
+  try { job = V.parse(argv, false, LIVE_NAMES.map((n) => 'live ' + n)); } catch (e) { return out(errOf(e)); }
   if (job.verb.write) {
-    const busy = await openInApp(job.pos[0]);
-    if (busy) return out(busy);
+    const app = await openInApp(job.pos[0]);
+    if (app && !app.open) return out(app);
+    if (app) return out(await inApp(argv, job, app.dirty));
   }
   const audio = job.verb.audio || (job.verb.name === 'batch' && require('./batch').needsAudio(job.pos[1]));
   out(audio ? await headless(argv) : await V.execute(argv));

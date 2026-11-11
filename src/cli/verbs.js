@@ -22,19 +22,47 @@ const BATCH = {
     + 'what it touches; waves = the lines that could run at the same time. --check runs nothing. Not in a batch: '
     + 'new, export, script export',
 };
+// --track / --to-track take a number or a name (resolved in execute, once the project is loaded)
+const NAMED = { idx: 'trk', idxs: 'trks' }, TRACK_KEYS = ['track', 'to-track'];
+const TRACK_USE = /--(to-)?track (N|M)\b/g; // usage: --track N -> --track N|NAME
+const named = (flags) => Object.fromEntries(Object.entries(flags || {})
+  .map(([k, t]) => [k, TRACK_KEYS.includes(k) && NAMED[t] ? NAMED[t] : t]));
 const VERBS = [...require('./tracks').VERBS, ...require('./clips').VERBS, ...require('./lines').VERBS,
   ...require('./split').VERBS, ...require('./measure').VERBS, BATCH]
-  .map((v) => (v.takes ? { ...v, script: 'any', flags: scope.takeFlags(v.flags) } : v));
+  .map((v) => (v.takes ? { ...v, script: 'any', flags: scope.takeFlags(v.flags) } : v))
+  .map((v) => ({ ...v, flags: named(v.flags), usage: v.usage.replace(TRACK_USE, '--$1track $2|NAME') }));
+// track names -> numbers in the project's order (a script project's lanes are takes: --take there)
+function trackNames(o, p) {
+  if (!p || p.script) return; // a new project has no tracks yet
+  for (const k of TRACK_KEYS) {
+    const no = (r) => A.trackNo(p.tracks, r, k);
+    if (o[k] !== undefined) o[k] = Array.isArray(o[k]) ? o[k].map(no) : no(o[k]);
+  }
+}
 const PATHS = new Set(['project', 'out', 'files', 'file']); // positionals resolved against the caller's folder
 
-// argv -> { verb, pos, o, f } or a BAD_ARG / UNKNOWN_COMMAND error (with usage). live: `sori live <command>` names
-// no <project> (it is the one open in the app), so an empty one stands in.
-function parse(argv, live = false) {
-  // longest name first
-  const verb = [3, 2, 1].map((k) => VERBS.find((v) => v.name === argv.slice(0, k).join(' '))).find(Boolean);
-  if (!verb) fail('UNKNOWN_COMMAND', `unknown command "${argv.slice(0, 2).join(' ')}"; run sori --help`);
+// the command argv starts with (longest name first), or null
+const verbOf = (argv) => [3, 2, 1].map((k) => VERBS.find((v) => v.name === argv.slice(0, k).join(' '))).find(Boolean)
+  || null;
+// a mistyped command -> the closest name with as many words (`more`: other names, e.g. the live ones)
+function guess(argv, more = []) {
+  const names = [...VERBS.map((v) => v.name), ...more];
+  return [3, 2, 1].map((k) => A.near(argv.slice(0, k).join(' '), names.filter((n) => n.split(' ').length === k)))
+    .find(Boolean);
+}
+// argv -> { verb, pos, at (argv index of each positional), o, f } or a BAD_ARG / UNKNOWN_COMMAND error (with usage).
+// live: `sori live <command>` names no <project> (it is the one open in the app), so an empty one stands in; `more`:
+// the live commands, for the guess at a mistyped one.
+function parse(argv, live = false, more = []) {
+  const verb = verbOf(argv);
+  if (!verb) {
+    const g = guess(argv, more), hint = g ? `; did you mean "${g}"?` : '';
+    fail('UNKNOWN_COMMAND', `unknown command "${argv.slice(0, 2).join(' ')}"${hint} Run sori --help (or sori help `
+      + 'COMMAND)');
+  }
   try {
-    const { pos, o, fields } = A.parse(argv.slice(verb.name.split(' ').length), verb.flags || {}, verb.open);
+    const skip = verb.name.split(' ').length;
+    const { pos, at, o, fields } = A.parse(argv.slice(skip), verb.flags || {}, verb.open);
     if (live) pos.unshift('');
     const n = verb.args.length;
     if (pos.length < n || (!verb.rest && pos.length > n) || (verb.rest && pos.length === n)) {
@@ -44,7 +72,7 @@ function parse(argv, live = false) {
     const given = (k) => o[k] !== undefined || (verb.takes && k === 'track' && o.take !== undefined);
     for (const k of verb.need || []) if (!given(k)) throw A.bad(`--${k} is required`
       + (verb.takes && k === 'track' ? ' (a script project: --line NAME --take N)' : ''));
-    return { verb, pos, o, f: fields };
+    return { verb, pos, at: at.map((i) => i + skip), o, f: fields };
   } catch (e) {
     const usage = (live ? 'sori live ' + verb.usage.replace(' <project>', '') : 'sori ' + verb.usage)
       + (verb.takes ? ' (a script project: --line NAME, --take for --track)' : '');
@@ -71,6 +99,7 @@ async function execute(argv, { cwd = process.cwd(), audio, on, where } = {}) {
       load(a.project, verb.script, verb.use);
     const c = { p, o, f, a, audio, cwd, live: !!on && !where };
     if (verb.takes) scope.check(c, !!p.script);
+    trackNames(o, p);
     const res = verb.lines && p.script && scope.many(o) ? await verb.lines(c)
       : verb.takes && p.script && !o.master ? await scope.inTakes(c, verb.run) : await verb.run(c);
     if (verb.write && !c.noSave && !on) { await packAhead(c.p); save(a.project, c.p); }
@@ -96,4 +125,4 @@ const audioFor = (engine) => ({
   },
 });
 
-module.exports = { VERBS, TRACK_TYPES, APPLY, parse, execute, audioFor };
+module.exports = { VERBS, TRACK_TYPES, APPLY, parse, execute, audioFor, verbOf, guess };
