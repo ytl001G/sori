@@ -8,7 +8,7 @@ const { state } = require('../../core/state');
 
 const $ = (id) => document.getElementById(id);
 let panel, bar, tabs, list, todo, count, live; // live: 이어 녹음's time + level
-let lastLines = null, lastChars = null, lastKey = '', lastLine = null, emptyText = null;
+let lastLines = null, lastChars = null, lastKey = '', lastLine = null, lastView = '', emptyText = null;
 const setText = (e, t) => { if (e.textContent !== t) e.textContent = t; }; // per frame: touch the DOM only on change
 
 function tab(label, char, done, total, color) {
@@ -52,10 +52,12 @@ function build(s) {
   const cue = C.cue();
   list.replaceChildren(...(vis.length ? vis.map((l) => row(l, s, cue)) : [none]));
   const cur = list.querySelector(cue ? '.cue' : '.cur') || list.querySelector('.cur');
-  const at = cue ? cue.id : s.lineId;
-  if (cur && (focused || at !== lastLine)) cur.scrollIntoView({ block: 'nearest' });
+  const at = cue ? cue.id : s.lineId, v = state.ui.scriptView, view = `${v.char}|${v.todo}`;
+  // another tab or filter: a new list, the line being looked at stays in sight (in the middle)
+  if (cur && view !== lastView) cur.scrollIntoView({ block: 'center' });
+  else if (cur && (focused || at !== lastLine)) cur.scrollIntoView({ block: 'nearest' });
   if (cur && focused) cur.focus();
-  lastLine = at;
+  lastLine = at; lastView = view;
   todo.setAttribute('aria-pressed', String(state.ui.scriptView.todo));
 }
 

@@ -1,10 +1,26 @@
-// Smoke steps: Theme toggle, a small window with a tall mixer, dragging the mixer edge, fonts, the top menus, 이름순 정렬.
+// Smoke steps: the line list keeps the line in sight across tabs, theme toggle, a small window with a tall mixer,
+// dragging the mixer edge, fonts, the top menus, 이름순 정렬.
 const C = require('../../src/ui/commands');
 const S = require('../../src/core/settings');
 const { state, makeTrack, changed } = require('../../src/core/state');
-const { wait, painted, invokeOrig, assert, T, rowsOf } = require('./kit');
+const { wait, painted, invokeOrig, assert, T, rowsOf, dir } = require('./kit');
 
 module.exports = [
+  ['line list: from a character tab to 전체, the line being looked at stays in sight', async () => {
+    const txt = require('path').join(dir, '긴대본.txt');
+    require('fs').writeFileSync(txt, Array.from({ length: 60 }, (_, i) => `${i % 2 ? '영희' : '철수'}: 대사 ${i}
+`).join(''));
+    await C.importScript(txt);
+    C.setScriptView({ char: '영희' }); await painted();
+    const SCR = require('../../src/core/script'), deep = C.visibleLines()[25];
+    await C.goLine(deep.id); await painted();
+    C.setScriptView({ char: '' }); await painted();
+    const list = document.getElementById('sp-list').getBoundingClientRect();
+    const row = document.querySelector('#sp-list .line-row.cur').getBoundingClientRect();
+    assert(row.top >= list.top && row.bottom <= list.bottom, `${SCR.lineName(deep)} out of sight: ${row.top} `
+      + `(list ${list.top}..${list.bottom})`);
+    await C.run('undo'); assert(!state.project.script, 'undo the 대본 넣기');
+  }],
   ['times round before the minutes split off (1:00, never 0:60)', async () => {
     const sr = state.project.sampleRate, f = Math.round(59.9996 * sr), ph = state.sel.playhead;
     state.sel.playhead = f; changed(); await painted();
