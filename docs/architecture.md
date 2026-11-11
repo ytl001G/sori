@@ -359,8 +359,12 @@ master chain: eq -> comp -> reverb -> echo -> gain (gainDb) -> limiter -> [maste
 - EQ: BiquadFilterNodes (highpass/lowpass Q in dB: −3.0103 = Q 0.7071, matching effects.js).
 - Compressor: `sori-comp` worklet. Limiter: `sori-limiter` lookahead brickwall worklet (5 ms lookahead,
   min-hold + moving average gain, output delayed L−1 frames; release 50 ms).
-- Reverb: ConvolverNode with the Freeverb impulse response from `FX.reverb` (wet part = output − 0.5·δ),
-  mono downmix in front; IR cache of 8; slider drags rebuild once it settles (150 ms).
+- Reverb: `sori-reverb` worklet, the wet part of `FX.reverb` computed directly (same combs/allpasses on (L+R)/2,
+  unit test: equal within 1e-5); dry through a StereoPannerNode. Measured 2026-11-11: about 1/6 of the work of
+  convolving with its impulse response (60 s: 0.31 s vs 1.9 s), and the tail rings out as the algorithm does instead
+  of being cut where the impulse fell below 1e-4. A size change resizes the delay lines keeping their newest sound.
+  OfflineAudioContexts with a worklet all render on one shared thread (4 at once = 4x one), so export does not
+  split tracks into contexts.
 - Echo: DelayNode with a feedback Gain loop.
 - Hum: a run of notch BiquadFilterNodes (Q 30), rebuilt when the frequency list changes. De-esser: `sori-deess`.
 - Meters (`sori-meter`, live only): pass-through, post [peakL, peakR] every 8 quanta (~21 ms);

@@ -201,8 +201,75 @@ class Deess extends AudioWorkletProcessor {
   }
 }
 
+// Freeverb's wet part, the same algorithm as effects.js reverb (8 lowpass-feedback combs + 4 allpasses per side) on
+// (L+R)/2. Computed directly it costs about 1/6 of convolving with its impulse response (measured 2026-11-11).
+// A size change resizes the delay lines keeping their newest sound (a slider drag never cuts the tail).
+const COMBS = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617], ALLPASS = [556, 441, 341, 225], SPREAD = 23;
+function resize(d, L) {
+  const b = new Float32Array(L), old = d.buf, n = Math.min(L, old.length);
+  for (let j = 0; j < n; j++) b[j] = old[(d.idx + old.length - n + j) % old.length];
+  d.buf = b; d.idx = n % L;
+}
+class Reverb extends AudioWorkletProcessor {
+  static get parameterDescriptors() {
+    return [kparam('size', 60, 0, 100), kparam('decay', 60, 0, 100), kparam('bright', 50, 0, 100)];
+  }
+  constructor() {
+    super();
+    this.alive = true; this.port.onmessage = () => { this.alive = false; };
+    this.size = -1; this.m = new Float32Array(128);
+    const line = () => ({ buf: new Float32Array(1), idx: 0, store: 0 });
+    this.sides = [0, 1].map(() => ({ combs: COMBS.map(line), aps: ALLPASS.map(line) }));
+  }
+  build(size) {
+    const scale = sampleRate / 44100 * (0.5 + size / 100);
+    this.sides.forEach((s, side) => {
+      s.combs.forEach((d, k) => resize(d, Math.round((COMBS[k] + side * SPREAD) * scale)));
+      s.aps.forEach((d, k) => resize(d, Math.round((ALLPASS[k] + side * SPREAD) * scale)));
+    });
+    this.size = size;
+  }
+  process(inputs, outputs, p) {
+    if (p.size[0] !== this.size) this.build(p.size[0]);
+    const inp = inputs[0], out = outputs[0], n = out[0].length, m = this.m;
+    const fbk = 0.7 + 0.28 * p.decay[0] / 100, damp = 0.05 + 0.6 * (1 - p.bright[0] / 100);
+    const L = inp[0], R = inp[1] || inp[0]; // no input (the sound ended): the tail rings on
+    for (let i = 0; i < n; i++) m[i] = L ? (L[i] + R[i]) * 0.5 * 0.015 : 0; // freeverb input gain
+    this.sides.forEach((s, side) => {
+      const acc = out[Math.min(side, out.length - 1)];
+      acc.fill(0);
+      for (const d of s.combs) {
+        const buf = d.buf, len = buf.length;
+        let idx = d.idx, store = d.store;
+        for (let i = 0; i < n; i++) {
+          const o = buf[idx];
+          store = o * (1 - damp) + store * damp;
+          buf[idx] = m[i] + store * fbk;
+          acc[i] += o;
+          if (++idx >= len) idx = 0;
+        }
+        d.idx = idx; d.store = store;
+      }
+      for (const d of s.aps) {
+        const buf = d.buf, len = buf.length;
+        let idx = d.idx;
+        for (let i = 0; i < n; i++) {
+          const b = buf[idx], v = acc[i];
+          acc[i] = -v + b;
+          buf[idx] = v + b * 0.5;
+          if (++idx >= len) idx = 0;
+        }
+        d.idx = idx;
+      }
+      for (let i = 0; i < n; i++) acc[i] *= 3;
+    });
+    return this.alive;
+  }
+}
+
 registerProcessor('sori-comp', Comp);
 registerProcessor('sori-limiter', Limiter);
 registerProcessor('sori-meter', Meter);
 registerProcessor('sori-rec', Recorder);
 registerProcessor('sori-deess', Deess);
+registerProcessor('sori-reverb', Reverb);

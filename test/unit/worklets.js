@@ -2,15 +2,18 @@
 const { assert, E, FX, t, sine, rms, sr } = require('./helpers');
 
 // load worklets.js in a sandbox and run a processor over a signal in 128-frame blocks
-function proc(name, params, input, sampleRate = sr) {
+function loadAll(sampleRate = sr) {
   const vm = require('vm'), reg = {};
   class AudioWorkletProcessor { constructor() { this.port = { postMessage() {}, onmessage: null }; } }
   vm.runInNewContext(require('fs').readFileSync(require('path').join(__dirname, '../../src/audio/worklets.js'), 'utf8'),
     { AudioWorkletProcessor, registerProcessor: (n, c) => { reg[n] = c; }, sampleRate, currentFrame: 0, Math,
       Float32Array, Float64Array });
-  const C = reg[name], p = new C({}), desc = C.parameterDescriptors || [];
+  return reg;
+}
+function proc(name, params, input, sampleRate = sr, outCh = input.length) {
+  const C = loadAll(sampleRate)[name], p = new C({}), desc = C.parameterDescriptors || [];
   const pv = Object.fromEntries(desc.map((d) => [d.name, [params[d.name] ?? d.defaultValue]]));
-  const out = input.map((c) => new Float32Array(c.length));
+  const out = Array.from({ length: outCh }, () => new Float32Array(input[0].length));
   for (let i = 0; i < input[0].length; i += 128) {
     const ins = [input.map((c) => c.subarray(i, i + 128))], outs = [out.map((c) => c.subarray(i, i + 128))];
     p.process(ins, outs, pv);
@@ -32,6 +35,27 @@ t('compressor worklet matches effects.js compressor', () => {
   const a = proc('sori-comp', prm, x)[0], b = FX.compressor(x, sr, prm)[0];
   let m = 0; for (let i = 0; i < a.length; i++) m = Math.max(m, Math.abs(a[i] - b[i]));
   assert(m < 1e-4, 'max diff ' + m);
+});
+t('reverb worklet = the wet part of effects.js reverb, stereo and mono in; a size change keeps sound', () => {
+  const prm = { size: 70, decay: 55, bright: 40 }, n = sr; // 1 s: input and its ringing tail
+  const l = sine(sr / 4, 300, sr, 0.5), st = [new Float32Array(n), new Float32Array(n)];
+  st[0].set(l); for (let i = 0; i < l.length; i++) st[1][i] = l[i] * 0.3;
+  for (const x of [st, [st[0]]]) {
+    const want = FX.reverb(x, sr, { ...prm, wet: 100 }), g = x[1] ? 1 : Math.SQRT1_2;
+    const got = proc('sori-reverb', prm, x, sr, 2);
+    let m = 0;
+    for (let k = 0; k < 2; k++) {
+      const dry = x[Math.min(k, x.length - 1)];
+      for (let i = 0; i < n; i++) m = Math.max(m, Math.abs(got[k][i] - (want[k][i] - dry[i] * g * 0.5)));
+    }
+    assert(m < 1e-5, `${x.length} ch: max diff ${m}`);
+  }
+  const C = loadAll()['sori-reverb'], p = new C({}), o = [new Float32Array(128), new Float32Array(128)];
+  const run = (size, v) => p.process([[new Float32Array(128).fill(v)]], [o],
+    { size: [size], decay: [60], bright: [50] });
+  for (let i = 0; i < 40; i++) run(50, 0.5);
+  run(80, 0);
+  assert(rms(o[0]) > 1e-3, 'tail still rings after a size change ' + rms(o[0]));
 });
 t('eq graph response: peaking band reaches its gain at its frequency', () => {
   const st = FX.eqStages(sr, { mid: 6, midFreq: 1000, midQ: 0.9 });

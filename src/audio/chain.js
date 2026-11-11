@@ -18,21 +18,6 @@ function setP(param, v, c, live) {
   started.add(param);
 }
 
-// Freeverb impulse response (wet part only), cached: regenerating takes ~20-40 ms
-const irCache = new Map();
-function impulse(sr, { size, decay, bright }) {
-  const key = [sr, size, decay, bright].join('|');
-  let ir = irCache.get(key);
-  if (!ir) {
-    const y = FX.reverb([Float32Array.of(1)], sr, { size, decay, bright, wet: 100 }); // = 0.5*dry*(-3 dB) + wet
-    y[0][0] -= 0.5 * Math.SQRT1_2; y[1][0] -= 0.5 * Math.SQRT1_2;
-    ir = y;
-    irCache.set(key, ir);
-    if (irCache.size > 8) irCache.delete(irCache.keys().next().value);
-  }
-  return ir;
-}
-
 const echoTail = FX.echoTail;
 const reverbTail = ({ decay }) => 1 + 5 * decay / 100;
 
@@ -72,31 +57,16 @@ const UNITS = {
   },
   reverb(c, live) {
     const input = c.createGain(), out = c.createGain(), dry = c.createGain(), wet = c.createGain();
-    const mono = c.createGain(), conv = c.createConvolver(), pan = c.createStereoPanner();
-    // freeverb feeds (L+R)/2
-    mono.channelCount = 1; mono.channelCountMode = 'explicit'; mono.channelInterpretation = 'speakers';
-    conv.normalize = false;
+    const fv = new AudioWorkletNode(c, 'sori-reverb', { outputChannelCount: [2] }), pan = c.createStereoPanner();
     // pan 0: a mono dry plays at -3 dB per side like the track panner (stereo passes unchanged)
     input.connect(dry).connect(pan).connect(out);
-    input.connect(mono).connect(conv).connect(wet).connect(out);
-    let key = '', timer = null;
-    const loadIr = (p) => {
-      const ir = impulse(c.sampleRate, p), b = c.createBuffer(2, ir[0].length, c.sampleRate);
-      ir.forEach((d, k) => b.copyToChannel(d, k));
-      conv.buffer = b;
-    };
+    input.connect(fv).connect(wet).connect(out);
     return {
-      in: input, out, nodes: [input, out, dry, wet, mono, conv, pan],
+      in: input, out, nodes: [input, out, dry, wet, fv, pan],
       set(p) {
         setP(dry.gain, 1 - p.wet / 200, c, live); setP(wet.gain, p.wet / 100, c, live);
-        const k = [p.size, p.decay, p.bright].join('|');
-        if (k === key) return;
-        key = k;
-        clearTimeout(timer);
-        if (live && conv.buffer) timer = setTimeout(() => loadIr(p), 150); // slider drags: rebuild once it settles
-        else loadIr(p);
+        for (const k of ['size', 'decay', 'bright']) setP(fv.parameters.get(k), p[k], c); // exact: size sets lengths
       },
-      dispose() { clearTimeout(timer); },
     };
   },
   echo(c, live) {
@@ -202,4 +172,4 @@ function meterNode(c, onPeak) {
   return n;
 }
 
-module.exports = { load, trackChain, masterChain, masterFx, tail, latency, meterNode, stopNode, impulse };
+module.exports = { load, trackChain, masterChain, masterFx, tail, latency, meterNode, stopNode };
