@@ -38,14 +38,20 @@ class Comp extends AudioWorkletProcessor {
 
 // Brickwall lookahead limiter. Gain = moving average (L) of a min-hold (L) of the gain each sample
 // needs, applied to the input delayed by L-1 samples: every averaged value is <= the need of the
-// sample being output, so the output never exceeds the ceiling. Latency = L-1 frames (chain.js).
+// sample being output, so the output never exceeds the ceiling. The need is read on the true peak: the
+// sample and the 3 points to the next one (processorOptions.taps = loudness.tpTaps(), 2H taps each), known H
+// frames later, so the input waits L-1+H frames in all (chain.js latency).
 const LOOK_SEC = 0.005, REL_SEC = 0.05;
 class Limiter extends AudioWorkletProcessor {
   static get parameterDescriptors() { return [kparam('ceiling', -1, -24, 0), kparam('drive', 0, 0, 24)]; }
-  constructor() {
+  constructor(options) {
     super();
     const L = this.L = Math.max(2, Math.round(sampleRate * LOOK_SEC));
-    this.D = L - 1;
+    this.taps = options.processorOptions.taps;
+    const H = this.H = this.taps[0].length / 2;
+    this.D = L - 1 + H;
+    // the last 2H inputs per channel, written twice (w and w + 2H) so they read in one run
+    this.hist = [new Float64Array(4 * H), new Float64Array(4 * H)]; this.w = 0;
     this.delay = [new Float32Array(this.D), new Float32Array(this.D)]; this.dp = 0;
     // min-hold deque (ring)
     this.qv = new Float32Array(L + 2); this.qi = new Float64Array(L + 2); this.qh = 0; this.qt = 0;
@@ -61,7 +67,7 @@ class Limiter extends AudioWorkletProcessor {
     for (let i = 0; i < frames; i++) {
       let pk = 0;
       const x0 = inp.length ? inp[0][i] * drive : 0, x1 = inp.length > 1 ? inp[1][i] * drive : x0;
-      pk = Math.max(Math.abs(x0), Math.abs(x1));
+      pk = this.truePeak(x0, x1);
       const req = pk > ceil ? ceil / pk : 1, n = this.n++;
       while (this.qt !== this.qh && this.qv[(this.qt - 1 + Q) % Q] >= req) this.qt = (this.qt - 1 + Q) % Q;
       this.qv[this.qt] = req; this.qi[this.qt] = n; this.qt = (this.qt + 1) % Q;
@@ -80,6 +86,23 @@ class Limiter extends AudioWorkletProcessor {
       if (nch > 1) out[1][i] = y1;
     }
     return this.alive;
+  }
+  // the largest |x| at the frame H back and the 3 points after it, both channels
+  truePeak(x0, x1) {
+    const H = this.H, w = this.w, r1 = this.taps[0], r2 = this.taps[1], r3 = this.taps[2];
+    let m = 0;
+    for (let ch = 0; ch < 2; ch++) { // no allocation per sample (the audio thread)
+      const h = this.hist[ch], x = ch ? x1 : x0;
+      h[w] = x; h[w + 2 * H] = x;
+      let a = 0, b = 0, c = 0;
+      for (let k = 0, j = w + 1; k < 2 * H; k++, j++) {
+        const v = h[j];
+        a += v * r1[k]; b += v * r2[k]; c += v * r3[k];
+      }
+      m = Math.max(m, Math.abs(h[w + H]), Math.abs(a), Math.abs(b), Math.abs(c));
+    }
+    this.w = (w + 1) % (2 * H);
+    return m;
   }
 }
 

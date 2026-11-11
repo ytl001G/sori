@@ -337,8 +337,16 @@ A single DSP step on a long file still blocks between updates (shortcut in dialo
   quiet (gate 5 ms blocks, gaps 10 ms blocks).
 - Loudness: K-weighting (shelf + highpass, any rate), 400 ms blocks every 100 ms, gates -70 LUFS absolute and -10
   relative; mono counts once (a centred mono track leaves the panner at -3 dB per side, so its export measures the
-  same). Gain, then the offline limiter at -1 dB (trailing 5 ms min-hold averaged over 5 ms + 50 ms release: every
-  output sample is under the ceiling); limiting lowers loudness, so gain is corrected up to 4 passes (within 0.1 LU).
+  same). Gain, then the offline limiter at -1 dBTP (trailing 5 ms min-hold averaged over 5 ms + 50 ms release on the
+  true peak below: every output sample and the wave between them is under the ceiling); limiting lowers loudness, so
+  gain is corrected up to 4 passes (within 0.1 LU). The true peaks are read once (they scale with the gain).
+- True peak (`loudness.peaks`, both limiters): the wave a player draws between samples rises above them (a 12 kHz
+  sine at 45 deg: +3 dB; bright noise held to -1 dB by its samples alone: +4.1 dBTP, measured 2026-11-12). Read 4x as
+  BS.1770 Annex 2 does, with a longer filter: `tpTaps()` = 3 rows (points 1/4, 2/4, 3/4 to the next sample) of a
+  Blackman-windowed sinc, `2 * TP_HALF` = 64 taps each, unit gain. After a -1 dB limit (8x / 128-tap reference):
+  sines and voice -1.00, bright noise -0.67 dBTP (48 taps: -0.38). A point is at most REACH (2.81) x the largest
+  sample it reads, so frames whose neighbourhood stays under the ceiling skip the filter (exact above it). Cost:
+  offline about +1 s per minute of stereo when every frame is near the ceiling; live 1.6% of one core.
 - De-esser: Linkwitz-Riley split (2 × Butterworth each side) at `freq`; the high band × g while its envelope is
   within 12 dB of the whole (full amount at 3 dB), only above -50 dBFS. An LR split keeps both bands in phase:
   `x - highpass(x)` would cancel instead of turning down. `sori-deess` = the same per sample (tested equal).
@@ -375,7 +383,8 @@ master chain: eq -> comp -> reverb -> echo -> gain (gainDb) -> limiter -> [maste
   changes; parameter changes are set live (`updateMix`) without restarting playback.
 - EQ: BiquadFilterNodes (highpass/lowpass Q in dB: −3.0103 = Q 0.7071, matching effects.js).
 - Compressor: `sori-comp` worklet. Limiter: `sori-limiter` lookahead brickwall worklet (5 ms lookahead,
-  min-hold + moving average gain, output delayed L−1 frames; release 50 ms).
+  min-hold + moving average gain on the true peak, taps from `processorOptions`; output delayed L−1+TP_HALF
+  frames, `chain.latency`; release 50 ms).
 - Reverb: `sori-reverb` worklet, the wet part of `FX.reverb` computed directly (same combs/allpasses on (L+R)/2,
   unit test: equal within 1e-5); dry through a StereoPannerNode. Measured 2026-11-11: about 1/6 of the work of
   convolving with its impulse response (60 s: 0.31 s vs 1.9 s), and the tail rings out as the algorithm does instead

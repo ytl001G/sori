@@ -37,6 +37,12 @@ t('loudness: a 997 Hz sine at -20 dBFS is -23 LUFS; 음량 맞추기 hits the ta
   const y = LD.toLoudness([spiky], sr, -16);
   assert(FX.peak(y) <= 10 ** (-1 / 20) + 1e-6, 'peak ' + FX.peak(y));
   near(LD.integrated(y, sr), -16, 0.3, 'after');
+  // true peak: a 12 kHz sine at 45 deg has every sample at 0.707 of the wave's top
+  const hi = Float32Array.from({ length: 2 * sr }, (_, i) => 1.5 * Math.sin(2 * Math.PI * 12e3 * i / sr + Math.PI / 4));
+  const top = Math.SQRT2 * Math.sqrt(LD.limit([hi], sr, -1)[0].subarray(sr).reduce((s, v) => s + v * v, 0) / sr);
+  assert(top <= 10 ** (-1 / 20) * 1.001, 'the wave between samples tops at ' + top);
+  const pk = LD.peaks([spiky]), part = LD.peaks([spiky], 0.1);
+  assert(pk.every((v, i) => v <= 0.1 || v === part[i]) && pk.some((v, i) => v > part[i]), 'skips only below the floor');
 });
 t('noise floor: the quietest 0.5 s with sound; digital silence only as a last resort; none in steady sound', () => {
   const x = talk([['on', 1], ['off', 1], ['on', 1]]), q = V.quietest(x, sr);

@@ -5,6 +5,7 @@ const { pathToFileURL } = require('url');
 const FX = require('../core/effects');
 const V = require('../core/voice');
 const P = require('../core/fxparams');
+const { tpTaps, TP_HALF } = require('../core/loudness');
 
 const WORKLETS = pathToFileURL(path.join(__dirname, 'worklets.js')).href;
 const load = (c) => c.audioWorklet.addModule(WORKLETS);
@@ -114,7 +115,7 @@ const UNITS = {
     return { in: g, out: g, nodes: [g], set(p) { setP(g.gain, dbLin(p.db), c, live); } };
   },
   limiter(c) {
-    const n = new AudioWorkletNode(c, 'sori-limiter');
+    const n = new AudioWorkletNode(c, 'sori-limiter', { processorOptions: { taps: tpTaps() } });
     return {
       in: n, out: n, nodes: [n],
       set(p) { for (const k of ['ceiling', 'drive']) setP(n.parameters.get(k), p[k], c); },
@@ -163,8 +164,8 @@ function tail(fx) {
   if (fx.echo && fx.echo.on) s += echoTail(fx.echo);
   return s;
 }
-// frames the master output lags its input (limiter lookahead, see worklets.js)
-const latency = (m, sr) => (m.fx.limiter.on ? Math.max(2, Math.round(sr * 0.005)) - 1 : 0);
+// frames the master output lags its input (limiter lookahead and its true-peak read, see worklets.js)
+const latency = (m, sr) => (m.fx.limiter.on ? Math.max(2, Math.round(sr * 0.005)) - 1 + TP_HALF : 0);
 
 function meterNode(c, onPeak) {
   const n = new AudioWorkletNode(c, 'sori-meter');
