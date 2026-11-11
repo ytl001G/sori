@@ -44,3 +44,12 @@ t('safewrite: newFolders ends at a drive that is not there (no endless loop)', (
   assert.deepStrictEqual(W.newFolders([path.join(drive, 'a', 'b', 'x.wav')]),
     [path.join(drive, 'a', 'b'), path.join(drive, 'a')]);
 });
+
+t('safewrite: the first write into a folder removes temps that killed writes left, not a running one\'s', async () => {
+  const d = path.join(cliDir, 'stale'), dead = require('child_process').spawnSync(process.execPath, ['-e', '']).pid;
+  fs.mkdirSync(d, { recursive: true });
+  const names = [`a.vproj.${dead}.3.tmp`, `b.snd.${dead}.12.tmp`, `a.vproj.${process.pid}.999.tmp`, 'notes.tmp'];
+  for (const f of names) fs.writeFileSync(path.join(d, f), 'x');
+  await W.writeAtomic(path.join(d, 'c.vproj'), 'new');
+  assert.deepStrictEqual(fs.readdirSync(d).sort(), [`a.vproj.${process.pid}.999.tmp`, 'c.vproj', 'notes.tmp']);
+});

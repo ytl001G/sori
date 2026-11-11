@@ -6,7 +6,26 @@ const fs = require('fs');
 const path = require('path');
 
 let n = 0;
-const tmpOf = (file) => `${file}.${process.pid}.${++n}.tmp`;
+const tmpOf = (file) => { dropStale(path.dirname(file)); return `${file}.${process.pid}.${++n}.tmp`; };
+// a write killed midway (a crash, power loss) leaves its temp <file>.<pid>.<n>.tmp, up to the file's full size: the
+// first write into a folder in a run removes those of processes no longer running (not this one's, nor a CLI's
+// still writing). Once per folder per run: the killed writes were earlier runs
+const cleaned = new Set();
+const STALE = /\.(\d+)\.\d+\.tmp$/;
+const running = (pid) => {
+  if (pid === process.pid) return true;
+  try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } // EPERM: alive, not ours
+};
+function dropStale(dir) {
+  if (cleaned.has(dir)) return;
+  cleaned.add(dir);
+  let names = [];
+  try { names = fs.readdirSync(dir); } catch { return; } // not there yet
+  for (const f of names) {
+    const m = STALE.exec(f);
+    if (m && !running(+m[1])) try { fs.rmSync(path.join(dir, f), { force: true }); } catch { /* next run */ }
+  }
+}
 // Windows refuses a rename for a moment while another write replaces the same file or a scanner holds it: retry briefly
 const BUSY = new Set(['EPERM', 'EBUSY', 'EACCES']);
 async function renameRetry(a, b) {

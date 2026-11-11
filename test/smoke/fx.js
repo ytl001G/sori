@@ -98,6 +98,11 @@ module.exports = [
     await C.run('export'); stub.modal = {};
     const m = fs.readFileSync(stub.save);
     assert(m.length > 20000 && m[0] === 0xff && (m[1] & 0xe0) === 0xe0, 'mp3 from the encoding worker: size, sync');
+    // the player cuts the encoder's delay and padding (Info/LAME frame): as many samples as the WAV, none late
+    const wavFrames = (fs.statSync(path.join(dir, 'out.wav')).size - 44) / 4;
+    const bytes = m.buffer.slice(m.byteOffset, m.byteOffset + m.length);
+    const back = await new OfflineAudioContext(2, 1, sr).decodeAudioData(bytes);
+    assert(back.length === wavFrames, `decoded mp3 length ${back.length} = wav ${wavFrames}`);
     assert(require('../../src/core/workers').WORKERS >= 1 && typeof Worker === 'function', 'workers in the renderer');
   }],
   ['이 클립만 내보내기: one selected clip alone, from its start to its end; in the right-click menu', async () => {

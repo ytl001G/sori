@@ -31,6 +31,24 @@ t('mp3 encodes frames', () => {
   assert(m.length > 10000 && m.length < 25000, 'size ' + m.length);
   assert(m[0] === 0xff && (m[1] & 0xe0) === 0xe0, 'mp3 sync');
 });
+t('mp3 starts with an Info/LAME frame giving the delay and padding, so players play exactly the samples given', () => {
+  for (const [rate, nch, n] of [[48000, 2, 48000], [48000, 1, 12345], [44100, 2, 1], [22050, 1, 1152]]) {
+    const m = IO.encodeMp3(Array.from({ length: nch }, () => sine(n, 440, rate)), rate, 128);
+    const one = ((m[1] >> 3) & 3) === 3, spf = one ? 1152 : 576;
+    const at = 4 + (one ? (nch === 1 ? 17 : 32) : (nch === 1 ? 9 : 17)), lame = at + 120;
+    const txt = (o, k) => String.fromCharCode(...m.subarray(o, o + k)), v = new DataView(m.buffer, m.byteOffset);
+    assert.strictEqual(txt(at, 4), 'Info'); assert.strictEqual(txt(lame, 4), 'LAME');
+    const delay = (m[lame + 21] << 4) | (m[lame + 22] >> 4), pad = ((m[lame + 22] & 15) << 8) | m[lame + 23];
+    assert.strictEqual(v.getUint32(at + 8) * spf - delay - pad, n, `${rate} ${nch} ${n}: samples`);
+    assert.strictEqual(v.getUint32(at + 12), m.length, 'bytes');
+    let crc = 0; // CRC-16/ARC of the frame up to the tag's CRC field
+    for (const b of m.subarray(0, lame + 34)) {
+      crc ^= b;
+      for (let k = 0; k < 8; k++) crc = crc & 1 ? (crc >>> 1) ^ 0xA001 : crc >>> 1;
+    }
+    assert.strictEqual(v.getUint16(lame + 34), crc, 'tag crc');
+  }
+});
 t('vproj round trip + rejects garbage', () => {
   const src = E.makeSource([sine(1000, 440, sr), sine(1000, 220, sr)]);
   const tracks = [{ name: '목소리', color: '#6c8cff', gain: 0.5, pan: -0.3, mute: false, solo: true,

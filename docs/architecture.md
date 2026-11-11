@@ -58,6 +58,8 @@ src/core/  (plain Node, no DOM / AudioContext)
   voicedit.js           목소리 정리 on tracks for the app and the CLI: steps in place, then 긴 침묵 줄이기 cuts/pads;
                         cleanTake = one range's pure work (voiceEdit's clean option runs it elsewhere)
   safewrite.js          every file write: own temp name + fsync + rename (retries a busy Windows rename), uniquePaths
+                        The first write into a folder in a run removes temps <file>.<pid>.<n>.tmp of processes no
+                        longer running (a write killed midway leaves one, up to the file's size; 40 kills: 24 -> 0)
   encoders.js           WAV / MP3 encoding (moved out of fileio.js, which re-exports it)
   fileio.js             .vproj v4 save (+ thin backups, idle prepack) / load (v1-v4, in steps), WAV/MP3 encode
   parked.js             필요할 때만 풀기: a Source with an exact packed blob decodes `ch` on use and lets it go off screen
@@ -549,7 +551,10 @@ Project kind = whether `project.script` exists. 대본 넣기 in a plain project
 snapshot carries `chars` (live while the script exists, used only when it comes back). Fresh ids matter: `restore`
 keeps live props by id, so a track sharing a take's id would hand the take its new name.
 
-WAV export: PCM 16/24-bit, stereo, project rate, clamped. MP3: lamejs, 1152-sample frames, Int16 input.
+WAV export: PCM 16/24-bit, stereo, project rate, clamped. MP3: lamejs, 1152-sample frames, Int16 input. lamejs writes
+no Info frame, so `encoders.js` puts one first (Xing "Info" + LAME tag, as LAME does): encoder delay 576 and the end
+padding, so decoders (FFmpeg/Chromium, foobar, iTunes) play exactly the input samples. Without it a file started
+1105 samples (23 ms at 48 kHz) late and ran 1536 samples long (measured with Chromium's decoder; now 0).
 Export by markers: one file per segment (start→1st marker, between markers, last marker→end; markers past
 the end ignored, segments under 10 ms skipped), named `NN 마커이름.ext` in a chosen folder, overwrite asked once.
 Export 트랙 = 지금 트랙만: `renderFile` gets `[{ ...track, mute: false, solo: false }]` instead of all tracks, so the
@@ -613,8 +618,11 @@ follow the same rules as `ui/commands/`: new tracks right below `--track N` (end
   `m:ss` / `h:mm:ss`. Mistyped commands, options and fields: `args.near` (edit distance, about a third of the
   letters). `sori help COMMAND`: usage + about + the `sori COMMAND` lines of docs/cli.md (shipped for this).
 
-**Live commands** (`pipe.js`, `main.js`, `src/ui/live/`). The CLI connects to the named pipe
-`\.\pipe\sori-live-<USERNAME>` (`SORI_PIPE` overrides; smoke uses `sori-smoke-<pid>`), writes one JSON request line
+**Live commands** (`pipe.js`, `main.js`, `src/ui/live/`). The app serves a named pipe with a new random name
+`sori-live-<32 hex>` each run and writes that name to `<app data>/Sori/live-pipe` once it listens; the CLI reads it
+there (none: `NO_APP`). Other accounts cannot read that folder, so they can neither find the pipe nor take its name
+first (a name made from the user name could be taken by another account, which the CLI would then talk to).
+`SORI_PIPE` overrides and writes nothing (smoke uses `sori-smoke-<pid>`). The CLI writes one JSON request line
 (≤ 64 KB, op `state` | `commands` | `select` | `run` | `script` | `verb` | `settings`, anything else -> `BAD_REQUEST`) and reads one reply line. No
 network port; the pipe has the default DACL (owner, administrators, SYSTEM). `main.js` forwards each request to the
 window (IPC `live` with an id; reply on `live-reply`); `live.js` answers one request at a time.

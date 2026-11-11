@@ -57,3 +57,19 @@ t('cli: help for one command or a group, a guess at a mistyped one; "help" as a 
   const m = await cli('marker', 'add', 'h.vproj', '--at', '1:02', '--name', 'help');
   assert(m.ok && m.marker.name === 'help' && m.marker.at === 62, JSON.stringify(m));
 });
+
+t('pipe: the app serves a random name and writes it down for the CLI; nothing written: no name', async () => {
+  const pipe = require('../../src/cli/pipe'), fs = require('fs'), was = process.env.SORI_PIPE;
+  const file = path.join(cliDir, 'pipe-name', 'live-pipe');
+  delete process.env.SORI_PIPE;
+  try {
+    assert.strictEqual(pipe.name(file), null, 'no app yet'); // (never a request to the default: the user's own app)
+    const srv = pipe.serve(async (req) => ({ ok: true, op: req.op }), file);
+    await new Promise((r) => srv.once('listening', r));
+    const id = fs.readFileSync(file, 'utf8');
+    assert(/^sori-live-[0-9a-f]{32}$/.test(id), 'not a random name: ' + id);
+    process.env.SORI_PIPE = id; // the CLI side, as it reads the name from the file
+    try { assert.deepStrictEqual(await pipe.request({ op: 'state' }, 3000), { ok: true, op: 'state' }); }
+    finally { srv.close(); }
+  } finally { if (was === undefined) delete process.env.SORI_PIPE; else process.env.SORI_PIPE = was; }
+});

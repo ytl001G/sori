@@ -318,8 +318,9 @@ recording (`RECORDING`). While the app runs a long job with its progress bar (an
 export), or has a dialog open, every `live` request but `state` and `commands` gets `BUSY`: try again when it ends. Commands that read audio (`import`, `script take add`) take a moment: if the user edits the
 project meanwhile, nothing is applied (`CHANGED`).
 
-The channel is a local named pipe (`\\.\pipe\sori-live-<user>`), never a network port. Only command names from the
-app's list are accepted; nothing is evaluated.
+The channel is a local named pipe with a new random name each run, never a network port; the app writes the name in
+its own app data folder (`Sori/live-pipe`), which other accounts on the computer cannot read. Only command names
+from the app's list are accepted; nothing is evaluated.
 
 ## Not here yet
 - Recording takes (needs the mic: `live run record` in the app).
