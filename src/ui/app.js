@@ -110,11 +110,19 @@ function packLater() {
 }
 state.listeners.add(packLater);
 // 필요할 때만 풀기: a take off screen lets go of its decoded sound after a while (core/parked.js)
-setInterval(() => PK.sweep(new Set(state.project.tracks.flatMap((t) => t.clips.map((c) => c.src)))), 5000);
+setInterval(() => {
+  const keep = new Set(state.project.tracks.flatMap((t) => t.clips.map((c) => c.src)));
+  PK.sweep(keep); spectro.prune(keep);
+}, 5000);
 
 // ---------- redraw loop ----------
-let dirty = true;
-state.listeners.add(() => { dirty = true; });
+// frames run only while there is something to draw: a change (changed()), playing / recording / count-in, a
+// spectrogram being computed, mixer meters still falling. An idle window asks for no frames (no CPU, no GPU)
+let dirty = true, queued = false, wasLive = false;
+function wake() {
+  if (!queued) { queued = true; requestAnimationFrame(frame); }
+}
+state.listeners.add(() => { dirty = true; wake(); });
 
 const fmt = (f) => { // rounded first: never 00:60.000
   const s = +(Math.max(0, f) / state.project.sampleRate).toFixed(3), m = Math.floor(s / 60);
@@ -123,16 +131,17 @@ const fmt = (f) => { // rounded first: never 00:60.000
 
 function setPressed(id, on, labelOn, labelOff) {
   const b = $(id);
-  b.setAttribute('aria-pressed', String(on));
-  if (labelOn) b.setAttribute('aria-label', on ? labelOn : labelOff);
+  D.setAttr(b, 'aria-pressed', String(on));
+  if (labelOn) D.setAttr(b, 'aria-label', on ? labelOn : labelOff);
 }
 
 function updateChrome() {
   const sel = state.sel, r = sel.range, p = state.project;
-  $('time').textContent = engine.countingIn() ? '카운트인' : fmt(sel.playhead);
-  $('seltime').textContent = r ? `선택 ${fmt(r.a)} – ${fmt(r.b)} (${((r.b - r.a) / p.sampleRate).toFixed(3)}초)` : '';
+  D.setText($('time'), engine.countingIn() ? '카운트인' : fmt(sel.playhead));
+  D.setText($('seltime'), r ? `선택 ${fmt(r.a)} – ${fmt(r.b)} (${((r.b - r.a) / p.sampleRate).toFixed(3)}초)` : '');
   setPressed('btn-play', state.playing && !state.recording, '일시정지', '재생');
-  $('btn-play').disabled = !C.cmds.playPause.enabled();
+  const noPlay = !C.cmds.playPause.enabled();
+  if ($('btn-play').disabled !== noPlay) $('btn-play').disabled = noPlay;
   setPressed('btn-rec', state.recording, '녹음 정지', '녹음');
   setPressed('btn-loop', state.loop);
   setPressed('btn-metro', S.get().metronome);
@@ -140,39 +149,49 @@ function updateChrome() {
   setPressed('btn-snap', S.get().snap);
   setPressed('btn-mixer', state.ui.mixer);
   setPressed('btn-fx', state.ui.fxPanel);
-  if (document.activeElement !== $('bpm')) $('bpm').value = p.bpm;
+  if (document.activeElement !== $('bpm') && $('bpm').value !== String(p.bpm)) $('bpm').value = p.bpm;
   if (!$('beats').querySelector(`option[value="${p.beats}"]`)) {
     $('beats').append(Object.assign(document.createElement('option'), { value: p.beats, textContent: `${p.beats}/4` }));
   }
-  $('beats').value = String(p.beats);
+  if ($('beats').value !== String(p.beats)) $('beats').value = String(p.beats);
   const dark = document.documentElement.dataset.theme === 'dark';
-  $('btn-theme').setAttribute('aria-label', dark ? '밝은 테마로 전환' : '어두운 테마로 전환');
-  $('empty').hidden = p.tracks.length > 0 || !!(C.recInfo() && C.recInfo().cont); // 이어 녹음: its lane shows
+  D.setAttr($('btn-theme'), 'aria-label', dark ? '밝은 테마로 전환' : '어두운 테마로 전환');
+  const noEmpty = p.tracks.length > 0 || !!(C.recInfo() && C.recInfo().cont); // 이어 녹음: its lane shows
+  if ($('empty').hidden !== noEmpty) $('empty').hidden = noEmpty;
   const count = p.script ? `테이크 ${C.takeCount()}` : `트랙 ${p.tracks.length}`;
-  $('info').textContent = `${p.sampleRate} Hz · ${count}개 · ${fmt(projectEnd(p.tracks))}`;
+  D.setText($('info'), `${p.sampleRate} Hz · ${count}개 · ${fmt(projectEnd(p.tracks))}`);
   const name = state.filePath ? require('path').basename(state.filePath, '.vproj') : '새 프로젝트';
-  document.title = `${state.dirty ? '• ' : ''}${name} — Sori`;
+  const title = `${state.dirty ? '• ' : ''}${name} — Sori`;
+  if (document.title !== title) document.title = title;
 }
 
 function frame() {
-  try { draw(); } finally { requestAnimationFrame(frame); } // a render that throws must not stop the loop
+  queued = false;
+  let more = true;
+  try { more = draw(); } finally { if (more) wake(); } // a render that throws must not stop the loop
 }
+// returns whether the next frame is needed
 function draw() {
   C.tick();
-  if (spectro.isPending() && spectro.work(8)) dirty = true; // spectrogram columns are computed a slice per frame
-  mixer.render(); // meters animate every frame while the mixer is open
-  if (dirty || state.playing || state.recording || engine.countingIn()) {
+  // spectrogram columns are computed a slice per frame, only while it is shown
+  const spec = state.view.spec && spectro.isPending();
+  if (spec && spectro.work(8)) dirty = true;
+  const meters = mixer.render(); // meters animate every frame while the mixer is open
+  const live = state.playing || state.recording || engine.countingIn();
+  if (wasLive && !live) dirty = true; // playback ended by itself (tick): the buttons and time show it once more
+  wasLive = live;
+  if (dirty || live) {
+    const full = dirty;
     dirty = false;
-    scriptui.render();
-    tracks.render();
-    timeline.draw();
+    scriptui.render(); // its 이어 녹음 time and input level move every frame
+    if (full) { tracks.render(); fxpanel.render(); findbox.render(); } // the rest changes only through changed()
+    timeline.draw(full);
     timeline.syncScrollbar();
-    fxpanel.render();
-    findbox.render();
     updateChrome();
   }
+  return live || meters || (state.view.spec && spectro.isPending()); // drawing may have just queued spectrograms
 }
-requestAnimationFrame(frame);
+wake();
 
 window.addEventListener('beforeunload', () => { engine.stop(); });
 

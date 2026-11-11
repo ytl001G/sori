@@ -2,14 +2,13 @@
 // (a prompter while recording: this line big, the next one small). Commands live in commands.js.
 const C = require('../commands');
 const SCR = require('../../core/script');
-const { el } = require('../dialogs');
+const { el, setText } = require('../dialogs');
 const engine = require('../../audio/engine');
 const { state } = require('../../core/state');
 
 const $ = (id) => document.getElementById(id);
 let panel, bar, tabs, list, todo, count, live; // live: 이어 녹음's time + level
 let lastLines = null, lastChars = null, lastKey = '', lastLine = null, lastView = '', emptyText = null;
-const setText = (e, t) => { if (e.textContent !== t) e.textContent = t; }; // per frame: touch the DOM only on change
 
 function tab(label, char, done, total, color) {
   const n = el('span', { className: 'n', textContent: `${done}/${total}` });

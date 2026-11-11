@@ -48,6 +48,9 @@ async function busy(label, fn) {
 }
 const isBusy = () => busyNow;
 
+// per-frame updates touch the DOM only on change (a write costs style and layout work even when equal)
+const setText = (e, t) => { if (e.textContent !== t) e.textContent = t; };
+const setAttr = (e, k, v) => { if (e.getAttribute(k) !== v) e.setAttribute(k, v); };
 const fmt = (v, step) => (step < 1 ? (+v).toFixed(String(step).split('.')[1].length) : String(Math.round(v)));
 
 // Tab keeps focus inside the dialog
@@ -233,4 +236,4 @@ function sheet({ title, build, wide = true, onKey, onClose }) {
 
 const isModalOpen = () => $('modal-layer').classList.contains('open');
 
-module.exports = { toast, busy, STOPPED, isBusy, modal, ask, sheet, isModalOpen, el, fmt };
+module.exports = { toast, busy, STOPPED, isBusy, modal, ask, sheet, isModalOpen, el, fmt, setText, setAttr };

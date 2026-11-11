@@ -3,7 +3,7 @@
 const C = require('../commands');
 const engine = require('../../audio/engine');
 const S = require('../../core/settings');
-const { el } = require('../dialogs');
+const { el, setText, setAttr } = require('../dialogs');
 const { gainToDb, dbToGain, dbText, panText } = require('./tracks');
 const { state, trackById } = require('../../core/state');
 const R = require('../commands/record');
@@ -75,6 +75,10 @@ function drawMeter(x, dt, col) {
   const cv = x.meter, dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
   if (!w || !h) return false;
   const pw = Math.round(w * dpr), ph = Math.round(h * dpr);
+  // drawn only when it looks different: a silent mixer costs nothing
+  const look = [pw, ph, col.theme, ...x.disp, ...x.hold].map((n) => (typeof n === 'number' ? n.toFixed(1) : n)).join();
+  if (look === x.look) return true;
+  x.look = look;
   if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
   const g = cv.getContext('2d');
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -107,38 +111,49 @@ const fxOn = (fx) => Object.values(fx).filter((f) => f.on).length;
 // one strip's values; a control being dragged or typed in is left alone
 function update(x, t) {
   const master = !t, gainDb = state.project.master.gainDb, n = fxOn(master ? state.project.master.fx : t.fx);
-  x.fxb.textContent = n ? `효과 ${n}` : '효과';
-  x.fxb.setAttribute('aria-pressed', String(state.ui.fxPanel && state.ui.fxTarget === C.fxKey(x.id)));
-  x.fxb.setAttribute('aria-label', `${master ? '마스터' : t.name} 효과 (${n}개 켜짐)`);
+  setText(x.fxb, n ? `효과 ${n}` : '효과');
+  setAttr(x.fxb, 'aria-pressed', String(state.ui.fxPanel && state.ui.fxTarget === C.fxKey(x.id)));
+  setAttr(x.fxb, 'aria-label', `${master ? '마스터' : t.name} 효과 (${n}개 켜짐)`);
   x.s.classList.toggle('active', !master && t.id === state.sel.activeTrackId);
-  if (document.activeElement !== x.fader) x.fader.value = master ? gainDb : gainToDb(t.gain);
-  x.dbV.textContent = master ? `${gainDb > 0 ? '+' : ''}${gainDb.toFixed(1)} dB` : dbText(t.gain);
+  const fv = String(master ? gainDb : gainToDb(t.gain));
+  if (document.activeElement !== x.fader && x.fader.value !== fv) x.fader.value = fv;
+  setText(x.dbV, master ? `${gainDb > 0 ? '+' : ''}${gainDb.toFixed(1)} dB` : dbText(t.gain));
   if (!master) {
-    if (document.activeElement !== x.pan) x.pan.value = t.pan;
-    x.panV.textContent = panText(t.pan);
-    x.m.setAttribute('aria-pressed', String(t.mute));
-    x.so.setAttribute('aria-pressed', String(t.solo));
+    if (document.activeElement !== x.pan && x.pan.value !== String(t.pan)) x.pan.value = t.pan;
+    setText(x.panV, panText(t.pan));
+    setAttr(x.m, 'aria-pressed', String(t.mute));
+    setAttr(x.so, 'aria-pressed', String(t.solo));
   }
   x.clip.classList.toggle('on', engine.isClipped(meterId(x.id)));
+}
+// the meter colors of the theme (read once per theme: getComputedStyle every frame is not free)
+let cols = null;
+function colors() {
+  const theme = document.documentElement.dataset.theme;
+  if (cols && cols.theme === theme) return cols;
+  const css = getComputedStyle(document.documentElement), cv = (n) => css.getPropertyValue(n);
+  cols = { theme, surface: cv('--surface'), line: cv('--line'), stops: STOPS.map(([db, n]) => [db, cv(n).trim()]) };
+  return cols;
 }
 function render() {
   root.hidden = !state.ui.mixer;
   if (root.hidden) { // reopening must not show levels from before it closed
     for (const x of strips.values()) { x.disp = [MIN, MIN]; x.hold = [MIN, MIN]; }
-    return;
+    return false;
   }
-  root.style.height = (dragH ?? S.get().mixerH) + 'px';
+  const hgt = (dragH ?? S.get().mixerH) + 'px';
+  if (root.style.height !== hgt) root.style.height = hgt;
   rebuild(state.project.tracks);
   const now = performance.now(), dt = Math.min(0.1, (now - (lastT || now)) / 1000);
   lastT = now;
-  const css = getComputedStyle(document.documentElement), cv = (n) => css.getPropertyValue(n);
-  const col = { surface: cv('--surface'), line: cv('--line'), stops: STOPS.map(([db, n]) => [db, cv(n).trim()]) };
+  const col = colors();
   for (const x of strips.values()) {
     const t = trackById(x.id), master = x.id === 'master';
     if (!master && !t) continue;
     update(x, master ? null : t);
     drawMeter(x, dt, col);
   }
+  return [...strips.values()].some((x) => [...x.disp, ...x.hold].some((d) => d > MIN)); // still falling: next frame
 }
 
 function init() {

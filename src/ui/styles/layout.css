@@ -94,6 +94,13 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px va
 #timeline-wrap { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 #timeline { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #timeline:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+/* the playhead over the canvas, moved with transform (no repaint while playing): a flag in the ruler + a line */
+#playhead { position: absolute; left: 0; top: 18px; bottom: 0; width: 13px; pointer-events: none;
+  will-change: transform; }
+#playhead[hidden] { display: none; }
+#playhead::before, #playhead::after { content: ''; position: absolute; background: var(--secondary); }
+#playhead::before { left: 0; top: 0; width: 13px; height: 8px; clip-path: polygon(0 0, 100% 0, 6.75px 100%); }
+#playhead::after { left: 6px; top: 8px; bottom: 0; width: 1.5px; }
 #empty { position: absolute; inset: 28px 0 0 0; display: grid; place-content: center; text-align: center; gap: 12px;
   pointer-events: none; color: var(--muted); }
 #empty[hidden] { display: none; }

@@ -65,6 +65,11 @@ function work(ms = 8) {
   return true;
 }
 
+// unfinished spectrograms of sources no longer in the project are dropped (they would keep the sound alive)
+function prune(keep) {
+  for (const job of pending) if (!keep.has(job.src)) { pending.delete(job); cache.delete(job.src); }
+}
+
 // perceptual ramp: dark navy -> teal -> amber -> pale yellow
 const STOPS = [[15, 23, 42], [19, 78, 74], [13, 148, 136], [251, 191, 36], [254, 249, 195]];
 const LUT = new Uint8ClampedArray(256 * 3);
@@ -73,4 +78,4 @@ for (let i = 0; i < 256; i++) {
   for (let c = 0; c < 3; c++) LUT[i * 3 + c] = STOPS[k][c] + (STOPS[k + 1][c] - STOPS[k][c]) * u;
 }
 
-module.exports = { get, work, computeCols, ROWS, HOP, LUT, isPending: () => pending.size > 0 };
+module.exports = { get, work, prune, computeCols, ROWS, HOP, LUT, isPending: () => pending.size > 0 };

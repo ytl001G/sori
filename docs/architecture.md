@@ -110,7 +110,7 @@ src/ui/
   index.html            shell markup
   styles/               design tokens (both themes, base.css :root) + components — see ui-guide.md; one file per area:
                         base, layout, dialogs (menus, modal, toast), panels (mixer, effect panel), sheets, script
-  app.js                entry: applies settings, wires views + keys, autosave timer, redraw loop
+  app.js                entry: applies settings, wires views + keys, autosave timer, redraw loop (see Redraw below)
   commands/             every user action as a named command; menus/shortcuts/buttons call these. index.js re-exports
                         the API; core.js = registry + shared selection helpers; one file per group: play, record,
                         script, files, export, edit, tracks, effects, markers, view, voice (목소리 정리), backup
@@ -368,7 +368,9 @@ master chain: eq -> comp -> reverb -> echo -> gain (gainDb) -> limiter -> [maste
   timer schedules clicks 150 ms ahead on the project beat grid. Count-in delays `t0` by
   `countIn bars × beats × 60 / bpm`.
 - AudioBuffers are cached per Source in a Map pruned to the current project's Sources on every
-  play/mixdown, so history never keeps a second copy of old takes alive. Playhead = `from + (ctx.currentTime - t0) * sr`.
+  play/mixdown, so history never keeps a second copy of old takes alive. One copy of the samples, not two: a new
+  buffer is filled from `src.ch` and the source then uses the buffer's own arrays (`parked.adopt`); a decoded file's
+  arrays already are its AudioBuffer's (`owner`, used as is). Sources never write their samples, so sharing is safe. Playhead = `from + (ctx.currentTime - t0) * sr`.
 - Mixdown (export): OfflineAudioContext (stereo, project rate), same `buildGraph` without meters.
   Length = range + longest reverb/echo tail; the limiter delay is removed from the start; trailing
   output below 1e-4 is cut back to the range end.
@@ -450,7 +452,21 @@ and a failed prune does not fail the backup. A pool file of the wrong size is re
 ## Spectrogram (spectro.js)
 Per Source (WeakMap): N = 1024 Hann, hop 512, 96 log-spaced rows 40 Hz–Nyquist, dB mapped to a color LUT.
 Columns are computed in slices (`work(ms)`, ~8 ms per frame) so long files never block the UI;
-timeline draws what is ready and redraws as columns arrive.
+timeline draws what is ready and redraws as columns arrive. Only while the view is on; the 5 s sweep in app.js drops
+unfinished ones of sources no longer in the project (`prune`), so they never keep old sound alive.
+
+## Redraw (app.js, timeline/paint.js)
+Measured 2026-11-11 (8 stereo tracks × 3 min, 4 with comp + reverb): repainting everything every frame cost about
+1.9 cores while playing (1.1 of them GPU) and 0.8 with the mixer open while stopped. So:
+- Frames run only while needed: a `changed()` call wakes the loop; it keeps going while playing, recording, counting
+  in, a shown spectrogram is being computed or mixer meters still fall (`mixer.render()` returns that). An idle window
+  asks for no frames. The frame where playing ends by itself (tick) redraws once (`wasLive`).
+- Track headers, the effect panel and the find box render only on a change; the 이어 녹음 time / level and the chrome
+  (time, buttons) every live frame, but `D.setText` / `D.setAttr` write the DOM only when the value differs.
+- The canvas is drawn only on a change, a new view (scroll, zoom, size) or new recorded sound (`recKey`: its length
+  and 이어 녹음's N marks, which come without `changed()`). The playhead is an element over it (`#playhead`, moved by
+  `transform`), so playing repaints nothing.
+- Mixer meters draw only when they look different (`x.look`); theme colors are read once per theme.
 
 ## File formats
 `.vproj` (little endian):

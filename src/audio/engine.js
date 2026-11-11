@@ -6,6 +6,7 @@ const M = require('./meters');
 const MET = require('./metro');
 const { due, frameAt } = require('../core/passes');
 const { toStereo } = require('../core/downmix');
+const PK = require('../core/parked');
 
 let ctx, ready, sinkId = '';
 function createCtx(sr) {
@@ -44,20 +45,32 @@ async function setSink(id) {
   try { if (ctx.setSinkId) await ctx.setSinkId(sinkId); return true; } catch { sinkId = ''; return false; }
 }
 
+// sample arrays that are an AudioBuffer's own (decoded files): playback uses that buffer, no copy
+const owner = new WeakMap();
 async function decode(arrayBuffer) {
   const b = await ctx.decodeAudioData(arrayBuffer);
   const ch = Array.from({ length: b.numberOfChannels }, (_, k) => b.getChannelData(k));
-  return ch.length > 2 ? toStereo(ch) : ch.map((c) => c.slice()); // more channels: core/downmix.js
+  if (ch.length > 2) return toStereo(ch); // more channels: core/downmix.js
+  owner.set(ch[0], b);
+  return ch;
 }
 
-// AudioBuffers are not tied to a context, so one buffer serves playback and offline mixdown
+// AudioBuffers are not tied to a context, so one buffer serves playback and offline mixdown. The source then uses
+// the buffer's own arrays (sources never change their samples): one copy of the sound in memory, not two
 function bufferFor(c, src) {
   let b = bufCache.get(src);
-  if (!b) {
-    b = new AudioBuffer({ numberOfChannels: src.ch.length, length: src.ch[0].length, sampleRate: c.sampleRate });
-    src.ch.forEach((d, k) => b.copyToChannel(d, k));
-    bufCache.set(src, b);
+  if (b) return b;
+  const ch = src.ch, own = owner.get(ch[0]);
+  const mine = own && own.sampleRate === c.sampleRate && own.numberOfChannels === ch.length
+    && ch.every((d, k) => own.getChannelData(k) === d);
+  if (mine) b = own;
+  else {
+    b = new AudioBuffer({ numberOfChannels: ch.length, length: ch[0].length, sampleRate: c.sampleRate });
+    ch.forEach((d, k) => b.copyToChannel(d, k));
+    PK.adopt(src, ch.map((_, k) => b.getChannelData(k)));
+    owner.set(b.getChannelData(0), b);
   }
+  bufCache.set(src, b);
   return b;
 }
 

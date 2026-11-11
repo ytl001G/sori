@@ -1,6 +1,8 @@
 // Drawing a timeline frame: lanes, grid, clips (clips.js), selection, ruler, markers, playhead.
 const E = require('../../core/edit');
 const { state } = require('../../core/state');
+const engine = require('../../audio/engine');
+const C = require('../commands');
 const V = require('./view');
 const { roundRect, drawClip, drawRecording } = require('./clips');
 
@@ -110,20 +112,31 @@ function drawMarkers() {
     cv.markerHits.push({ m, x0: x - 3, x1: x + w });
   }
 }
-function drawPlayhead() {
-  const { g, W, H } = cv, px = Math.round(frameToX(state.sel.playhead));
-  if (px < -8 || px > W + 8) return;
-  g.fillStyle = cv.col.secondary;
-  g.fillRect(px, RULER - 2, 1.5, H);
-  g.beginPath(); g.moveTo(px - 6, RULER - 10); g.lineTo(px + 7, RULER - 10); g.lineTo(px + 0.75, RULER - 2); g.fill();
+// the playhead is an element over the canvas (#playhead): moving it while playing repaints nothing
+function placePlayhead() {
+  const ph = document.getElementById('playhead'), px = Math.round(frameToX(state.sel.playhead));
+  const show = px >= -8 && px <= cv.W + 8, t = `translateX(${px - 6}px)`;
+  if (ph.hidden === show) ph.hidden = !show;
+  if (ph.style.transform !== t) ph.style.transform = t;
 }
 
-function draw() {
+// the canvas is drawn again only when something on it changed: a state change (full, changed()), the view, or the
+// take being recorded (its sound and 이어 녹음's N marks come without changed())
+let drawnKey = '';
+const recKey = () => {
+  const r = engine.recording(), i = C.recInfo();
+  return r ? r.length + ':' + (i && i.cont ? i.cont.marks.length : 0) : -1;
+};
+function draw(full = true) {
   const { g, W, H } = cv;
   if (!g || !W) return;
-  if (cv.col.theme !== document.documentElement.dataset.theme) V.readColors();
+  if (cv.col.theme !== document.documentElement.dataset.theme) { V.readColors(); full = true; }
   if (state.playing) V.follow();
   v.scrollY = Math.min(v.scrollY, V.maxScrollY()); // tracks removed
+  placePlayhead();
+  const key = [v.scrollX, v.scrollY, v.pxPerSec, W, H, cv.dpr, recKey()].join();
+  if (!full && key === drawnKey) return;
+  drawnKey = key;
   g.setTransform(cv.dpr, 0, 0, cv.dpr, 0, 0);
   g.fillStyle = cv.col.bg; g.fillRect(0, 0, W, H);
   const step = STEPS.find((s) => s * pps() >= 90) || 3600, bg = state.project.grid === 'beats' ? beatGrid() : null;
@@ -134,7 +147,6 @@ function draw() {
   if (r) drawSelection(r);
   drawRuler(t0, t1, step, bg, r);
   drawMarkers();
-  drawPlayhead();
 }
 
 module.exports = { draw, fmtTime };

@@ -43,7 +43,7 @@ padding to 7px. BPM and beats stay. Menu names never wrap (900px wrapped 파일 
 | `--subtle` | #94A3B8 | #5B6B7F | ruler labels, shortcuts in menus (≥4.5:1 on surface: 5.71 / 4.97) |
 | `--primary` | #0D9488 | #0F766E | primary button, toggles on, focus ring |
 | `--on-primary` | #000000 | #FFFFFF | text on primary |
-| `--secondary` | #14B8A6 | #0D9488 | playhead, selection edge |
+| `--secondary` | #14B8A6 | #0D9488 | playhead (`#playhead`, an element over the timeline canvas), selection edge |
 | `--accent` | #EA580C | #C2410C | mute-on, selected-clip outline |
 | `--danger` | #EF4444 | #DC2626 | record, delete hover, error text (4.71 / 4.83 on panel) |
 | `--sel` | rgba(20,184,166,.20) | rgba(13,148,136,.14) | selection fill |

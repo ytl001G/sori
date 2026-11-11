@@ -93,11 +93,13 @@ const MAX_SCROLL_PX = 1e7; // Chromium caps element widths; map proportionally b
 function syncScrollbar() {
   const content = Math.max(E.projectEnd(T()) / sr() + 30, v.scrollX + cv.W / pps());
   const full = content * pps(), scale = Math.min(1, MAX_SCROLL_PX / full);
-  hsInner.style.width = full * scale + 'px';
+  const w = full * scale + 'px', left = v.scrollX * pps() * scale;
+  if (hsInner.style.width === w && hs.dataset.left === String(left)) return; // every frame while playing
+  hsInner.style.width = w;
   hsSyncing = true;
-  hs.scrollLeft = v.scrollX * pps() * scale;
+  hs.scrollLeft = left;
   hsSyncing = false;
-  hs.dataset.scale = scale;
+  hs.dataset.scale = scale; hs.dataset.left = left;
 }
 function initScrollbar() {
   hs = document.getElementById('hscroll'); hsInner = document.getElementById('hscroll-inner');

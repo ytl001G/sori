@@ -4,20 +4,22 @@
 const AP = require('./audiopack');
 
 const IDLE_MS = 30000;
-const awake = new Map(); // parked source -> { drop, used } while its samples are decoded
+const awake = new Map(); // parked source -> { ch, drop, used } while its samples are decoded
+const recs = new WeakMap(); // parked source -> the same record, decoded or not
 
 // dims { channels, frames }: s.ch may be null (an opened take not decoded yet, fileio.packedSource)
 function park(s, blob, decoded, dims) {
   if (Object.getOwnPropertyDescriptor(s, 'ch').get) return;
-  const { channels, frames } = dims || { channels: s.ch.length, frames: s.ch[0].length }, e = { used: Date.now() };
-  let ch = decoded ? s.ch : null;
-  e.drop = () => { ch = null; awake.delete(s); };
+  const { channels, frames } = dims || { channels: s.ch.length, frames: s.ch[0].length };
+  const e = { used: Date.now(), ch: decoded ? s.ch : null };
+  e.drop = () => { e.ch = null; awake.delete(s); };
+  recs.set(s, e);
   Object.defineProperty(s, 'ch', {
     enumerable: true,
     get() {
-      if (!ch) ch = AP.unpack(blob, channels, frames);
+      if (!e.ch) e.ch = AP.unpack(blob, channels, frames);
       e.used = Date.now(); awake.set(s, e);
-      return ch;
+      return e.ch;
     },
   });
   Object.defineProperties(s, { frames: { value: frames }, channels: { value: channels } });
@@ -28,5 +30,10 @@ function sweep(keep, now = Date.now()) {
   for (const [s, e] of awake) if (!keep.has(s) && now - e.used > IDLE_MS) e.drop();
 }
 const awakeCount = () => awake.size;
+// the same samples in other arrays (the engine's AudioBuffer): the source uses them and its old copy can go
+function adopt(s, ch) {
+  const e = recs.get(s);
+  if (e) e.ch = ch; else s.ch = ch;
+}
 
-module.exports = { park, sweep, awakeCount, IDLE_MS };
+module.exports = { park, sweep, awakeCount, adopt, IDLE_MS };

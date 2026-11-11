@@ -86,6 +86,14 @@ t('필요할 때만 풀기: a loaded take decodes on use and lets go off screen;
   PK.sweep(new Set(), Date.now() + PK.IDLE_MS + 1);
   assert.strictEqual(PK.awakeCount(), n, 'off screen and idle: let go');
   assert.deepStrictEqual(src.ch[0], x, 'decoded again, the same');
+  const shared = [Float32Array.from(x)]; // the engine's AudioBuffer arrays (engine.bufferFor)
+  PK.adopt(src, shared);
+  assert.strictEqual(src.ch, shared, 'adopted: one copy of the samples');
+  PK.sweep(new Set(), Date.now() + PK.IDLE_MS + 1);
+  assert.deepStrictEqual(src.ch[0], x, 'let go and decoded again');
+  const plain = { ch: [x] };
+  PK.adopt(plain, shared);
+  assert.strictEqual(plain.ch, shared, 'a source without a packed copy takes the arrays');
   history.clear();
   history.budget = 1000; // under one 4800-frame source: undo still keeps a step, the project's own is not counted
   state.project.tracks = p.tracks;
