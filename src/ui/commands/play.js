@@ -5,7 +5,7 @@ const SCR = require('../../core/script');
 const S = require('../../core/settings');
 const engine = require('../../audio/engine');
 const { cmds, def, tl, T, frames, SC, curLine } = require('./core');
-const { state, changed } = require('../../core/state');
+const { state, changed, tidySel } = require('../../core/state');
 
 // what plays in a script project: the selected take, fixed when playback starts. Whatever is playing keeps
 // playing until it stops (★, another take only change the next play); moving to another line stops it,
@@ -40,6 +40,7 @@ function pause() {
   state.playing = false;
 }
 function afterEdit() {
+  tidySel(); // an edit can split or replace a selected clip (무음 넣기 inside it): the selection keeps only what exists
   if (state.playing && !state.recording) startPlay(engine.position());
   changed();
 }

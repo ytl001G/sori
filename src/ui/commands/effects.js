@@ -93,16 +93,19 @@ async function applyFx(targets, fn, opt, params, step) {
   if (!results.length) return false;
   const markers = opt.ripple ? stretchMarkers(results) : () => {};
   history.commit();
-  const newIds = new Set();
+  const made = new Set(); // the new sources (found by source, not by reading .ch: that decodes a parked take)
   for (const { tg, name: n, out } of results) {
-    const clips = E.replaceRegion(trackById(tg.trackId).clips, tg.a, tg.b, out, n, !opt.overlay);
+    const was = trackById(tg.trackId).clips, clips = E.replaceRegion(was, tg.a, tg.b, out, n, !opt.overlay);
     setClips(tg.trackId, clips);
-    newIds.add(clips.find((c) => c.src.ch === out).id);
+    made.add(clips.find((c) => !was.some((w) => w.src === c.src)).src);
   }
   markers();
   const r = state.sel.range;
   if (r && opt.ripple) r.b = r.a + results[0].out[0].length;
-  if (!r && state.sel.clipIds.size) state.sel.clipIds = newIds;
+  // selected clips: the new ones, read after every target (one on overlapping clips splits the one before it)
+  if (!r && state.sel.clipIds.size) {
+    state.sel.clipIds = new Set(T().flatMap((t) => t.clips.filter((c) => made.has(c.src)).map((c) => c.id)));
+  }
   return true;
 }
 async function runFx(name, label, fn, opt) {

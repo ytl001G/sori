@@ -2,7 +2,7 @@
 const C = require('../../src/ui/commands');
 const E = require('../../src/core/edit');
 const { state, history, changed } = require('../../src/core/state');
-const { wait, painted, assert, sr, T, end, sel, wav } = require('./kit');
+const { wait, painted, assert, sr, T, end, sel, wav, stub } = require('./kit');
 
 const ids = () => T().map((t) => t.id), act = (t) => { state.sel.activeTrackId = t.id; };
 const key = (code, mods) =>
@@ -30,6 +30,26 @@ module.exports = [
       sel(3, 4); await C.run(cmd);
       assert(history.depth() === depth && state.dirty === dirty && Math.abs(end() - 2 * sr) < 2, cmd + ' past the end');
     }
+    // nor do pasting a silent range there and 무음 넣기 there
+    sel(3, 4); await C.run('copy');
+    state.sel.range = null; state.sel.playhead = 3 * sr;
+    await C.run('paste');
+    stub.modal = { sec: 1 }; await C.run('insertSilence'); stub.modal = {};
+    assert(history.depth() === depth && state.dirty === dirty && Math.abs(end() - 2 * sr) < 2, 'paste / 무음 넣기');
+    state.clipboard = null;
+  }],
+  ['an effect on two partly overlapping selected clips: both new clips stay selected', async () => {
+    // 0-1 s and 0.5-1.5 s: the left one's effect splits the clip made for the right one
+    const c = T()[0].clips[0], tid = T()[0].id, h = Math.round(0.5 * sr);
+    history.commit();
+    state.project.tracks = T().map((t) => (t.id === tid
+      ? { ...t, clips: [E.makeClip(c.src, 0, 'a', 0, sr), E.makeClip(c.src, h, 'b', 0, sr)] } : t));
+    state.sel.range = null; state.sel.clipIds = new Set(T()[0].clips.map((x) => x.id));
+    await C.run('fxReverse');
+    const now = new Set(T()[0].clips.map((x) => x.id)), picked = [...state.sel.clipIds];
+    await C.run('undo'); await C.run('undo');
+    assert(picked.length === 2 && picked.every((id) => now.has(id)), `selected ${picked.length}, all there`);
+    assert(T()[0].clips.length === 1 && T()[0].clips[0] === c, 'undone');
   }],
   ['split + merge', async () => {
     state.sel.range = null; state.sel.clipIds = new Set(); state.sel.activeTrackId = T()[0].id; state.sel.playhead = sr;

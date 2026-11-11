@@ -1,4 +1,4 @@
-// Editing: undo / redo, copy / cut / paste / delete, select, split, merge, duplicate, keep, insert silence, nudge.
+// Editing: undo / redo, copy / cut / paste / delete, select, split, merge, duplicate, keep, insert silence.
 const E = require('../../core/edit');
 const SCR = require('../../core/script');
 const D = require('../dialogs');
@@ -85,13 +85,21 @@ function deleteSelection() {
   return true;
 }
 
-// Delete / cut as one undo step; a range past every clip and marker changes nothing: no step
+// an edit past every clip and marker (Delete, paste, 무음 넣기) changes nothing: its undo step is dropped (a Ctrl+Z
+// that does nothing, a saved project marked unsaved). before = layout() taken before the edit
+const layout = () => ({ clips: T().map((t) => t.clips), at: state.project.markers.map((m) => m.frame) });
+function dropIfSame(before, why) {
+  const { clips, at } = before, mk = state.project.markers;
+  const same = T().length === clips.length && mk.length === at.length && mk.every((m, i) => m.frame === at[i])
+    && T().every((t, i) => t.clips.length === clips[i].length && t.clips.every((c, k) => c === clips[i][k]));
+  if (same) { history.drop(); D.toast(why + ' — 바뀐 것 없어요'); }
+  return same;
+}
+// Delete / cut as one undo step
 function removeSelection() {
-  const clips = T().map((t) => t.clips), at = state.project.markers.map((m) => m.frame);
+  const before = layout();
   history.commit(); deleteSelection();
-  const same = T().every((t, i) => t.clips.length === clips[i].length && t.clips.every((c, k) => c === clips[i][k]))
-    && state.project.markers.every((m, i) => m.frame === at[i]);
-  if (same) { history.drop(); D.toast('선택한 구간에 소리가 없어요 — 바뀐 것 없어요'); }
+  dropIfSame(before, '선택한 구간에 소리가 없어요');
   afterEdit();
 }
 def('copy', '복사', () => { if (copySelection()) D.toast('복사했어요'); }, hasSel);
@@ -168,6 +176,7 @@ function addTrack(props) {
 def('paste', '붙여넣기', async () => {
   if (!state.clipboard) return;
   const cb = state.clipboard.sr && state.clipboard.sr !== sr() ? await atRate(state.clipboard, sr()) : state.clipboard;
+  const before = layout();
   history.commit();
   const r = state.sel.range;
   let at = state.sel.playhead;
@@ -179,6 +188,7 @@ def('paste', '붙여넣기', async () => {
   state.sel.playhead = at + len;
   state.sel.range = null;
   state.sel.clipIds = ids;
+  dropIfSame(before, '붙여 넣을 소리가 없어요');
   afterEdit();
 }, () => !!state.clipboard);
 
@@ -263,38 +273,13 @@ def('insertSilence', '무음 넣기…', async () => {
   const v = await D.modal({ title: '무음 넣기', note: '재생 위치(선택 구간이 있으면 그 시작)에 빈 시간을 끼워 넣고 뒤를 밀어요.',
     fields: [{ key: 'sec', label: '길이', min: 0.1, max: 600, step: 0.1, value, unit: '초' }] });
   if (!v) return;
-  const at = r ? r.a : state.sel.playhead, len = frames(v.sec);
+  const at = r ? r.a : state.sel.playhead, len = frames(v.sec), before = layout();
   history.commit();
   const ts = targetTracks();
   for (const t of ts) setClips(t.id, E.insertGap(t.clips, at, len));
   rippleMarkers(new Set(ts.map((t) => t.id)), at, at, len);
+  dropIfSame(before, '밀어낼 소리가 뒤에 없어요');
   afterEdit();
 });
-
-// keyboard alternative to dragging clips (ui-guide: dragging-alternative)
-function nudge(df) {
-  if (!selClips().length) return D.toast('옮길 클립을 선택하세요');
-  if (df < 0 && selClips().every(({ c }) => c.start === 0)) return; // already at the start: no undo step
-  history.commit();
-  const ids = state.sel.clipIds, moved = (c) => (ids.has(c.id) ? { ...c, start: Math.max(0, c.start + df) } : c);
-  for (const t of T()) if (t.clips.some((c) => ids.has(c.id))) setClips(t.id, E.sortClips(t.clips.map(moved)));
-  afterEdit();
-}
-function moveTracks(dir) {
-  const sc = selClips();
-  if (!sc.length) return D.toast('옮길 클립을 선택하세요');
-  if (sc.some(({ t }) => !T()[trackIndex(t.id) + dir])) return;
-  history.commit();
-  const ids = state.sel.clipIds, moving = sc.map(({ t, c }) => ({ to: T()[trackIndex(t.id) + dir].id, c }));
-  for (const t of T()) setClips(t.id, t.clips.filter((c) => !ids.has(c.id)));
-  for (const { to, c } of moving) setClips(to, E.sortClips([...trackById(to).clips, c]));
-  afterEdit();
-}
-def('nudgeLeft', '클립 0.1초 왼쪽', () => nudge(-frames(0.1)));
-def('nudgeRight', '클립 0.1초 오른쪽', () => nudge(frames(0.1)));
-def('nudgeLeftBig', '클립 1초 왼쪽', () => nudge(-frames(1)));
-def('nudgeRightBig', '클립 1초 오른쪽', () => nudge(frames(1)));
-def('clipsUp', '클립을 위 트랙으로', () => moveTracks(-1));
-def('clipsDown', '클립을 아래 트랙으로', () => moveTracks(1));
 
 module.exports = { rippleMarkers };

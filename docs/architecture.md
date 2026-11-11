@@ -117,7 +117,8 @@ src/ui/
   app.js                entry: applies settings, wires views + keys, autosave timer, redraw loop (see Redraw below)
   commands/             every user action as a named command; menus/shortcuts/buttons call these. index.js re-exports
                         the API; core.js = registry + shared selection helpers; one file per group: play, record,
-                        script, files, export, edit, tracks, effects, markers, view, voice (목소리 정리), backup
+                        script, files, export, edit, nudge (clips moved by keys), tracks, effects, markers, view,
+                        voice (목소리 정리), backup
                         (자동 백업 + 백업에서 열기), longrec (이어 녹음, N / Shift+N, 긴 녹음 나누기…, apply);
                         outside.js = requests from main (the window's X, a .vproj opened while running);
                         take.js = sori live file commands; find.js = 찾기: core/find.js on the open project, going
@@ -283,7 +284,11 @@ with new ids sharing their sources, and the same `fx` object (setFx replaces fx,
 lanes, headers and mixer strips all follow `project.tracks` order. All of these are one history step each.
 
 Effect target resolution (commands/effects.js): range -> per selected track `[a,b)`; else selected clips ->
-each clip's span on its track; else everything (all tracks, 0..project end).
+each clip's span on its track; else everything (all tracks, 0..project end). With selected clips the new clips
+are selected afterwards, read after every target (one on overlapping clips splits the clip made for the one before
+it). Delete / cut, paste and 무음 넣기 that change nothing (past every clip and marker) drop their undo step
+(`dropIfSame` in commands/edit.js). Every edit ends in `afterEdit` (commands/play.js), which keeps only selected
+clips that still exist (`tidySel`: 무음 넣기 inside a selected clip splits it).
 
 ## Effects contract (effects.js)
 `fx(ch: Float32Array[], sr: number, params) -> Float32Array[]` — synchronous, never mutates input,

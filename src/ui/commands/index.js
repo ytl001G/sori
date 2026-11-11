@@ -1,6 +1,7 @@
 // Every user action as a named command. Menus, shortcuts, buttons, the context menu and sori live call these.
-// Each group registers its commands in core.cmds: play, record, script, files, export, edit, tracks, effects,
-// markers, view, voice (목소리 정리), backup (자동 백업); take.js takes a sori live file command's result.
+// Each group registers its commands in core.cmds: play, record, script, files, export, edit, nudge (clips by keys),
+// tracks, effects, markers, view, voice (목소리 정리), backup (자동 백업); take.js takes a sori live file command's
+// result.
 const { cmds, run, curLine } = require('./core');
 const { tick, seek, audible, syncMetro } = require('./play');
 const { recInfo, recTrim } = require('./record');
@@ -9,6 +10,7 @@ const F = require('./files');
 require('./outside'); // the window's X, a file opened from outside
 const { markerSegments } = require('./export');
 require('./edit');
+require('./nudge');
 const { removeTrack, moveTrack, mixer, setFx, showFx, fxKey } = require('./tracks');
 const { FADE_SHAPES, shapeOf, setFadeShape } = require('./effects');
 const { moveMarker, setTempo } = require('./markers');
