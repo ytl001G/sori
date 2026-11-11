@@ -9,6 +9,17 @@ const P = require('../../src/core/fxparams');
 const spectro = require('../../src/core/spectro');
 const { state, history, setDirty } = require('../../src/core/state');
 const { errors, dir, stub, wait, painted, assert, sr, T, sel, until } = require('./kit');
+const timeline = require('../../src/ui/timeline');
+
+// the frames drawn while recording redraw only the growing take (timeline/paint.js recBand): the canvas must match a
+// full redraw of the same moment (both drawn now, so the take cannot grow in between)
+function sameAsFull() {
+  const cv = document.getElementById('timeline'), g = cv.getContext('2d');
+  const px = () => g.getImageData(0, 0, cv.width, cv.height).data;
+  timeline.draw(false); const a = px(); timeline.draw(true); const b = px();
+  let bad = 0; for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > 2) bad++;
+  return bad === 0;
+}
 
 module.exports = [
   ['mixer panel: strips, fader, double-click, meters move', async () => {
@@ -85,6 +96,7 @@ module.exports = [
     assert(refused && engine.recording(), 'latency measure replaced the take');
     await wait(800);
     assert(C.recTrim(engine.recLead()) >= sr * 0.5, 'live view ignores the count-in: ' + C.recTrim(engine.recLead()));
+    assert(sameAsFull(), 'the recording lane drawn piece by piece differs from a full redraw');
     await C.run('toggleMetro'); assert(state.recording && !S.get().metronome, 'metronome toggle while recording');
     await C.run('undo');
     assert(state.recording && T().length === n + 1 && state.project.markers.length === m0,

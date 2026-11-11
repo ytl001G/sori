@@ -256,7 +256,7 @@ const recLead = () => (rec ? leadSec(rec) : 0);
 
 module.exports = {
   whenReady, setSampleRate, sampleRate, setSink, decode, play, setMetro, stop, position, looping, countingIn, updateMix,
-  mixdown, tailLen, playPreview, stopPreview, startRecording, stopRecording, recording, recLead,
+  mixdown, tailLen, sweep: BF.sweep, playPreview, stopPreview, startRecording, stopRecording, recording, recLead,
   level: M.level, isClipped: M.isClipped, resetClip: M.resetClip, heldPeak: M.heldPeak,
   // for mic.js
   context, onClose, openMic, sink0, meterFor: M.meterFor, dropLevel: M.dropLevel,

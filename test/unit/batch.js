@@ -33,6 +33,18 @@ t('batch: runs in order and saves once; waves; --check changes nothing', async (
     [['보컬 1', '트랙 2'], -6, 1]);
 });
 
+t('batch: a track by name touches that track, as its number does; one an earlier line adds: all', async () => {
+  const f = cmds('n.txt', 'track set --track "보컬 1" --volume -3', 'track set --track 1 --pan 0.5',
+    'track set --track "트랙 2" --volume -1', 'track add --name 새트랙', 'track set --track 새트랙 --volume -2');
+  const ck = await run('batch', P, f, '--check');
+  assert.deepStrictEqual(ck.commands.map((k) => k.touches),
+    [['track 1'], ['track 1'], ['track 2'], ['all'], ['all']]);
+  assert.deepStrictEqual(ck.waves, [[1, 3], [2], [4], [5]], 'a track by name and by number: one after the other');
+  await run('batch', P, f);
+  const p = await run('info', P);
+  assert.deepStrictEqual(p.tracks.map((x) => [x.name, x.volumeDb]), [['보컬 1', -3], ['트랙 2', -1], ['새트랙', -2]]);
+});
+
 t('batch: a failing line (or a bad one, or export) saves nothing and names the line', async () => {
   const before = fs.readFileSync(cp(P));
   let r = await fails('NO_TRACK', 'batch', P, cmds('b.txt', 'track add', 'track set --track 9 --volume 0'));

@@ -53,19 +53,26 @@ const ROWS = [...V.VERBS.flatMap((v) => {
     { name: 'live ' + v.name, usage: 'sori live ' + v.usage.replace(' <project>', ''), about }];
 }), ...LIVE.filter(([u]) => !u.startsWith('live <'))
   .map(([u, a]) => ({ name: u.split(/ [[<]/)[0], usage: 'sori ' + u, about: a }))];
-// lines of docs/cli.md that run this command (shipped with the app; none if it is missing)
+// lines of docs/cli.md that run this command (the guide ships with the app; none if it is missing), read once
+let guide = null;
 function examples(name) {
-  let doc = '';
-  try { doc = fs.readFileSync(path.join(__dirname, '../../docs/cli.md'), 'utf8'); } catch { return []; }
+  if (!guide) {
+    const file = path.join(__dirname, '../../docs/cli.md');
+    try { guide = fs.readFileSync(file, 'utf8').split(/\r?\n/).map((l) => l.trim()); } catch { guide = []; }
+  }
   const start = `sori ${name} `;
-  return [...new Set(doc.split(/\r?\n/).map((l) => l.trim()).filter((l) => (l + ' ').startsWith(start)))].slice(0, 3);
+  return [...new Set(guide.filter((l) => (l + ' ').startsWith(start)))].slice(0, 3);
 }
-// sori help COMMAND, sori COMMAND --help: that command, or every one it starts (sori help clip); else a guess
+// the command of that name, else every one it starts (sori help clip)
+const named = (q) => {
+  const one = ROWS.filter((r) => r.name === q);
+  return one.length ? one : ROWS.filter((r) => r.name.startsWith(q + ' '));
+};
+// sori help COMMAND, sori COMMAND --help: that file command (or group), else that live one (sori help find); a guess
 function helpFor(words) {
   const w = words.filter((x) => !String(x).startsWith('-')).slice(0, 4);
   for (let k = w.length; k > 0; k--) {
-    const q = w.slice(0, k).join(' '), one = ROWS.filter((r) => r.name === q || r.name === 'live ' + q).slice(0, 1);
-    const hits = one.length ? one : ROWS.filter((r) => r.name.startsWith(q + ' '));
+    const q = w.slice(0, k).join(' '), file = named(q), hits = file.length ? file : named('live ' + q);
     if (!hits.length) continue;
     const row = (r) => `${r.usage}\n    ${r.about}\n${examples(r.name).map((e) => `  e.g. ${e}\n`).join('')}`;
     return process.stdout.write(hits.map(row).join('\n'));

@@ -5,6 +5,9 @@ const { ipcRenderer } = require('electron');
 const C = require('../../src/ui/commands');
 const D = require('../../src/ui/dialogs');
 const S = require('../../src/core/settings');
+const engine = require('../../src/audio/engine');
+const BF = require('../../src/audio/buffers');
+const PK = require('../../src/core/parked');
 const { state, history } = require('../../src/core/state');
 const { dir, stub, wait, invokeOrig, assert, sr, T, end, sel, painted, realAsk, stubAsk } = require('./kit');
 
@@ -44,6 +47,15 @@ module.exports = [
     assert(q.bpm === 100 && q.beats === 3 && q.markers.length === 1 && T()[0].fx.eq.low === 4 && q.master.gainDb === -2,
       'v2 fields');
     C.setTempo(120, 4); C.setFx(T()[0].id, 'eq', { on: false }); C.setFx('master', 'gain', { gainDb: 0 });
+  }],
+  ['one copy of a take: playback uses its own arrays, also after its samples were let go and an undo', async () => {
+    const s = T()[0].clips[0].src, ctx = engine.context(), id = T()[0].id;
+    assert(BF.bufferFor(ctx, s).getChannelData(0) === s.ch[0], 'a reopened take is held twice');
+    await C.removeTrack(id);
+    engine.sweep(T(), Date.now() + PK.IDLE_MS + 1); // out of the project long enough: its samples go
+    await C.run('undo');
+    assert(T()[0].id === id && BF.bufferFor(ctx, s).getChannelData(0) === s.ch[0],
+      'after an undo, playback kept the old buffer beside the newly decoded samples');
   }],
   ['unsaved changes: the app asks in its own window — 취소 keeps all, 저장 saves then goes on', async () => {
     D.ask = realAsk;

@@ -227,10 +227,10 @@ Every value is validated on load (`validate`); bad values fall back to defaults.
 1. Clip and Source objects are never mutated after creation. Edits replace them. (fileio packs each Source once and
    reuses the blob; mutating samples in place would save stale sound.) Once it has a blob, a Source is parked
    (`parked.js`): `ch` becomes a getter that decodes the blob when needed, `frames` / `channels` stay without
-   decoding (`srcLen`), and the app's 5 s sweep lets go of decoded samples off screen and unused for 30 s. Opening a
-   file parks every take whose sha1 checks out without decoding it (a copy of its blob; old blobs without a hash are
-   decoded once to check them): 255 MB, 454 takes opened in 5.1 s, now about 1 s. Never keep
-   `src.ch` around in a long-lived cache; read it when used.
+   decoding (`srcLen`), and the app's 5 s sweep (`buffers.sweep`) lets go of decoded samples out of the project
+   (undo history, other script lines) and unused for 30 s. Opening a file parks every take whose sha1 checks out
+   without decoding it (a copy of its blob; old blobs without a hash are decoded once to check them): 255 MB, 454
+   takes opened in 5.1 s, now about 1 s. Never keep `src.ch` around in a long-lived cache; read it when used.
 2. `track.clips` is replaced (new array) on every edit, never pushed into in place.
 3. Every structural edit: `history.commit()` before mutating. Snapshot = tracks with shallow
    copied props, the clip arrays (clips shared) and `markers`, so undo is cheap. History is capped at
@@ -375,10 +375,13 @@ master chain: eq -> comp -> reverb -> echo -> gain (gainDb) -> limiter -> [maste
   `stopRecording()` (before its flush), which also ends the pump (`p.metro = null`). Count-in delays `t0` by
   `countIn bars × beats × 60 / bpm`.
 - AudioBuffers (`buffers.js`) are cached per Source in a Map pruned to the current project's Sources on every
-  play/mixdown, so history never keeps a second copy of old takes alive. One copy of the samples, not two: a decoded
-  file's arrays and a saved take's unpacked samples (`parked.setAlloc`: unpacked straight into a new AudioBuffer)
-  already are an AudioBuffer's own (`owner`, used as is); any other source is copied once into a buffer and then uses
-  its arrays (`parked.adopt`). Sources never write their samples, so sharing is safe.
+  play/mixdown and in the 5 s sweep, so history never keeps a second copy of old takes alive. The sweep
+  (`buffers.sweep`) lets go of a take's samples and of its buffer together: they share the arrays, and a buffer kept
+  after its samples went would sit beside the newly decoded ones when the take comes back (another line, an undo).
+  One copy of the samples, not two: a decoded file's arrays and a saved take's unpacked samples (`parked.setAlloc`:
+  unpacked straight into a new AudioBuffer) already are an AudioBuffer's own (`owner`, used as is); any other source
+  is copied once into a buffer and then uses its arrays (`parked.adopt`). Sources never write their samples, so
+  sharing is safe.
   Playhead = `from + (ctx.currentTime - t0) * sr`.
 - Mixdown (export): OfflineAudioContext (stereo, project rate), same `buildGraph` without meters.
   Length = range + longest reverb/echo tail; the limiter delay is removed from the start; trailing

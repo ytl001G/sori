@@ -5,12 +5,19 @@ const { toStereo } = require('../core/downmix');
 
 let rate = () => 48000; // the live context's rate (engine.js sets it)
 const setRate = (f) => { rate = f; };
-// Source -> AudioBuffer. Only sources of the current project are kept (pruned on play/mixdown),
-// so undo history does not hold a second copy of every old take.
+// Source -> AudioBuffer. Only sources of the current project are kept (pruned on play/mixdown and in sweep), so undo
+// history does not hold a second copy of every old take.
 const bufCache = new Map();
-function prune(tracks) {
-  const live = new Set(tracks.flatMap((t) => t.clips.map((c) => c.src)));
+const sources = (tracks) => new Set(tracks.flatMap((t) => t.clips.map((c) => c.src)));
+function prune(tracks, live = sources(tracks)) {
   for (const s of bufCache.keys()) if (!live.has(s)) bufCache.delete(s);
+}
+// every few seconds (app.js): takes out of the project let go of their samples after a while (core/parked.js), and
+// of their buffers at the same time, as both share the arrays: an old buffer never stays beside newly decoded ones
+function sweep(tracks, now) {
+  const live = sources(tracks);
+  PK.sweep(live, now); prune(tracks, live);
+  return live;
 }
 
 const clear = () => bufCache.clear();
@@ -51,4 +58,4 @@ function bufferFor(c, src) {
   return b;
 }
 
-module.exports = { decode, bufferFor, prune, clear, setRate };
+module.exports = { decode, bufferFor, prune, sweep, clear, setRate };

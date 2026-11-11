@@ -14,7 +14,6 @@ const menus = require('./menus');
 const spectro = require('../core/spectro');
 const D = require('./dialogs');
 const IO = require('../core/fileio');
-const PK = require('../core/parked');
 const engine = require('../audio/engine');
 const { projectEnd } = require('../core/edit');
 
@@ -109,11 +108,8 @@ function packLater() {
   });
 }
 state.listeners.add(packLater);
-// 필요할 때만 풀기: a take off screen lets go of its decoded sound after a while (core/parked.js)
-setInterval(() => {
-  const keep = new Set(state.project.tracks.flatMap((t) => t.clips.map((c) => c.src)));
-  PK.sweep(keep); spectro.prune(keep);
-}, 5000);
+// 필요할 때만 풀기: a take out of the project lets go of its decoded sound after a while (audio/buffers.js sweep)
+setInterval(() => spectro.prune(engine.sweep(state.project.tracks)), 5000);
 
 // ---------- redraw loop ----------
 // frames run only while there is something to draw. A change (changed()) draws on the next frame; while playing,

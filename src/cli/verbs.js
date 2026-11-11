@@ -44,11 +44,15 @@ const PATHS = new Set(['project', 'out', 'files', 'file']); // positionals resol
 // the command argv starts with (longest name first), or null
 const verbOf = (argv) => [3, 2, 1].map((k) => VERBS.find((v) => v.name === argv.slice(0, k).join(' '))).find(Boolean)
   || null;
-// a mistyped command -> the closest name with as many words (`more`: other names, e.g. the live ones)
+// a mistyped command -> the closest name with as many words (`more`: other names, e.g. the live ones). A name is
+// compared without its "live ": sori state (live left out) -> "live state"; a file command comes first
 function guess(argv, more = []) {
-  const names = [...VERBS.map((v) => v.name), ...more];
-  return [3, 2, 1].map((k) => A.near(argv.slice(0, k).join(' '), names.filter((n) => n.split(' ').length === k)))
-    .find(Boolean);
+  const names = [...VERBS.map((v) => v.name), ...more], bare = (n) => n.replace(/^live /, '');
+  return [3, 2, 1].map((k) => {
+    const of = names.filter((n) => bare(n).split(' ').length === k);
+    const hit = A.near(argv.slice(0, k).join(' '), of.map(bare));
+    return hit && of.find((n) => bare(n) === hit);
+  }).find(Boolean);
 }
 // argv -> { verb, pos, at (argv index of each positional), o, f } or a BAD_ARG / UNKNOWN_COMMAND error (with usage).
 // live: `sori live <command>` names no <project> (it is the one open in the app), so an empty one stands in; `more`:
@@ -125,4 +129,4 @@ const audioFor = (engine) => ({
   },
 });
 
-module.exports = { VERBS, TRACK_TYPES, APPLY, parse, execute, audioFor, verbOf, guess };
+module.exports = { VERBS, TRACK_TYPES, APPLY, parse, execute, audioFor, guess };

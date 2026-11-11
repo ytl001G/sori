@@ -47,8 +47,12 @@ t('cli: help for one command or a group, a guess at a mistyped one; "help" as a 
   assert.match(await text('clip', 'move', '--help'), /^sori clip move <project> --track N\|NAME/);
   const group = await text('help', 'marker');
   assert(['marker add', 'marker remove', 'marker set'].every((n) => group.includes('sori ' + n)), group);
-  const r = await cli('help', 'expor');
+  assert.match(await text('help', 'script', 'line'), /^sori script line set /, 'the file command, not the live one');
+  assert.match(await text('help', 'find'), /^sori live find /, 'a live-only command');
+  let r = await cli('help', 'expor');
   assert(r.error === 'UNKNOWN_COMMAND' && /did you mean "export"/.test(r.message), JSON.stringify(r));
+  r = await cli('state');
+  assert(r.error === 'UNKNOWN_COMMAND' && /did you mean "live state"/.test(r.message), JSON.stringify(r));
   await cli('new', 'h.vproj');
   const m = await cli('marker', 'add', 'h.vproj', '--at', '1:02', '--name', 'help');
   assert(m.ok && m.marker.name === 'help' && m.marker.at === 62, JSON.stringify(m));

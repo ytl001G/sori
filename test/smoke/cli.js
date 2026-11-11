@@ -90,6 +90,14 @@ module.exports = [
     assert(r.error === 'BAD_ARG', 'bad clip select ' + JSON.stringify(r));
     await cli('live', 'select', '--none');
   }, 'dev'],
+  ['CLI live select: a track by its name and a time as m:ss, resolved in the app', async () => {
+    const one = T().find((t) => T().filter((u) => u.name === t.name).length === 1);
+    let r = await cli('live', 'select', '--active', one.name, '--playhead', '0:00.25');
+    assert(r.ok && state.sel.activeTrackId === one.id && state.sel.playhead === Math.round(0.25 * sr),
+      'select by name ' + JSON.stringify(r));
+    r = await cli('live', 'select', '--active', one.name + '없음');
+    assert(r.error === 'BAD_ARG' && /no track named/.test(r.message), 'unknown name ' + JSON.stringify(r));
+  }, 'dev'],
   ['CLI live: saveAs / open with --path and --yes; a view toggle is not an edit', async () => {
     let r;
     // --path answers the file window, --yes the app's question: the CLI can do everything the user can
