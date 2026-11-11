@@ -105,6 +105,21 @@ module.exports = [
     assert(back.length === wavFrames, `decoded mp3 length ${back.length} = wav ${wavFrames}`);
     assert(require('../../src/core/workers').WORKERS >= 1 && typeof Worker === 'function', 'workers in the renderer');
   }],
+  ['export: a cut in a sine has no step at the join, a clip starting mid-wave fades in (edit.played)', async () => {
+    const x = Float32Array.from({ length: sr }, (_, i) => 0.5 * Math.sin(2 * Math.PI * 220 * i / sr + 1));
+    const whole = E.makeClip(E.makeSource([x, x]), Math.round(0.1 * sr), 'c', 777); // starts mid-wave
+    const tr = makeTrack({ clips: E.rippleDelete([whole], Math.round(0.4 * sr), Math.round(0.5537 * sr)) });
+    const [l] = await engine.mixdown([tr], state.project.master, 0, Math.round(0.9 * sr));
+    const step = (a, b) => {
+      let m = 0;
+      for (let i = a; i < b; i++) m = Math.max(m, Math.abs(l[i + 1] - l[i]));
+      return m;
+    };
+    const j = Math.round(0.4 * sr), s0 = Math.round(0.1 * sr);
+    // the sine's own largest step: 0.0144; without edit.played the join jumps 0.38 and the start 0.49
+    assert(step(j - 300, j + 300) < 0.03, 'a step at the join ' + step(j - 300, j + 300));
+    assert(step(s0 - 10, s0 + 300) < 0.03, 'a step at the clip start ' + step(s0 - 10, s0 + 300));
+  }],
   ['이 클립만 내보내기: one selected clip alone, from its start to its end; in the right-click menu', async () => {
     const M = require('../../src/ui/menus'), x0 = T()[0].clips[0];
     state.sel.range = null; state.sel.clipIds = new Set([x0.id]); state.sel.playhead = x0.start + Math.round(sr * 0.3);

@@ -255,6 +255,14 @@ Every value is validated on load (`validate`); bad values fall back to defaults.
    scheduled on a per-clip GainNode as linear ramps between `envBreaks`; a curved fade (`fadeGain`: smooth = raised
    cosine, fast = 1−(1−x)³, slow = x³; fade-out = 1 − shape(progress)) gets 32 breakpoints, max error < 0.3% (test).
    A fade widened into an automatic crossfade ignores the shape and stays linear (`fadeShapes`).
+7. Clip edges as they sound (`edit.played(clips, silence)`, copies, never stored; playback, export and every
+   `renderRegion`): a cut joins two waves at any value, so the sound would jump there in one sample (a 220 Hz sine cut
+   at random: a step 49x its largest normal one, a click). Where a clip's end meets another's start on the track,
+   each plays on into the sound it has past the edge (its handle, up to `EDGE` = 120 frames a side: 2.5 ms at 48 kHz)
+   and the overlap crossfades them (rule 6), as Pro Tools / Reaper / Audition do; one handle is enough, none: each
+   side fades over EDGE in its own sound. A plain split crossfades the same samples (sounds as before, < 1e-6).
+   An edge with its own fade keeps it (the other side of that join fades over EDGE). `silence` (engine: playback and
+   export): an edge against silence fades over 2 * EDGE; edits leave it out, or every effect would bake it in again.
 
 ## Edit semantics (edit.js)
 - `splitAt(track, f)`: every clip strictly containing `f` becomes two clips. The left piece keeps the

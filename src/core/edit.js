@@ -56,6 +56,45 @@ function fades(clips) {
   }
   return m;
 }
+// The clips as they sound (never stored). A cut joins two waves at any value, so the sound jumps there in one sample:
+// a click (a 220 Hz sine cut at random: a step 49x its largest normal one). Where one clip's end meets another's start
+// on a track, both play on into the sound each has past the edge (up to EDGE frames a side, its "handle") and the
+// overlap crossfades them, so the wave goes from one to the other without a step; a plain split (the same source,
+// contiguous) crossfades the same samples and sounds exactly as before. silence: an edge against silence (no clip
+// meeting it) fades over 2 * EDGE (playback and export); edits leave that out, or every effect would bake it in again.
+// An edge with its own fade is left as it is; at a join with one, the other side fades over EDGE in its own sound.
+const EDGE = 120; // frames: 2.5 ms at 48 kHz, 2.7 ms at 44.1 kHz
+function played(clips, silence = false) {
+  const s = sortClips(clips), out = new Map(s.map((c) => [c, { ...c }])), byStart = new Map();
+  const metIn = new Set(), metOut = new Set();
+  for (const c of s) byStart.set(c.start, [...(byStart.get(c.start) || []), c]);
+  for (const a of s) {
+    const next = (byStart.get(clipEnd(a)) || []).filter((b) => b !== a), A = out.get(a);
+    if (!next.length) continue;
+    metOut.add(a);
+    next.forEach((b) => metIn.add(b));
+    if (a.fadeOut || next.some((b) => b.fadeIn)) { // an own fade: no overlap, short fades where there is none
+      if (!a.fadeOut) A.fadeOut = EDGE;
+      for (const b of next) if (!b.fadeIn) out.get(b).fadeIn = EDGE;
+      continue;
+    }
+    const y = Math.max(0, Math.min(EDGE, srcLen(a.src) - a.offset - a.length));
+    A.length = a.length + y;
+    for (const b of next) {
+      const B = out.get(b), x = Math.max(0, Math.min(EDGE, b.offset, b.start));
+      Object.assign(B, { start: b.start - x, offset: b.offset - x, length: b.length + x });
+      if (x + y === 0) { A.fadeOut = EDGE; B.fadeIn = EDGE; } // no sound past either edge: two short fades
+    }
+  }
+  if (silence) {
+    for (const c of s) {
+      const C = out.get(c);
+      if (!c.fadeIn && !metIn.has(c)) C.fadeIn = 2 * EDGE;
+      if (!c.fadeOut && !metOut.has(c)) C.fadeOut = 2 * EDGE;
+    }
+  }
+  return s.map((c) => out.get(c));
+}
 // Fade shapes: fade-in gain at progress x in [0, 1]. A fade-out is 1 - shape(progress), so 'fast' changes
 // fast at the start of either fade and 'slow' at the end. Clips store fadeInShape/fadeOutShape only when not linear.
 const FADE_SHAPES = {
@@ -92,9 +131,10 @@ function envBreaks(c, [fi, fo]) {
 }
 const flatEnv = (c, fd) => (c.gain ?? 1) === 1 && !fd[0] && !fd[1];
 
-// Sum of clips (with clip volume, fades and crossfades) over [a, b). Returns null when nothing overlaps.
-function renderRegion(clips, a, b) {
-  const hit = clips.filter((c) => c.start < b && clipEnd(c) > a);
+// Sum of clips (with clip volume, fades, crossfades and the crossfaded joins of `played`) over [a, b), for edits
+// (effects, merge, copy...). Returns null when nothing overlaps.
+function renderRegion(stored, a, b) {
+  const clips = played(stored), hit = clips.filter((c) => c.start < b && clipEnd(c) > a);
   if (!hit.length) return null;
   const fd = fades(clips);
   const nch = Math.max(...hit.map((c) => c.src.ch.length));
@@ -169,5 +209,5 @@ const projectEnd = (tracks) => Math.max(0, ...tracks.flatMap((t) => t.clips.map(
 module.exports = {
   uid, makeSource, makeClip, srcLen, clipEnd, sortClips, splitClip, splitAt, rippleDelete, insertGap,
   clearRange, keepRange, renderRegion, replaceRegion, merge, trimClip, projectEnd, shiftFrom,
-  fades, envAt, envBreaks, clampFades, remapFrame, markerSegments, fadeGain, fadeShapes, FADE_SHAPES,
+  fades, envAt, envBreaks, clampFades, remapFrame, markerSegments, fadeGain, fadeShapes, FADE_SHAPES, played, EDGE,
 };

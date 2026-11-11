@@ -1,6 +1,6 @@
 // Web Audio: decode, playback graph (clips -> track fx -> fader -> pan -> meter -> master chain),
 // loop passes, worklet recording, mixdown, preview (meters: meters.js, metronome: metro.js, the mic tools: mic.js).
-const { clipEnd, fades, envAt, envBreaks } = require('../core/edit');
+const { clipEnd, fades, envAt, envBreaks, played } = require('../core/edit');
 const CH = require('./chain');
 const M = require('./meters');
 const MET = require('./metro');
@@ -68,8 +68,9 @@ function buildGraph(c, tracks, master, dest, live) {
 function addClips(c, g, tracks, from, to, when) {
   const sr = c.sampleRate;
   for (const t of tracks) {
-    const fd = fades(t.clips), input = g.nodes.get(t.id).chain.input;
-    for (const clip of t.clips) {
+    // as they sound: crossfaded joins, short fades against silence (edit.played)
+    const pc = played(t.clips, true), fd = fades(pc), input = g.nodes.get(t.id).chain.input;
+    for (const clip of pc) {
       if (clipEnd(clip) <= from || clip.start >= to) continue;
       const skip = Math.max(0, from - clip.start), len = Math.min(clip.length - skip, to - Math.max(from, clip.start));
       if (len <= 0) continue;
