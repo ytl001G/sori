@@ -146,7 +146,7 @@ function updateChrome() {
   $('beats').value = String(p.beats);
   const dark = document.documentElement.dataset.theme === 'dark';
   $('btn-theme').setAttribute('aria-label', dark ? '밝은 테마로 전환' : '어두운 테마로 전환');
-  $('empty').hidden = p.tracks.length > 0;
+  $('empty').hidden = p.tracks.length > 0 || !!(C.recInfo() && C.recInfo().cont); // 이어 녹음: its lane shows
   const count = p.script ? `테이크 ${C.takeCount()}` : `트랙 ${p.tracks.length}`;
   $('info').textContent = `${p.sampleRate} Hz · ${count}개 · ${fmt(projectEnd(p.tracks))}`;
   const name = state.filePath ? require('path').basename(state.filePath, '.vproj') : '새 프로젝트';

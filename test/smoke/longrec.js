@@ -6,7 +6,7 @@ const LR = require('../../src/ui/commands/longrec');
 const SW = require('../../src/ui/split');
 const SCR = require('../../src/core/script');
 const { state } = require('../../src/core/state');
-const { dir, wait, painted, assert, sr, invokeOrig, shots } = require('./kit');
+const { dir, wait, painted, assert, sr, invokeOrig, shots, rowsOf } = require('./kit');
 
 const shot = async (n) => {
   if (shots) { await painted(); await wait(150); await invokeOrig('capture', path.join(shots, n + '.png')); }
@@ -36,10 +36,13 @@ module.exports = [
     fs.writeFileSync(txt, '철수: 하나\n철수: 둘\n철수: 셋\n');
     await C.importScript(txt);
     assert(s() && s().lines.length === 3, 'script');
+    const rows = (await rowsOf('record')).join();
+    assert(rows === '녹음,이어 녹음,—,긴 녹음 나누기…,—,메트로놈', 'record menu in a script ' + rows);
     await C.run('contRecord');
     assert(state.recording && C.recInfo().cont && !C.recInfo().trackId, '이어 녹음 runs without a take');
     assert(state.holding, 'closing the app asks while the sound lives only in memory');
     await wait(300); await C.run('cueNext'); await painted();
+    assert($('#empty').hidden, 'the timeline shows the 이어 녹음 lane, not the empty text');
     assert($('#script-bar .sb-text').textContent === '둘' && !$('.sb-live').hidden, 'prompter cues 둘');
     assert($('#sp-list .line-row.cue') && C.recInfo().cont.marks.length === 1, 'list cue + one mark');
     assert(!$('#sp-list .line-row.cur') && $('.cont-rec').textContent === '이어 녹음 멈춤', 'only the cue stands out');

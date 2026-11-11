@@ -42,6 +42,10 @@ src/core/  (plain Node, no DOM / AudioContext)
                         filters shared with the effect panel, 50/60 Hz listening
   audiopack.js          packs a source for .vproj v4: 16-bit exact / 24-bit, fixed predictors + Rice, verified
   backup.js             자동 백업 folders: write (newest 10 per group, sound in a shared pool), 30-day tidy, list
+  passes.js             playback as passes: pass 0 from the start point, then a loop's [a, b) back to back (passAt), the
+                        frame heard at a context time (frameAt); engine.js schedules them, metro.js clicks on them
+  downmix.js            more than 2 channels -> stereo on import: WAV channel order per count (3-8), centre/surrounds
+                        -3 dB, LFE left out (Web Audio's quad/5.1 rules); other counts evenly to both sides
   pool.js               several jobs at once (RENDERS = 4 renders in flight: exports, sori measure), results in order
   workers.js / worker.js pure work on other CPUs: run(mod, fn, args) calls require('./' + mod)[fn] on one of up to 8
                         workers (CPUs - 2): Web Workers with Node in Sori's windows (main.js nodeIntegrationInWorker),
@@ -89,7 +93,9 @@ src/cli/   (the AI command line, docs/cli.md; plain Node except headless.*)
   pipe.js               local named pipe for sori live (name, serve for main.js, request for the CLI)
   headless.html/.js     hidden window: runs verbs.execute with engine.js decode + mixdown, writes result.json
 src/audio/
-  engine.js             AudioContext, decode, live graph, metronome/count-in, mixdown, recording, devices
+  engine.js             AudioContext, decode, live graph, loop passes (next one queued 0.5 s ahead), mixdown,
+                        recording, devices
+  metro.js              metronome + count-in clicks on the beat grid of each pass (straight to the speakers)
   meters.js             level meters: latest peak per track / master / input, held peak (>= 1 = clipped light)
   mic.js                설정 window audio tools: device list, mic input test, 자동 측정 (latency)
   chain.js              effect chains as Web Audio nodes (track: hum/eq/comp/deess/reverb/echo; master: eq/comp/
@@ -366,9 +372,11 @@ Audit 2026-11-08: mono is -3 dB per side everywhere — the track panner, the re
 path (StereoPannerNode, pan 0), the destructive reverb's dry copy, renderRegion when mono meets stereo, playPreview.
 Playback runs on through the reverb/echo tail (`engine.tailLen`, built on chain `tail()`), the playhead stops at the
 clip end. Echo tail = until -60 dB, at most 60 s (`FX.echoTail`, shared); the destructive echo fades its last 0.5 s.
-A live parameter's first value is set exactly, later changes glide. Loop passes `to = b` (no overrun); the 50 ms
-restart gap remains (shortcut in play.js). Files with more than 2 channels: quad and 5.1 mix to stereo by Web Audio
-speaker rules (`toStereo`), other counts keep L/R (shortcut). mixdown returns subarray views: consumers respect
+A live parameter's first value is set exactly, later changes glide. Loop: the engine plays passes (core/passes.js) and
+queues the next one 0.5 s before it is due on its 25 ms timer, into the same chains, so the seam has no gap and the
+loop runs on while the window is minimized (no redraw needed); a source leaves the graph when it ends. play.js restarts
+playback only when 반복 or the range changes. Files with more than 2 channels mix to stereo on import (core/downmix.js:
+3-8 channels by WAV order, other counts evenly). mixdown returns subarray views: consumers respect
 byteOffset. Export: the mix file goes through safewrite; folder exports run names through uniquePaths; a render with a
 sample over 1.0 adds the 0 dB warning to the success toast. Noise profile: only frames fully inside the piece.
 

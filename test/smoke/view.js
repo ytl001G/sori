@@ -1,20 +1,8 @@
 // Smoke steps: Theme toggle, a small window with a tall mixer, dragging the mixer edge, fonts, the top menus, 이름순 정렬.
 const C = require('../../src/ui/commands');
 const S = require('../../src/core/settings');
-const menus = require('../../src/ui/menus');
 const { state, makeTrack, changed } = require('../../src/core/state');
-const { wait, painted, invokeOrig, assert, T } = require('./kit');
-
-// the rows of a top menu as text ('—' = separator)
-async function rowsOf(menu) {
-  document.querySelector(`#menubar button[data-menu="${menu}"]`).dispatchEvent(new MouseEvent('mousedown',
-    { bubbles: true }));
-  await painted();
-  const rows = [...document.querySelectorAll('.menu > *')].map((x) => (x.classList.contains('sep') ? '—'
-    : x.children[1] ? x.children[1].textContent : x.textContent));
-  menus.close();
-  return rows;
-}
+const { wait, painted, invokeOrig, assert, T, rowsOf } = require('./kit');
 
 module.exports = [
   ['times round before the minutes split off (1:00, never 0:60)', async () => {
@@ -60,9 +48,10 @@ module.exports = [
       state.project.tracks = kept; changed();
       assert(got === '600 13px, 700 12px, 500 12px', 'fonts ' + got);
     }],
-  ['top menus: 편집 · 트랙 · 마커 split, 대사 rows only in a script, no stray separators', async () => {
+  ['top menus: 편집 · 녹음 · 트랙 · 마커 split, 대사 rows only in a script, no stray separators', async () => {
     const tops = [...document.querySelectorAll('#menubar button')].map((b) => b.textContent);
-    assert(tops.join() === '파일,편집,트랙,마커,보기,효과', 'menubar ' + tops);
+    assert(tops.join() === '파일,편집,녹음,트랙,마커,보기,효과', 'menubar ' + tops);
+    assert((await rowsOf('record')).join() === '녹음,—,메트로놈', 'record (no script) ' + await rowsOf('record'));
     const edit = await rowsOf('edit'), track = await rowsOf('track');
     assert(edit.length === 17 && edit.at(-1) === '선택 해제' && !edit.includes('대사 고치기…'), 'edit ' + edit);
     assert(track.at(-1) === '이름순 정렬' && track.length === 11, 'track ' + track);

@@ -25,12 +25,12 @@ const metroOpts = () => ({
   on: S.get().metronome, bpm: state.project.bpm, beats: state.project.beats, volume: S.get().metroVol / 100 * 0.8,
 });
 const syncMetro = () => engine.setMetro(metroOpts()); // running playback/recording keeps going
+// the range repeated now: 반복 on with a range, not while recording
+const loopRange = () => (state.loop && !state.recording && state.sel.range) || null;
 function startPlay(from, countIn = 0) {
   if (!state.playing) playTake = curLine() ? state.sel.activeTrackId : null;
-  const opts = { metro: metroOpts(), countIn }, r = state.sel.range;
-  // shortcut: a loop pass ends at r.b and tick restarts it (~50 ms gap); gapless needs the next pass pre-scheduled
-  const to = state.loop && r && from < r.b ? r.b : Infinity;
-  engine.play(audible(), state.project.master, Math.max(0, Math.round(from)), to, opts);
+  const r = loopRange(), f = Math.max(0, Math.round(r && from >= r.b ? r.a : from)); // past the range: its start
+  engine.play(audible(), state.project.master, f, { metro: metroOpts(), countIn, loop: r && { a: r.a, b: r.b } });
   state.playing = true;
 }
 function pause() {
@@ -67,10 +67,12 @@ def('stop', '정지', () => {
 function tick() {
   if (!state.playing) return;
   let pos = engine.position();
-  const r = state.sel.range, end = E.projectEnd(audible()); // script mode: the end of the take being heard
+  const end = E.projectEnd(audible()); // script mode: the end of the take being heard
   const tail = engine.tailLen(audible(), state.project.master); // plays on until the reverb/echo tail ends, as export
-  if (state.loop && r && pos >= r.b && !state.recording) { startPlay(r.a); pos = r.a; }
-  else if (!state.recording && pos >= end + tail + frames(0.05)) {
+  const want = loopRange(), has = engine.looping(); // the engine repeats by itself; 반복 or the range changed: restart
+  if (!state.recording && (want ? !has || has.a !== want.a || has.b !== want.b : has)) {
+    startPlay(pos); pos = engine.position();
+  } else if (!state.recording && pos >= end + tail + frames(0.05)) {
     engine.stop(); state.playing = false; pos = landAt(end);
   }
   state.sel.playhead = Math.round(pos);

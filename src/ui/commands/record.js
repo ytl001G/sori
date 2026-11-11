@@ -125,7 +125,7 @@ async function begin(cont) {
   // overdub: hear the other tracks; count-in clicks first (the mic audio from that time is cut on stop)
   // takes: hear only yourself
   const others = line ? [] : T().filter((x) => x.id !== t.id);
-  engine.play(others, state.project.master, rec.start, Infinity, { metro: metroOpts(), countIn });
+  engine.play(others, state.project.master, rec.start, { metro: metroOpts(), countIn });
   state.playing = true;
   changed();
 }

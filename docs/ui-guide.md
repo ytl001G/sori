@@ -83,7 +83,8 @@ Settings and on/off states (theme, panels, snap) are the app's state, not a wind
 - Button primary (`--primary` / `--on-primary`) and secondary (border `--line`). One primary per dialog.
 - Slider: native range restyled; every slider has a visible label and value text.
 - Menu: items 28px, label left, shortcut right in `--subtle`, separators, disabled = 45% opacity + `aria-disabled`.
-  Top menus: 파일 · 편집 · 트랙 · 마커 · 보기 · 효과 (a menu stays short enough to scan; 편집 is 17 rows).
+  Top menus: 파일 · 편집 · 녹음 · 트랙 · 마커 · 보기 · 효과 (a menu stays short enough to scan; 편집 is 17 rows;
+  녹음 = 녹음 · 이어 녹음 | 긴 녹음 나누기… | 메트로놈).
   Rows only for a script project (menus.js `SCRIPT_ONLY`) are left out otherwise, and a separator never starts,
   ends or doubles a menu.
 - Dialog: `role="dialog" aria-modal`, title, note, fields `label | slider | number + unit`, footer [미리듣기] … [취소] [적용].
@@ -139,7 +140,9 @@ Settings and on/off states (theme, panels, snap) are the app's state, not a wind
   Shift+R 멈춤`, right below it `.sb-side`: `.sb-live` (time m:ss 13px tabular `--danger` + an 80×6px input meter,
   `--meter-g`, red once clipped; `aria-hidden`: the bar is a live region) and [이어 녹음] (`.btn-small`, record icon;
   while it runs `이어 녹음 멈춤` in `--danger`; disabled during a normal R recording). The cued row in the list: 2px
-  inset `--danger` outline, and it is the only highlighted row (no `.cur` while cueing).
+  inset `--danger` outline, and it is the only highlighted row (no `.cur` while cueing). The timeline: a lane under the
+  takes drawn like a recording take (`--danger` box + strip titled `이어 녹음`, growing waveform), a 2px `--text` line
+  at every N; the empty-timeline text is hidden meanwhile.
 - 긴 녹음 나누기 window: a sheet (760×600). Top row: length, 쉬는 기준 number box (`.numin`, 0.3–5 s) and [쉬는 곳마다
   대사 나누기]; the whole recording 56px (canvas, piece boxes drawn under the waveform: `--secondary` 16% / chosen 32% /
   dropped `--subtle` 10%; current piece outlined in `--text`, line boundaries 2px `--accent`, each line's name at its

@@ -109,10 +109,11 @@ function drawEdge(c, x0, x1, top, h, color) {
   }
 }
 
+// the take being recorded; 이어 녹음 (no take grows): its own lane under the takes, a line where each N was pressed
 function drawRecording() {
   const info = C.recInfo(), r = engine.recording();
   if (!info || !r) return;
-  const i = T().findIndex((t) => t.id === info.trackId);
+  const i = info.cont ? T().length : T().findIndex((t) => t.id === info.trackId);
   if (i < 0) return;
   const skip = C.recTrim(engine.recLead()), len = r.length - skip; // draw only what the take keeps on stop
   if (len <= 0) return; // still counting in
@@ -121,7 +122,7 @@ function drawRecording() {
   g.fillStyle = rgba(hexOf(col.danger), 0.22); g.fillRect(x0, top, x1 - x0, h);
   g.fillStyle = col.danger; g.fillRect(x0, top, x1 - x0, STRIP);
   g.fillStyle = '#fff'; g.font = '600 12px ' + FONT; g.textBaseline = 'middle';
-  g.fillText('녹음 중', x0 + 6, top + STRIP / 2 + 0.5);
+  g.fillText(info.cont ? '이어 녹음' : '녹음 중', x0 + 6, top + STRIP / 2 + 0.5);
   const mid = top + STRIP + (h - STRIP) / 2, amp = (h - STRIP) / 2 - 2, cw = r.chunk / sr() * pps();
   g.fillStyle = col.danger;
   r.peaks.forEach(([mn, mx], k) => {
@@ -130,6 +131,9 @@ function drawRecording() {
     if (xa + cw <= x0 || x > cv.W || xa + cw < 0) return;
     g.fillRect(x, mid - mx * amp, Math.max(1, xa + cw - x), Math.max(1, (mx - mn) * amp));
   });
+  g.fillStyle = col.text;
+  const marks = info.cont ? info.cont.marks : [];
+  for (const m of marks) if (m > skip) g.fillRect(frameToX(info.start + m - skip) - 1, top, 2, h);
 }
 
 module.exports = { roundRect, drawClip, drawRecording };

@@ -66,7 +66,18 @@ const cli = (...argv) =>
   (e, out, err) => { try { res(JSON.parse(out)); } catch { rej(new Error(`sori ${argv.join(' ')}: ${err || e}`)); } }));
 const ok = (r, what) => { assert(r.ok, what + ': ' + JSON.stringify(r)); return r; };
 
+// the rows of a top menu as text ('—' = separator)
+async function rowsOf(menu) {
+  document.querySelector(`#menubar button[data-menu="${menu}"]`).dispatchEvent(new MouseEvent('mousedown',
+    { bubbles: true }));
+  await painted();
+  const rows = [...document.querySelectorAll('.menu > *')].map((x) => (x.classList.contains('sep') ? '—'
+    : x.children[1] ? x.children[1].textContent : x.textContent));
+  require('../../src/ui/menus').close();
+  return rows;
+}
+
 module.exports = {
   log, errors, toasts, dir, stub, wait, painted, realModal, stubModal, invokeOrig, assert, sr, T, end, sel, tone, wav,
-  packaged, shots, install, step, realAsk, stubAsk, cli, ok,
+  packaged, shots, install, step, realAsk, stubAsk, cli, ok, rowsOf,
 };

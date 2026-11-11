@@ -86,11 +86,10 @@ function liveInfo() {
 }
 
 // the take count, [+ 테이크] / [이어 녹음] and what the empty timeline (a line without takes) says (spec §5-5);
-// cueing = 이어 녹음 runs (no take grows here)
+// cueing = 이어 녹음 runs (its lane is on the timeline then, the empty text hidden)
 function heads(cueing) {
-  setText($('empty').querySelector('.empty-title'), cueing ? '이어 녹음 중이에요' : 'R 을 눌러 이 대사를 녹음하세요');
-  setText($('empty').querySelector('.empty-sub'), cueing ? '대사 하나를 끝낼 때마다 N, 다 읽으면 Shift+R. 멈추면 대사별로 나눠요'
-    : '녹음할 때마다 테이크가 하나씩 생겨요. 내보낼 테이크는 ★로 골라요');
+  setText($('empty').querySelector('.empty-title'), 'R 을 눌러 이 대사를 녹음하세요');
+  setText($('empty').querySelector('.empty-sub'), '녹음할 때마다 테이크가 하나씩 생겨요. 내보낼 테이크는 ★로 골라요');
   setText(count, `테이크 ${C.takeCount()}개`);
   count.nextElementSibling.disabled = !C.cmds.addTrack.enabled(); // [+ 테이크]: not while recording
   const cont = bar.querySelector('.cont-rec');

@@ -64,10 +64,11 @@ module.exports = [
     sel(0.2, 0.6); state.loop = true; state.sel.playhead = Math.round(0.2 * sr);
     await invokeOrig('win', 'minimize'); await wait(300);
     await C.run('playPause'); await wait(1500);
-    const p = engine.position() / sr; // engine time: does not depend on the redraw loop
+    const p = engine.position() / sr, lp = engine.looping(); // engine time: does not depend on the redraw loop
     await C.run('playPause'); state.loop = false; state.sel.range = null;
     await invokeOrig('win', 'restore'); await wait(300);
     assert(p >= 0.2 && p < 0.65, 'loop stopped while minimized, position ' + p.toFixed(2) + ' s');
+    assert(lp && lp.a === Math.round(0.2 * sr) && lp.b === Math.round(0.6 * sr), 'the engine repeats the range itself');
   }],
   ['export wav + mp3', async () => {
     stub.save = path.join(dir, 'out.wav'); state.sel.range = null;

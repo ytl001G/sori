@@ -1,8 +1,11 @@
 // Web Audio: decode, playback graph (clips -> track fx -> fader -> pan -> meter -> master chain),
-// metronome + count-in, worklet recording, mixdown, preview (meters: meters.js, the mic tools: mic.js).
+// loop passes, worklet recording, mixdown, preview (meters: meters.js, metronome: metro.js, the mic tools: mic.js).
 const { clipEnd, fades, envAt, envBreaks } = require('../core/edit');
 const CH = require('./chain');
 const M = require('./meters');
+const MET = require('./metro');
+const { passAt, frameAt } = require('../core/passes');
+const { toStereo } = require('../core/downmix');
 
 let ctx, ready, sinkId = '';
 function createCtx(sr) {
@@ -42,15 +45,9 @@ async function setSink(id) {
 }
 
 async function decode(arrayBuffer) {
-  let b = await ctx.decodeAudioData(arrayBuffer);
-  if (b.numberOfChannels > 2) b = await toStereo(b);
-  return Array.from({ length: b.numberOfChannels }, (_, k) => b.getChannelData(k).slice());
-}
-// Web Audio's speaker downmix (quad, 5.1 -> L/R). shortcut: 3/5/7.1-ch files keep only L/R (discrete rule), upgrade
-// with an own mix matrix if such files show up
-async function toStereo(b) {
-  const off = new OfflineAudioContext(2, b.length, b.sampleRate), s = off.createBufferSource();
-  s.buffer = b; s.connect(off.destination); s.start(); return off.startRendering();
+  const b = await ctx.decodeAudioData(arrayBuffer);
+  const ch = Array.from({ length: b.numberOfChannels }, (_, k) => b.getChannelData(k));
+  return ch.length > 2 ? toStereo(ch) : ch.map((c) => c.slice()); // more channels: core/downmix.js
 }
 
 // AudioBuffers are not tied to a context, so one buffer serves playback and offline mixdown
@@ -72,9 +69,9 @@ function scheduleEnv(param, c, fd, k0, tAt) {
   for (const b of envBreaks(c, fd)) if (b > k0) param.linearRampToValueAtTime(envAt(c, fd, b), tAt(b));
 }
 
-// Builds the mix graph on `c` playing [from, to) starting at context time `when`.
-function buildGraph(c, tracks, master, from, to, when, dest, live) {
-  const anySolo = tracks.some((t) => t.solo), sr = c.sampleRate, nodes = new Map(), sources = [];
+// The mix graph on `c` (chains, faders, pans, meters, the master chain into dest); addClips puts sound into it.
+function buildGraph(c, tracks, master, dest, live) {
+  const anySolo = tracks.some((t) => t.solo), nodes = new Map(), sources = new Set();
   const mchain = CH.masterChain(c, master, live);
   let mout = mchain.output;
   if (live) { const m = M.meterFor(c, 'master'); mout.connect(m); mout = m; nodes.set('master', { meter: m }); }
@@ -87,63 +84,50 @@ function buildGraph(c, tracks, master, from, to, when, dest, live) {
     if (live) { meter = M.meterFor(c, t.id); p.connect(meter); out = meter; }
     out.connect(mchain.input);
     nodes.set(t.id, { chain, g, p, meter });
-    const fd = fades(t.clips);
+  }
+  return { nodes, sources, mchain };
+}
+// the clips' sound of [from, to) into graph g, starting at context time `when`; a source leaves g when it ends
+function addClips(c, g, tracks, from, to, when) {
+  const sr = c.sampleRate;
+  for (const t of tracks) {
+    const fd = fades(t.clips), input = g.nodes.get(t.id).chain.input;
     for (const clip of t.clips) {
       if (clipEnd(clip) <= from || clip.start >= to) continue;
       const skip = Math.max(0, from - clip.start), len = Math.min(clip.length - skip, to - Math.max(from, clip.start));
       if (len <= 0) continue;
       const s = c.createBufferSource(), env = c.createGain();
       s.buffer = bufferFor(c, clip.src);
-      s.connect(env).connect(chain.input);
+      s.connect(env).connect(input);
       scheduleEnv(env.gain, clip, fd.get(clip), skip, (k) => when + (clip.start + k - from) / sr);
       s.start(when + Math.max(0, clip.start - from) / sr, (clip.offset + skip) / sr, len / sr);
-      sources.push(s);
+      s.onended = () => { g.sources.delete(s); s.disconnect(); };
+      g.sources.add(s);
     }
   }
-  return { nodes, sources, mchain };
 }
 
-// ---- metronome: short sine clicks straight to the speakers (never exported) ----
-function click(t, accent, vol) {
-  const o = ctx.createOscillator(), g = ctx.createGain();
-  o.frequency.value = accent ? 1600 : 1000;
-  g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(vol, t + 0.002);
-  g.gain.exponentialRampToValueAtTime(0.0005, t + 0.05);
-  o.connect(g).connect(ctx.destination);
-  o.start(t); o.stop(t + 0.06);
-}
+let play_ = null; // { from, t0, lat, loop, graph, timer, queued } (core/passes.js reads from, t0, loop)
 
-let play_ = null; // { from, t0, graph, timer }
-
-// opts: { countIn: seconds, metro: { on, bpm, beats, volume 0..1 } }
-function play(tracks, master, from, to = Infinity, opts = {}) {
+// opts: { countIn: seconds, metro: { on, bpm, beats, volume 0..1 }, loop: { a, b } (from < b) }. A loop's next pass
+// is scheduled 0.5 s ahead (no gap, and it goes on while the window is minimized)
+function play(tracks, master, from, opts = {}) {
   stop();
   prune(tracks);
   if (ctx.state === 'suspended') ctx.resume();
-  const countIn = opts.countIn || 0, metro = opts.metro;
-  const t0 = ctx.currentTime + 0.05 + countIn, lat = CH.latency(master, ctx.sampleRate);
+  const countIn = opts.countIn || 0, sr = ctx.sampleRate;
+  const t0 = ctx.currentTime + 0.05 + countIn, lat = CH.latency(master, sr);
   if (rec) Object.assign(rec, { t0, lat }); // the take's lead survives a stop of playback during the recording
-  play_ = { from, t0, lat, graph: buildGraph(ctx, tracks, master, from, to, t0, ctx.destination, true), timer: null };
-  if (!metro) return;
-  const p = play_, base = t0 - from / ctx.sampleRate, beat = 60 / metro.bpm; // base: ctx time of project frame 0
-  const bar = (n) => ((n % metro.beats) + metro.beats) % metro.beats === 0;
-  // count-in leads into the next grid beat when the metronome runs, else into the playback start
-  const n0 = Math.round(countIn / beat), nf = metro.on ? Math.ceil((t0 - base) / beat - 1e-6) : n0;
-  const lead = metro.on ? base + nf * beat : t0;
-  for (let j = 0; j < n0; j++) click(lead - (n0 - j) * beat, bar(nf - n0 + j), metro.volume);
-  p.metro = metro; p.next = t0;
-  const pump = () => { // reads p.metro each time so toggles and tempo changes apply without a restart
-    const m = p.metro, b = 60 / m.bpm;
-    if (!m.on) return;
-    const first = Math.ceil((Math.max(p.next, ctx.currentTime - 0.01) - base) / b - 1e-6);
-    for (let n = first, t; (t = base + n * b) < ctx.currentTime + 0.15; n++) {
-      click(t, n % m.beats === 0, m.volume);
-      p.next = t + 1e-3;
+  const p = play_ = { from, t0, lat, loop: opts.loop || null, timer: null, queued: 0,
+    graph: buildGraph(ctx, tracks, master, ctx.destination, true) };
+  const ahead = () => {
+    for (let s; (s = passAt(p, p.queued, sr)) && (!p.queued || s.at < ctx.currentTime + 0.5); p.queued++) {
+      addClips(ctx, p.graph, tracks, s.from, s.to, s.at);
     }
   };
-  pump();
-  p.timer = setInterval(pump, 25);
+  ahead();
+  if (opts.metro) MET.start(ctx, p, opts.metro, countIn);
+  if (p.loop || opts.metro) p.timer = setInterval(() => { ahead(); MET.pump(ctx, p); }, 25);
 }
 // live metronome settings (on/off, tempo, volume) for the running playback or recording
 function setMetro(m) { if (play_ && play_.metro) play_.metro = m; }
@@ -161,7 +145,8 @@ function stop() {
   M.clearLevels();
 }
 
-const position = () => (play_ ? play_.from + Math.max(0, ctx.currentTime - play_.t0) * ctx.sampleRate : null);
+const position = () => (play_ ? frameAt(play_, ctx.currentTime, ctx.sampleRate) : null);
+const looping = () => (play_ ? play_.loop : null);
 const countingIn = () => !!play_ && ctx.currentTime < play_.t0;
 
 // live mixer / effect changes without restarting playback
@@ -190,7 +175,8 @@ async function mixdown(tracks, master, a, b, onPart) {
   prune(tracks);
   const off = new OfflineAudioContext(2, len + lat, sr);
   await CH.load(off);
-  const g = buildGraph(off, tracks, master, a, b, 0, off.destination, false);
+  const g = buildGraph(off, tracks, master, off.destination, false);
+  addClips(off, g, tracks, a, b, 0);
   const r = await new Promise((resolve, reject) => {
     const total = (len + lat) / sr, every = Math.max(1, total / 50);
     for (let t = every; onPart && t < total; t += every) {
@@ -292,8 +278,8 @@ const leadSec = (r) => Math.max(0, (r.t0 ?? r.t) - r.t + (ctx.outputLatency || 0
 const recLead = () => (rec ? leadSec(rec) : 0);
 
 module.exports = {
-  whenReady, setSampleRate, sampleRate, setSink, decode, play, setMetro, stop, position, countingIn, updateMix, mixdown,
-  tailLen, playPreview, stopPreview, startRecording, stopRecording, recording, recLead,
+  whenReady, setSampleRate, sampleRate, setSink, decode, play, setMetro, stop, position, looping, countingIn, updateMix,
+  mixdown, tailLen, playPreview, stopPreview, startRecording, stopRecording, recording, recLead,
   level: M.level, isClipped: M.isClipped, resetClip: M.resetClip, heldPeak: M.heldPeak,
   // for mic.js
   context, onClose, openMic, sink0, meterFor: M.meterFor, dropLevel: M.dropLevel,
