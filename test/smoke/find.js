@@ -39,6 +39,10 @@ module.exports = [
         + count().textContent);
       await enter(); assert(active() === '보컬1' && count().textContent === '1/2', 'Enter wraps to the first');
       await enter(true); assert(active() === '보컬 2', 'Shift+Enter goes back');
+      state.project.tracks = T().map((t) => (t.name === '배경음악' ? { ...t, name: '보컬 배경' } : t)); changed();
+      await settle();
+      assert(count().textContent === '3/3' && active() === '보컬 2', 'a rename counts again, nothing moves '
+        + count().textContent);
       await type('후렴'); assert(count().textContent === '0개' && count().classList.contains('none'), 'no track 후렴');
       $('#find .find-more').click(); tick('clips'); tick('markers'); await settle();
       const onClip = state.sel.clipIds.has(T()[1].clips[0].id) && state.sel.playhead === 3 * sr;
@@ -62,7 +66,10 @@ module.exports = [
     C.setScriptView({ char: '철수' });
     ctrlF(); await settle(); await type('산책');
     assert(count().textContent === '0개' && name() === '철수-001', '철수 tab: 영희-001 is not listed, not found');
-    await type('철수-002'); assert(name() === '철수-002' && count().textContent === '1/1', 'a line number');
+    C.setScriptView({ char: '' }); await settle();
+    assert(count().textContent === '1개' && name() === '철수-001', 'tab 전체: counted again, nothing moves');
+    C.setScriptView({ char: '철수' });
+    await type('철수 2'); assert(name() === '철수-002' && count().textContent === '1/1', 'a line number, loosely');
     C.setScriptView({ char: '' });
     await type('산책'); assert(name() === '영희-001', 'all tabs: found');
     key(input(), { key: 'Escape', code: 'Escape' });

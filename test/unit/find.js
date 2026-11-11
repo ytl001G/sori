@@ -23,6 +23,10 @@ t('find: a script project looks in the listed lines (number, text; memo with 고
   assert.strictEqual(kinds(F.hits(p, '산책', lines)), 'line:l1');
   assert.strictEqual(kinds(F.hits(p, '산책', lines, { memo: true })), 'line:l1 line:l2');
   assert.strictEqual(kinds(F.hits(p, '영희-001', lines)), 'line:l2');
+  for (const q of ['영희 001', '영희1', '영희 1', '영희001', '영1']) {
+    assert.strictEqual(kinds(F.hits(p, q, lines)), 'line:l2', q);
+  }
+  assert.strictEqual(kinds(F.hits(p, '영희10', lines)), '', 'another number');
   assert.strictEqual(kinds(F.hits(p, '보컬', lines)), '', 'takes are not searched in a script project');
 });
 

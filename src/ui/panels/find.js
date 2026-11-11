@@ -12,11 +12,11 @@ const checked = (k) => adv.querySelector(`input[data-k=${k}]`).checked;
 const opts = () => ({ clips: checked('clips'), markers: checked('markers'),
   memo: !!state.project.script && checked('memo') });
 
-// one search at a time, in order (going to a line waits for its takes)
+// one search at a time, in order (going to a line waits for its takes); recount: the count only, nothing moves
 let queue = Promise.resolve();
-function search(dir) {
+function search(dir, recount = false) {
   queue = queue.then(async () => {
-    const q = input.value, r = await C.find(q, opts(), dir, !(dir === 0 && state.recording));
+    const q = input.value, r = await C.find(q, opts(), dir, !recount && !(dir === 0 && state.recording));
     count.textContent = !q.trim() ? '' : r.at >= 0 ? `${r.at + 1}/${r.count}` : `${r.count}개`;
     count.classList.toggle('none', !!q.trim() && !r.count);
   }).catch(() => {});
@@ -59,4 +59,19 @@ function open() {
   input.focus(); input.select();
 }
 
-module.exports = { open, close };
+// every redraw while open: what the hits depend on (project, names, list view, where the selection is); a change
+// counts again without moving (a tab switched, a track renamed, another project opened)
+let last = [];
+function render() {
+  if (!box || box.hidden) return;
+  const p = state.project, sc = p.script, v = state.ui.scriptView, s = state.sel;
+  const now = [p, p.tracks, p.markers, T().map((t) => t.name).join('|'), sc && sc.lines, sc && sc.lineId, v.char,
+    v.todo, s.activeTrackId, s.markerId, s.clipIds];
+  if (now.length === last.length && now.every((x, i) => x === last[i])) return;
+  last = now;
+  adv.querySelector('label[data-k=memo]').hidden = !sc; // memo: lines only
+  if (input.value.trim()) search(0, true);
+}
+const T = () => state.project.tracks;
+
+module.exports = { open, close, render };

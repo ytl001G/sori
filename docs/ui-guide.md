@@ -133,6 +133,8 @@ Settings and on/off states (theme, panels, snap) are the app's state, not a wind
   `2/5` 12px tabular `--muted` (`0개` in `--danger`, `aria-live=polite`), 28px icon buttons ▲ 이전 / ▼ 다음, `고급`
   small button (`aria-expanded`, `--secondary` when open), ✕ 닫기. 고급 unfolds checkboxes below (12px `--muted`):
   클립 이름 · 마커 이름 · 대사 메모 (script projects only). Esc closes and gives the keys back to the timeline.
+- Device lists (설정 > 오디오 장치): the tab draws at once; until Windows answers, the mic and speaker selects are
+  disabled with one option '장치 찾는 중…', then filled in place (no empty tab while waiting).
 - Line bar / prompter (script mode): 4px left edge in the character color (`--danger` while recording), `캐릭터-번호`
   13px/700 `--muted`, the line 20px/600 (32px while recording, max 30vh then scrolls), memo 13px, hint right 12px; while
   recording the next line shows below in 14px `--subtle` ("다음 · 영희-005 …").

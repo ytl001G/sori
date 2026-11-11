@@ -71,28 +71,42 @@ function latencyRow(test) {
     '다른 트랙에 맞춰 녹음했는데 늦게 붙으면 이 값만큼 앞으로 당겨요. 자동 측정은 스피커 소리를 마이크가 듣게 한 뒤 눌러요.');
 }
 
-async function audioTab(p, rerender) {
-  const s = S.get();
-  let devs = { inputs: [], outputs: [] };
-  try { devs = await MIC.listDevices(); } catch { /* no media devices */ }
-  const named = devs.inputs.some((d) => d.label), test = inputTest();
-  const micSel = deviceSelect(devs.inputs, s.inputId, '기본 마이크 (Windows 설정)', '마이크');
-  micSel.onchange = () => { S.set({ inputId: micSel.value }); if (test.on) test.start(); };
-  const out = deviceSelect(devs.outputs, s.outputId, '기본 스피커 (Windows 설정)', '스피커');
-  out.onchange = async () => {
-    S.set({ outputId: out.value });
-    if (!(await engine.setSink(out.value))) D.toast('이 장치로 바꿀 수 없어요. 기본 스피커를 써요', 'error');
-  };
+// a device list while Windows is asked for the devices (it can take a moment): greyed, '장치 찾는 중…'
+function waiting(prefix) {
+  const sel = el('select', { disabled: true }, el('option', { value: '', textContent: '장치 찾는 중…' }));
+  sel.setAttribute('aria-label', prefix);
+  return sel;
+}
+// the tab shows at once; the mic and speaker lists fill in when the devices come
+function audioTab(p, rerender) {
+  const test = inputTest(), mic = el('div', { className: 'inline' }, waiting('마이크')), out = waiting('스피커');
+  let gone = false;
   p.append(
-    row('마이크', el('div', { className: 'inline' }, micSel, named ? null : revealButton(rerender)),
-      named ? null : '장치 이름이 안 보이면 [장치 이름 보기]를 눌러 마이크 권한을 주세요.'),
+    row('마이크', mic),
     row('입력 레벨', el('div', { className: 'inline' }, test.btn, test.bar),
       '말해 보세요. 막대가 주황색까지 자주 가면 마이크 볼륨을 낮추세요.'),
     row('스피커', out),
     row('녹음 채널', seg('recChannels', [[1, '모노'], [2, '스테레오']])),
     latencyRow(test),
   );
-  p.cleanup = test.stop;
+  p.cleanup = () => { gone = true; test.stop(); };
+  MIC.listDevices().catch(() => ({ inputs: [], outputs: [] })) // no media devices
+    .then((devs) => { if (!gone) fillDevices(devs, mic, out, test, rerender); });
+}
+function fillDevices(devs, mic, out, test, rerender) {
+  const s = S.get(), named = devs.inputs.some((d) => d.label);
+  const micSel = deviceSelect(devs.inputs, s.inputId, '기본 마이크 (Windows 설정)', '마이크');
+  micSel.onchange = () => { S.set({ inputId: micSel.value }); if (test.on) test.start(); };
+  const outSel = deviceSelect(devs.outputs, s.outputId, '기본 스피커 (Windows 설정)', '스피커');
+  outSel.onchange = async () => {
+    S.set({ outputId: outSel.value });
+    if (!(await engine.setSink(outSel.value))) D.toast('이 장치로 바꿀 수 없어요. 기본 스피커를 써요', 'error');
+  };
+  mic.replaceChildren(micSel, ...(named ? [] : [revealButton(rerender)]));
+  if (!named) {
+    mic.after(el('div', { className: 'shint', textContent: '장치 이름이 안 보이면 [장치 이름 보기]를 눌러 마이크 권한을 주세요.' }));
+  }
+  out.replaceWith(outSel);
 }
 
 // 자동 측정 (the button and sori live settings --latencyMs auto): sets latencyMs and says so; null when it could not

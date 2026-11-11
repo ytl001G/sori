@@ -1,9 +1,14 @@
 // Ctrl+F 찾기 (spec §2): what matches a search, in the order Enter walks, and where a search lands. Pure: the app's
-// box (ui/panels/find.js, ui/commands/find.js) and `sori live find` share it. Text matches as a part, ignoring case
-// and spaces.
+// box (ui/panels/find.js, ui/commands/find.js) and `sori live find` share it. Text matches as a part, ignoring case,
+// spaces and hyphens; a line number also without its zeros (철수 2 = 철수-002).
 const SCR = require('./script');
 
-const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g, '');
+const norm = (s) => String(s || '').toLowerCase().replace(/[\s-]+/g, '');
+// '철수2' / '철수 002' -> the line 철수-002: the character's name (or its start) and the number by value
+function isNumber(k, l) {
+  const m = /^(\D+)0*(\d+)$/.exec(k);
+  return !!m && norm(l.char).startsWith(m[1]) && Number(m[2]) === l.num;
+}
 // p: the project (a script project's tracks = the current line's takes); lines: a script project's lines as the
 // list shows them (null otherwise); o: { clips, markers, memo } (고급). A line or track hit carries `ord`, its place
 // in its list
@@ -14,7 +19,7 @@ function hits(p, q, lines, o = {}) {
   if (lines) {
     lines.forEach((l, ord) => {
       const name = SCR.lineName(l);
-      if (has(name, l.text, o.memo && l.memo)) out.push({ kind: 'line', id: l.id, ord, name });
+      if (has(name, l.text, o.memo && l.memo) || isNumber(k, l)) out.push({ kind: 'line', id: l.id, ord, name });
     });
   } else p.tracks.forEach((t, ord) => { if (has(t.name)) out.push({ kind: 'track', id: t.id, ord, name: t.name }); });
   if (o.clips) {

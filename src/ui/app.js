@@ -9,6 +9,7 @@ const tracks = require('./panels/tracks');
 const mixer = require('./panels/mixer');
 const fxpanel = require('./panels/fx');
 const scriptui = require('./panels/script');
+const findbox = require('./panels/find');
 const menus = require('./menus');
 const spectro = require('../core/spectro');
 const D = require('./dialogs');
@@ -167,6 +168,7 @@ function draw() {
     timeline.draw();
     timeline.syncScrollbar();
     fxpanel.render();
+    findbox.render();
     updateChrome();
   }
 }
