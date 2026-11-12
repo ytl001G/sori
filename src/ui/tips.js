@@ -10,4 +10,15 @@ function tip(x) {
 }
 const tips = (root = document) => root.querySelectorAll('[data-tip]').forEach(tip);
 
-module.exports = { tip, tips };
+// The same in sentences (messages, notes): never a typed key. A command named in a sentence: '실행취소(Ctrl+Z)', the
+// particle after it follows the name; no key: the name alone
+const named = (cmd, name) => { const k = labelFor(cmd); return k ? `${name}(${k})` : name; };
+// '키 하는 일' hints ('R 새 테이크 · ↑/↓ 대사 이동'): "a,b" joins two commands' keys with '/'; no key: the hint drops
+function hints(pairs) {
+  return pairs.map(([cmds, what]) => {
+    const ks = cmds.split(',').map(labelFor);
+    return ks.every(Boolean) ? `${ks.join('/')} ${what}` : '';
+  }).filter(Boolean).join(' · ');
+}
+
+module.exports = { tip, tips, named, hints };

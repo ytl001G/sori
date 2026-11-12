@@ -7,6 +7,7 @@ const SCR = require('../../core/script');
 const S = require('../../core/settings');
 const engine = require('../../audio/engine');
 const D = require('../dialogs');
+const { named } = require('../tips');
 const { cmds, def, T, activeTrack, SC, curLine, setLine } = require('./core');
 const { newTake } = require('./script');
 const { audible, afterEdit } = require('./play');
@@ -57,7 +58,7 @@ function moveTrack(id, to) {
   const ts = [...T()], i = ts.findIndex((t) => t.id === id);
   to = Math.max(0, Math.min(ts.length - 1, to));
   if (i < 0 || i === to) return;
-  history.commit(null, '트랙 옮기기');
+  history.commit(null, SCR.unit(state.project) + ' 옮기기');
   ts.splice(to, 0, ...ts.splice(i, 1));
   state.project.tracks = ts;
   state.sel.activeTrackId = id;
@@ -80,14 +81,15 @@ function removeTrack(id) {
   if (!t || R.busy()) return;
   // the recording stops, its take goes
   if (rec && rec.trackId === id) return R.stopRecording(true).then(() => removeTrack(id));
-  history.commit(null, '트랙 삭제');
+  history.commit(null, SCR.unit(state.project) + ' 삭제');
   state.project.tracks = T().filter((x) => x.id !== id);
   if (state.sel.activeTrackId === id) state.sel.activeTrackId = T()[0] ? T()[0].id : null;
   if (state.sel.range) state.sel.range.trackIds.delete(id);
   const l = curLine();
   if (l && l.star === id) setLine(l.id, { star: null }); // no ★ until the person picks one
   afterEdit();
-  D.toast(l ? `지웠어요: ${t.name} · Ctrl+Z로 되돌리기` : `'${t.name}' 트랙을 삭제했어요 · Ctrl+Z로 되돌리기`);
+  const back = `${named('undo', '실행취소')}로 되돌리기`;
+  D.toast(l ? `지웠어요: ${t.name} · ${back}` : `'${t.name}' 트랙을 삭제했어요 · ${back}`);
 }
 // live: heard at once, saved, not an undo step
 function liveChange() {

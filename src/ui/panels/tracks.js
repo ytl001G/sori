@@ -3,6 +3,7 @@ const C = require('../commands');
 const icons = require('../icons');
 const { el } = require('../dialogs');
 const { tip } = require('../tips');
+const SCR = require('../../core/script');
 const { state, changed, trackById } = require('../../core/state');
 
 const MIN_DB = -60;
@@ -128,7 +129,9 @@ function render() {
     fxb.setAttribute('aria-label', `트랙 효과 (${n}개 켜짐)`);
     const name = h.querySelector('.name');
     if (document.activeElement !== name && name.value !== t.name) name.value = t.name;
-    h.setAttribute('aria-label', t.name + ' 트랙');
+    const unit = SCR.unit(state.project), x = h.querySelector('.x');
+    h.setAttribute('aria-label', t.name + ' ' + unit);
+    if (x.title !== unit + ' 삭제') { x.title = unit + ' 삭제'; x.setAttribute('aria-label', unit + ' 삭제'); }
     const vol = h.querySelector('.vol'), pan = h.querySelector('.pan');
     if (document.activeElement !== vol) vol.value = gainToDb(t.gain);
     if (document.activeElement !== pan) pan.value = t.pan;

@@ -61,19 +61,19 @@ const playAt = (w) => (w.playing ? Math.min(w.playing.b, w.playing.a + (performa
   : null);
 // each line's name where its pieces start (w.heads = [{ f, text }]), when there is room
 function names(g, w, X, W) {
-  g.font = '600 11px ' + FONT; g.textBaseline = 'top';
+  g.font = '600 12px ' + FONT; g.textBaseline = 'top';
   let free = 0;
   for (const { f, text } of w.heads) {
     const x = Math.max(2, Math.round(X(f)) + 4), tw = g.measureText(text).width;
     if (x < free || x + tw > W) continue;
-    g.fillStyle = css('--panel'); g.fillRect(x - 2, 2, tw + 4, 14);
+    g.fillStyle = css('--panel'); g.fillRect(x - 2, 2, tw + 4, 16);
     g.fillStyle = css('--text'); g.fillText(text, x, 3);
     free = x + tw + 8;
   }
 }
 // seconds under the detail view: a tick every 0.5 s, the time every 1 s
 function ruler(g, a, b, sr, X, H) {
-  g.fillStyle = css('--subtle'); g.font = '10px ' + FONT; g.textBaseline = 'bottom';
+  g.fillStyle = css('--subtle'); g.font = '12px ' + FONT; g.textBaseline = 'bottom';
   for (let s = Math.ceil(a / sr * 2) / 2; s * sr <= b; s += 0.5) {
     const x = Math.round(X(s * sr)), whole = Number.isInteger(s);
     g.fillRect(x, H - (whole ? 8 : 4), 1, whole ? 8 : 4);

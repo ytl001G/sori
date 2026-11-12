@@ -61,9 +61,14 @@ border (`calc(14px - 3px)`). Column widths are tokens: `--heads-w` 224px (track 
 (script line list).
 Other colors: `--on-accent` (#000, text on a filled accent/secondary button: ★ · M · S), `--on-scrim` (#fff, the
 busy overlay on its dark scrim; its tints are `color-mix` of it). Same in both themes.
-`npm test` checks these in every stylesheet first (`test/standards.js`): no raw color outside the `:root` token
-blocks, no text under 12px, spacing and radius only from these steps; it also checks spec.md's shortcut table against
-`src/core/shortcuts.js`.
+Timeline canvas colors are tokens too, read once per theme (`timeline/view.js` readColors): `--clip-name` (clip name
+on its colored strip, rgba(15,23,42,.92) both themes), `--fade-shade` (fade shading: dark rgba(2,6,23,.45), light
+rgba(255,255,255,.55)), `--marker-text` (text on a marker flag: dark #0F172A, light #FFFFFF), `--on-danger` (the
+"녹음 중" label on the recording lane).
+`npm test` checks these first (`test/standards.js`): in every stylesheet no raw or named color outside the `:root`
+token blocks, no text under 12px (`font-size` and the `font` shorthand), spacing and radius (each corner too) only
+from these steps; in the screen's JS (`src/ui`, `src/audio`) no canvas font under 12px and no raw color set from
+code; spec.md's shortcut table against `src/core/shortcuts.js`; no app key typed in Korean text (Type).
 z-index: canvas 0, overlays 10, menus 40, modal 60, toast 70, busy 80.
 
 Track colors (cycled, readable on both themes): `#38BDF8 #A78BFA #F472B6 #FBBF24 #34D399 #FB923C #60A5FA #E879F9`.
@@ -79,6 +84,11 @@ button, 15 panel titles and timers, 18 the empty-timeline title, 20 the current 
 recording (prompter).
 Tooltips that name a key are built from the command's current keys (`data-tip` + `data-cmd` / `data-key`,
 `src/ui/tips.js`), so a key changed in 설정 > 단축키 shows there too; never type a key into a `title`.
+Sentences that name a key follow the same rule (toasts, notes, the line bar hint, the empty timeline): `named(cmd,
+name)` writes the command's name with its key now, '실행취소(Ctrl+Z)로 되돌리기' / '저장(Ctrl+S)해야', the particle
+after the name (it reads the same without the key); a command with no key: the name alone. Hints of the form
+'키 하는 일' ('R 새 테이크 · ↑/↓ 대사 이동') come from `hints()`; a command with no key drops out of the hint. Keys
+that cannot be changed may be typed: Esc, Enter / Shift+Enter in the find box, the 긴 녹음 나누기 window's own keys.
 Timers: tabular numbers (`font-variant-numeric: tabular-nums`), 15px.
 
 ## Icons
@@ -103,7 +113,7 @@ Settings and on/off states (theme, panels, snap) are the app's state, not a wind
   ends or doubles a menu.
 - Dialog: `role="dialog" aria-modal`, title, note, fields `label | slider | number + unit`, footer [미리듣기] … [취소] [적용].
   Enter = 적용, Esc = 취소, focus moves into the dialog and returns to the trigger after close.
-- Toast: bottom center, `aria-live="polite"`, 3.5 s, error variant uses `--danger` + "오류" text. Destructive actions say how to undo ("Ctrl+Z로 되돌리기").
+- Toast: bottom center, `aria-live="polite"`, 3.5 s, error variant uses `--danger` + "오류" text. Destructive actions say how to undo ("실행취소(Ctrl+Z)로 되돌리기", built by `named()`).
 - 재생 button: `disabled` (base `button:disabled`, opacity .45) whenever `playPause` is not enabled (nothing to
   play); updated with the other top-bar states in `updateChrome`.
 - 백업에서 열기 sheet (narrow): a hint line, then a section per project (h3 = name, `(지금 프로젝트)` first; title =
@@ -243,6 +253,8 @@ Cursors: `text` over lanes, `grab`/`grabbing` on name strip, EQ points and the t
 믹서, 효과 패널, 실행취소 기록, 대사 목록 접기 / 펴기, 마스터, 트랙 효과, 프리셋, 직접 조절, 리미터, 마커, 페이드 인/아웃, 클립 볼륨, 메트로놈,
 카운트인, 빠르기(BPM), 박자 격자, 스냅, 스펙트로그램, 자동 저장, 복구, 녹음 지연 보정, 설정, 단축키.
 Effect names as spec.md §5. Messages short, polite-informal (…했어요). Errors = cause + what to do.
+In a script project a track is a 테이크 everywhere it is named: the ✕ button (테이크 삭제), undo steps (테이크 삭제,
+테이크 옮기기); `unit()` in `src/core/script.js` picks the word.
 
 ## Checklist (UI UX Pro Max pre-delivery, desktop subset) — tick per UI change, both themes
 - [ ] Text contrast ≥4.5:1 (primary, muted, subtle) in dark and light; borders/states visible in both

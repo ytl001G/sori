@@ -3,6 +3,7 @@ const E = require('../../core/edit');
 const S = require('../../core/settings');
 const engine = require('../../audio/engine');
 const D = require('../dialogs');
+const { named } = require('../tips');
 const { def, frames } = require('./core');
 const { seek, syncMetro } = require('./play');
 const { state, history, setDirty, changed } = require('../../core/state');
@@ -51,7 +52,7 @@ def('markerDelete', '마커 삭제', () => {
   state.project.markers = MK().filter((x) => x.id !== m.id);
   state.sel.markerId = null;
   changed();
-  D.toast(`'${m.name}' 마커를 삭제했어요 · Ctrl+Z로 되돌리기`);
+  D.toast(`'${m.name}' 마커를 삭제했어요 · ${named('undo', '실행취소')}로 되돌리기`);
 }, () => !!selMarker());
 // timeline drag; the caller commits history once per drag
 function moveMarker(id, frame) {

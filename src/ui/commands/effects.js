@@ -168,7 +168,7 @@ const shapeOf = (c, edge) => c[edge + 'Shape'] || 'linear';
 function setFadeShape(clipId, edge, shape) {
   const t = T().find((x) => x.clips.some((c) => c.id === clipId));
   if (!t || shapeOf(t.clips.find((c) => c.id === clipId), edge) === shape) return; // the shape it has: no undo step
-  history.commit();
+  history.commit(null, '페이드 모양'); // also from the clip's right-click menu, outside a command
   setClips(t.id, t.clips.map((c) => (c.id === clipId ? E.clampFades({ ...c, [edge + 'Shape']: shape }) : c)));
   afterEdit();
 }

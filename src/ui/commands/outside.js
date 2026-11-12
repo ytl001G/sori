@@ -1,6 +1,7 @@
 // Requests from outside the page: the window's X and a .vproj opened while Sori runs (main.js).
 const { ipcRenderer } = require('electron');
 const D = require('../dialogs');
+const { named } = require('../tips');
 const { state } = require('../../core/state');
 const { confirmDiscard, openProject } = require('./files');
 
@@ -11,7 +12,7 @@ const { confirmDiscard, openProject } = require('./files');
 const askUser = D.ask;
 async function userTurn() {
   if (state.holding) {
-    D.toast(state.recording ? '이어 녹음 중이에요. Shift+R로 멈추고 나눈 뒤에 해 주세요'
+    D.toast(state.recording ? `이어 녹음 중이에요. ${named('contRecord', '이어 녹음')}으로 멈추고 나눈 뒤에 해 주세요`
       : '긴 녹음 나누기 창에서 적용하거나 버린 뒤에 해 주세요');
     return false;
   }

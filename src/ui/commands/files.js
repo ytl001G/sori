@@ -11,6 +11,7 @@ const BK = require('../../core/backup');
 const S = require('../../core/settings');
 const engine = require('../../audio/engine');
 const D = require('../dialogs');
+const { named } = require('../tips');
 const { cmds, def, T, setClips, clearSel, curLine, setLine } = require('./core');
 const { afterEdit } = require('./play');
 const { dropRecording, stopFirst } = require('./record');
@@ -22,9 +23,10 @@ const failing = new Set();
 function writeCause(e) {
   if (e && e.code === 'ENOSPC') return '디스크 공간이 부족해요. 필요 없는 파일을 지워 공간을 비워 주세요';
   if (e && ['EBUSY', 'EPERM', 'EACCES'].includes(e.code)) {
-    return '다른 프로그램이 파일을 쓰는 중이거나 권한이 없어요. 잠시 뒤 다시 되는지 보고, 안 되면 Ctrl+S로 저장해 두세요';
+    return '다른 프로그램이 파일을 쓰는 중이거나 권한이 없어요. 잠시 뒤 다시 되는지 보고, 안 되면 '
+      + named('save', '저장') + '해 두세요';
   }
-  return '알 수 없는 문제예요. Ctrl+S로 저장해 두세요';
+  return `알 수 없는 문제예요. ${named('save', '저장')}해 두세요`;
 }
 function writeFailed(what, e) {
   if (failing.has(what)) return;
@@ -266,7 +268,7 @@ async function askRecover(f, meta) {
     await loadProjectFile(f.data, false, { pool: BK.poolReader(f.dir) }); // an older, whole autosave: no pool needed
     state.filePath = typeof meta.filePath === 'string' ? meta.filePath : null;
     setDirty(true); // still unsaved: Ctrl+S writes it back to the original file
-    D.toast('복구했어요. 저장(Ctrl+S)해야 원래 파일에 반영돼요');
+    D.toast(`복구했어요. ${named('save', '저장')}해야 원래 파일에 반영돼요`);
     cmds.zoomFit.run();
     return true;
   } catch (e) {

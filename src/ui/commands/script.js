@@ -3,6 +3,7 @@
 const { ipcRenderer } = require('electron');
 const SCR = require('../../core/script');
 const D = require('../dialogs');
+const { named } = require('../tips');
 const { readScript } = require('../../core/scriptfile');
 const { cmds, def, T, clearSel, SC, curLine, setLine } = require('./core');
 const { afterEdit, pause } = require('./play');
@@ -127,7 +128,7 @@ async function importScript(p) {
   if (!got) return;
   if (SC()) return reimportScript(got.lines, got.dup);
   const n = T().length;
-  const note = `트랙 ${n}개가 모두 지워지고 대본 프로젝트가 돼요. Ctrl+Z로 되돌릴 수 있어요.`;
+  const note = `트랙 ${n}개가 모두 지워지고 대본 프로젝트가 돼요. ${named('undo', '실행취소')}로 되돌릴 수 있어요.`;
   if (n && !(await D.modal({ title: '대본 넣기', okLabel: '지우고 대본 넣기', note }))) return;
   history.commit(null, '대본 넣기');
   const script = { lines: got.lines, lineId: null, chars: Object.create(null) }; // no inherited keys as characters
@@ -136,7 +137,7 @@ async function importScript(p) {
   enterScript();
   afterEdit();
   D.toast(`대본을 넣었어요: 대사 ${got.lines.length}개 · 캐릭터 ${Object.keys(script.chars).length}명${got.dup}`
-    + (n ? ' · Ctrl+Z로 되돌리기' : ''));
+    + (n ? ` · ${named('undo', '실행취소')}로 되돌리기` : ''));
 }
 // a changed script: match by name, show what changes first
 const SAME = ['id', 'char', 'num', 'text', 'memo', 'state'];
@@ -157,21 +158,21 @@ async function reimportScript(fresh, dup) {
   if (!lines.some((l) => l.id === s.lineId)) showLine(lines[0]); // the current line left the script
   tidySel(); // the effect panel off a character whose lines all went
   afterEdit();
-  D.toast('대본을 바꿨어요 · Ctrl+Z로 되돌리기');
+  D.toast(`대본을 바꿨어요 · ${named('undo', '실행취소')}로 되돌리기`);
 }
 // 보통 프로젝트로 바꾸기: every take becomes a track that sounds as it did; lines, memos and ★ go. One undo
 // step.
 def('unscript', '보통 프로젝트로 바꾸기…', async () => {
   if (!(await R().stopFirst())) return;
   const tracks = SCR.unscript(state.project);
-  const note = `테이크 ${tracks.length}개는 트랙이 되고, 대사 · 메모 · ★는 사라져요. Ctrl+Z로 되돌릴 수 있어요.`;
+  const note = `테이크 ${tracks.length}개는 트랙이 되고, 대사 · 메모 · ★는 사라져요. ${named('undo', '실행취소')}로 되돌릴 수 있어요.`;
   if (!(await D.modal({ title: '보통 프로젝트로 바꾸기', okLabel: '바꾸기', note }))) return;
   history.commit();
   state.project.script = null;
   state.project.tracks = tracks;
   leaveScript();
   afterEdit();
-  D.toast(`보통 프로젝트로 바꿨어요: 트랙 ${tracks.length}개 · Ctrl+Z로 되돌리기`);
+  D.toast(`보통 프로젝트로 바꿨어요: 트랙 ${tracks.length}개 · ${named('undo', '실행취소')}로 되돌리기`);
 }, () => !!SC());
 def('editLine', '대사 고치기…', async () => {
   const l = curLine();

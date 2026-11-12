@@ -4,6 +4,7 @@ const SCR = require('../../core/script');
 const S = require('../../core/settings');
 const engine = require('../../audio/engine');
 const D = require('../dialogs');
+const { named } = require('../tips');
 const { def, T, SC, curLine, setLine } = require('./core');
 const { metroOpts, pause } = require('./play');
 const { newTake } = require('./script');
@@ -76,7 +77,7 @@ async function stopRecording(quiet) {
 // mic is still opening or closing
 async function stopFirst() {
   if (recBusy) return false;
-  if (rec && rec.cont) { D.toast('이어 녹음 중이에요. Shift+R로 멈추고 나눈 뒤에 해 주세요'); return false; }
+  if (rec && rec.cont) { D.toast(`이어 녹음 중이에요. ${named('contRecord', '이어 녹음')}으로 멈추고 나눈 뒤에 해 주세요`); return false; }
   if (state.recording) await stopRecording();
   return true;
 }

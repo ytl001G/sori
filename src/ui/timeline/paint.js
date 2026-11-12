@@ -107,7 +107,7 @@ function drawMarkers() {
     g.fillStyle = col.accent; roundRect(x, 14, w, 13, 3); g.fill();
     if (sel) { g.strokeStyle = col.text; g.lineWidth = 1.5; g.stroke(); }
     g.save(); g.beginPath(); g.rect(x, 14, w, 13); g.clip();
-    g.fillStyle = col.theme === 'light' ? '#FFFFFF' : '#0F172A'; g.fillText(m.name, x + 5, 21);
+    g.fillStyle = col['marker-text']; g.fillText(m.name, x + 5, 21);
     g.restore();
     cv.markerHits.push({ m, x0: x - 3, x1: x + w });
   }

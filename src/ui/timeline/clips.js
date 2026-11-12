@@ -60,7 +60,7 @@ function drawSpec(src, offset, startFrame, x0, x1, top, h) {
 // effective fades (incl. automatic crossfades) shaded above the gain curve; line = the curve (clip's fade shapes)
 function drawFades(c, [fi, fo], x0, x1, top, bot) {
   const { g, col } = cv, k = pps() / sr(), N = 24;
-  g.fillStyle = col.theme === 'light' ? 'rgba(255,255,255,.55)' : 'rgba(2,6,23,.45)';
+  g.fillStyle = col['fade-shade'];
   g.strokeStyle = col.text; g.lineWidth = 1;
   const fade = (xa, xb, gainAt) => {
     const pts = Array.from({ length: N + 1 }, (_, i) => [xa + (xb - xa) * i / N, bot - (bot - top) * gainAt(i / N)]);
@@ -84,7 +84,7 @@ function drawClip(t, c, y, fd = [0, 0]) {
   roundRect(x0, top, w, h, 4); g.clip();
   g.fillStyle = rgba(color, col.clipAlpha); g.fillRect(x0, top, w, h);
   g.fillStyle = rgba(color, 0.85); g.fillRect(x0, top, w, STRIP);
-  g.fillStyle = 'rgba(15,23,42,.92)';
+  g.fillStyle = col['clip-name'];
   g.font = '600 12px ' + FONT; g.textBaseline = 'middle';
   g.fillText(c.name || t.name, xa + 6, top + STRIP / 2 + 0.5);
   if (state.view.spec) drawSpec(c.src, c.offset, c.start, xa, xb, top + STRIP, h - STRIP);
@@ -121,7 +121,7 @@ function drawRecording() {
   const x0 = frameToX(info.start), x1 = frameToX(info.start + len);
   g.fillStyle = rgba(hexOf(col.danger), 0.22); g.fillRect(x0, top, x1 - x0, h);
   g.fillStyle = col.danger; g.fillRect(x0, top, x1 - x0, STRIP);
-  g.fillStyle = '#fff'; g.font = '600 12px ' + FONT; g.textBaseline = 'middle';
+  g.fillStyle = col['on-danger']; g.font = '600 12px ' + FONT; g.textBaseline = 'middle';
   g.fillText(info.cont ? '이어 녹음' : '녹음 중', x0 + 6, top + STRIP / 2 + 0.5);
   const mid = top + STRIP + (h - STRIP) / 2, amp = (h - STRIP) / 2 - 2, cw = r.chunk / sr() * pps();
   g.fillStyle = col.danger;

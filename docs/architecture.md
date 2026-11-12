@@ -69,7 +69,8 @@ src/core/  (plain Node, no DOM / AudioContext)
   fileio.js             .vproj v4 save (+ thin backups, idle prepack) / load (v1-v4, in steps), WAV/MP3 encode
   parked.js             필요할 때만 풀기: a Source with an exact packed blob decodes `ch` on use and lets it go off screen
   script.js             대본 녹음 모드: script readers (.txt / CSV rows), line numbers, re-import merge, take helpers, and the rules
-                        the app and sori script share (nextTakeName, takeRef, withStar, editLine, addChars, exportPick, takesNow)
+                        the app and sori script share (nextTakeName, takeRef, withStar, editLine, addChars, exportPick, takesNow;
+                        unit = '테이크' in a script project, else '트랙': button and undo step names)
   split.js              긴 녹음 나누기 for the app's window and sori script split: sound runs (voicedit.quietLevels'
                         between-words threshold), N snapped to quiet, pieces per gap, line boundaries, window edits,
                         plan (pieces -> line index), addTakes
@@ -149,9 +150,11 @@ src/ui/
   dialogs.js            modal (fields + presets + extra editor), sheet (settings, shortcuts), toast, busy
   controls.js           row / choice / switch controls (설정 window, 나누기 window)
   icons.js              replaces <i data-icon> with Phosphor SVGs
-  tips.js               tooltips that name a key, built from the command's current keys (data-tip)
+  tips.js               tooltips (data-tip) and sentences (named(), hints()) that name a key, from the command's
+                        current keys: a key changed in 설정 > 단축키 shows everywhere
 test/standards.js       size limits (300 / 40 / 120), the stylesheets' design rules (tokens, 12px, spacing and radius
-                        steps: ui-guide), spec.md's shortcut table = DEFAULT_KEYS; run first by npm test
+                        steps: ui-guide), the same for canvas text and colors set in JS, no app key typed in Korean
+                        text, spec.md's shortcut table = DEFAULT_KEYS; run first by npm test
 test/run.js             Node self-checks: runs test/unit/*.js in order (helpers.js = assert, fakes, CLI runner) — core,
                         worklet math (vm sandbox), CLI commands and pipe
 test/smoke.js           scripted end-to-end run inside Electron (npm run smoke); shipped in the installer. Runs the steps

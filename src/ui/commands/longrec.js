@@ -4,6 +4,7 @@ const { ipcRenderer } = require('electron');
 const SPL = require('../../core/split');
 const SCR = require('../../core/script');
 const D = require('../dialogs');
+const { named } = require('../tips');
 const engine = require('../../audio/engine');
 const { def, T, SC, curLine, setLine } = require('./core');
 const { afterEdit } = require('./play');
@@ -32,7 +33,7 @@ def('contRecord', '이어 녹음', async () => {
 def('cueNext', '다음 대사 (이어 녹음 중)', () => {
   const c = cont();
   if (engine.countingIn() || !engine.recording()) return;
-  if (c.at >= c.order.length - 1) return D.toast('마지막 대사예요. Shift+R로 멈추세요');
+  if (c.at >= c.order.length - 1) return D.toast(`마지막 대사예요. ${named('contRecord', '이어 녹음')}으로 멈추세요`);
   c.marks.push(engine.recording().length);
   c.at++;
   changed();
@@ -88,7 +89,7 @@ function apply(ch, lines, st) {
   }
   viewTakes(state.sel.activeTrackId);
   afterEdit();
-  D.toast(`대사 ${plan.length}개에 테이크 ${n}개를 넣었어요 · Ctrl+Z로 되돌리기`);
+  D.toast(`대사 ${plan.length}개에 테이크 ${n}개를 넣었어요 · ${named('undo', '실행취소')}로 되돌리기`);
 }
 
 module.exports = { review, cue, cueNextLine };

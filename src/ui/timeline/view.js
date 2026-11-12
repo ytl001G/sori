@@ -24,7 +24,7 @@ function fadeHandles(c, x0, x1) {
 }
 
 const COLORS = ['bg', 'lane-alt', 'panel', 'surface', 'line', 'text', 'muted', 'subtle', 'secondary', 'accent',
-  'danger', 'sel', 'hover', 'lane-active'];
+  'danger', 'sel', 'hover', 'lane-active', 'on-danger', 'clip-name', 'fade-shade', 'marker-text'];
 function readColors() {
   const cs = getComputedStyle(document.documentElement), get = (n) => cs.getPropertyValue(n).trim();
   const col = {};

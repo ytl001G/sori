@@ -5,10 +5,13 @@ const SCR = require('../../core/script');
 const { el, setText } = require('../dialogs');
 const engine = require('../../audio/engine');
 const { state } = require('../../core/state');
+const { labelFor, bindings } = require('../../core/shortcuts');
+const { hints } = require('../tips');
 
 const $ = (id) => document.getElementById(id);
 let panel, bar, tabs, list, todo, count, live; // live: 이어 녹음's time + level
-let lastLines = null, lastChars = null, lastKey = '', lastLine = null, lastView = '', emptyText = null;
+let lastLines = null, lastChars = null, lastKey = '', lastLine = null, lastView = '';
+let emptyTitle = null, lastBind = null;
 
 function tab(label, char, done, total, color) {
   const n = el('span', { className: 'n', textContent: `${done}/${total}` });
@@ -72,8 +75,10 @@ function renderBar(s) {
   const next = bar.querySelector('.sb-next');
   next.textContent = nx ? `다음 · ${SCR.lineName(nx)}  ${nx.text || nx.memo}` : '마지막 대사예요';
   next.hidden = !rec;
-  bar.querySelector('.sb-hint').textContent = cue ? '이어 녹음 · N 다음 대사 · Shift+N 되돌리기 · Shift+R 멈춤'
-    : rec ? '녹음 중 · R로 멈춤' : 'R 새 테이크 · Shift+R 이어 녹음 · ↑/↓ 대사 이동';
+  const hint = cue ? ['이어 녹음', hints([['cueNext', '다음 대사'], ['cueBack', '되돌리기'], ['contRecord', '멈춤']])]
+    : rec ? ['녹음 중', hints([['record', '멈춤']])]
+      : [hints([['record', '새 테이크'], ['contRecord', '이어 녹음'], ['prevLine,nextLine', '대사 이동']])];
+  bar.querySelector('.sb-hint').textContent = hint.filter(Boolean).join(' · ');
   live.hidden = !cue;
 }
 
@@ -90,7 +95,9 @@ function liveInfo() {
 // the take count, [+ 테이크] / [이어 녹음] and what the empty timeline (a line without takes) says (spec §5-5);
 // cueing = 이어 녹음 runs (its lane is on the timeline then, the empty text hidden)
 function heads(cueing) {
-  setText($('empty').querySelector('.empty-title'), 'R 을 눌러 이 대사를 녹음하세요');
+  const r = labelFor('record');
+  setText($('empty').querySelector('.empty-title'),
+    r ? `${r} 키를 눌러 이 대사를 녹음하세요` : '녹음 버튼을 눌러 이 대사를 녹음하세요');
   setText($('empty').querySelector('.empty-sub'), '녹음할 때마다 테이크가 하나씩 생겨요. 내보낼 테이크는 ★로 골라요');
   setText(count, `테이크 ${C.takeCount()}개`);
   const add = count.nextElementSibling, noAdd = !C.cmds.addTrack.enabled(); // [+ 테이크]: not while recording
@@ -101,21 +108,35 @@ function heads(cueing) {
   cont.classList.toggle('on', cueing);
 }
 
+// 대사 목록 접기 (F7): script.css moves the line bar and the takes left. Folded, the list loses its scroll and cannot
+// follow ↑/↓, so unfolding brings the current line back in sight; keyboard focus moves to the button that undoes it
+function fold() {
+  if (document.body.classList.contains('lines-off') !== state.ui.lines) return false;
+  const had = document.activeElement, mine = had && had.closest && had.closest('#script-panel, .lines-open');
+  document.body.classList.toggle('lines-off', !state.ui.lines);
+  if (mine) document.querySelector(state.ui.lines ? '.sp-fold' : '.lines-open').focus();
+  return state.ui.lines;
+}
+// the empty timeline of a normal project: '또는 [Ctrl+O] 열기 · [R] 바로 녹음', the keys the commands have now
+function normalEmpty() {
+  const sub = $('empty').querySelector('.empty-sub'), keys = [labelFor('open'), labelFor('record')];
+  if (sub.dataset.keys === keys.join('|')) return;
+  sub.dataset.keys = keys.join('|');
+  const parts = [[keys[0], '열기'], [keys[1], '바로 녹음']].filter(([k]) => k)
+    .flatMap(([k, what], i) => [i ? ' · ' : '', el('kbd', { textContent: k }), ' ' + what]);
+  sub.replaceChildren(...(parts.length ? ['또는 ', ...parts] : ['또는 파일 메뉴에서 열기']));
+}
 function render() {
   const s = state.project.script, on = !!(s && C.curLine());
   if (document.body.classList.contains('script') !== on) {
     document.body.classList.toggle('script', on);
-    const sub = $('empty').querySelector('.empty-sub');
-    // kbd tags
-    if (!on) { $('empty').querySelector('.empty-title').textContent = emptyText[0]; sub.innerHTML = emptyText[1]; }
+    if (!on) $('empty').querySelector('.empty-title').textContent = emptyTitle;
+    delete $('empty').querySelector('.empty-sub').dataset.keys; // the script text replaced it
     lastLines = null;
   }
   for (const x of [panel, bar]) if (x.hidden === on) x.hidden = !on;
-  if (!on) return;
-  // 대사 목록 접기 (F7): scripts.css moves the line bar and the takes left
-  if (document.body.classList.contains('lines-off') === state.ui.lines) {
-    document.body.classList.toggle('lines-off', !state.ui.lines);
-  }
+  if (!on) { normalEmpty(); return; }
+  const opened = fold();
   heads(!!C.cue());
   const v = state.ui.scriptView;
   // emptying the ★ take changes it
@@ -125,16 +146,21 @@ function render() {
   const key = `${s.lineId}|${state.project.tracks.length}|${done}|${v.char}|${v.todo}|${state.recording}|`
     + (cue ? cue.id : '');
   // chars: a color set from the CLI (script color) replaces it
-  if (s.lines === lastLines && s.chars === lastChars && key === lastKey) return;
-  lastLines = s.lines; lastChars = s.chars; lastKey = key;
-  build(s);
-  renderBar(s);
+  // bindings: a new object when 설정 changes a key (the hint names them)
+  if (s.lines !== lastLines || s.chars !== lastChars || key !== lastKey || bindings() !== lastBind) {
+    lastLines = s.lines; lastChars = s.chars; lastKey = key; lastBind = bindings();
+    build(s);
+    renderBar(s);
+  }
+  // after the list is built: the line it shows now
+  const cur = opened && (list.querySelector('.cue') || list.querySelector('.cur'));
+  if (cur) cur.scrollIntoView({ block: 'center' });
 }
 
 function init() {
   panel = $('script-panel'); bar = $('script-bar'); tabs = $('sp-tabs'); list = $('sp-list');
   todo = $('sp-todo');
-  emptyText = [$('empty').querySelector('.empty-title').textContent, $('empty').querySelector('.empty-sub').innerHTML];
+  emptyTitle = $('empty').querySelector('.empty-title').textContent;
   todo.onclick = () => C.setScriptView({ todo: !state.ui.scriptView.todo });
   count = $('headers-top').querySelector('.takes-count');
   live = el('div', { className: 'sb-live', hidden: true }, el('span'), el('span', { className: 'sb-meter' }, el('i')));

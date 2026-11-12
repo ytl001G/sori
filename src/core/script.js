@@ -210,7 +210,10 @@ function merge(old, fresh) {
   return { lines, counts: n, names };
 }
 
+// what a track is called: a take in a script project (buttons, undo step names)
+const unit = (project) => (project.script ? '테이크' : '트랙');
+
 module.exports = {
-  toNum, pad, lineName, unescape, linesNow, starTake, isDone, nextTakeName, takeRef, withStar, editLine, addChars,
+  unit, toNum, pad, lineName, unescape, linesNow, starTake, isDone, nextTakeName, takeRef, withStar, editLine, addChars,
   exportPick, takeView, unscript, decodeText, splitMemo, parseName, fromTxt, parseCsv, fromTable, number, merge,
 };

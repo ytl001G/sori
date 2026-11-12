@@ -114,7 +114,7 @@
       <div id="playhead" aria-hidden="true"></div>
       <div id="empty">
         <div class="empty-title">오디오 파일을 끌어다 놓으세요</div>
-        <div class="empty-sub">또는 <kbd>Ctrl</kbd>+<kbd>O</kbd> 로 열기 · <kbd>R</kbd> 로 바로 녹음</div>
+        <div class="empty-sub"></div>
       </div>
       <div id="drop-hint" hidden>여기에 놓으면 새 트랙으로 추가돼요</div>
     </section>
@@ -142,8 +142,7 @@
       <div id="fx-body"></div>
     </div>
     <div id="hist-pane" class="fxp-pane" role="tabpanel" aria-labelledby="tab-history" hidden>
-      <div class="fxp-note">누르면 그 단계 바로 뒤로 돌아가요. 그 뒤 단계는 흐리게 남아서 다시 누르거나 다시실행(Ctrl+Y)으로
-        돌아올 수 있어요. 새로 편집하면 흐린 단계는 사라져요.</div>
+      <div class="fxp-note" id="hist-note"></div>
       <ol id="hist-list" class="hist-list" aria-label="실행취소 단계"></ol>
     </div>
   </aside>
