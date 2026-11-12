@@ -12,6 +12,7 @@ const histpanel = require('./panels/history');
 const scriptui = require('./panels/script');
 const findbox = require('./panels/find');
 const menus = require('./menus');
+const { tips } = require('./tips');
 const spectro = require('../core/spectro');
 const D = require('./dialogs');
 const IO = require('../core/fileio');
@@ -33,7 +34,7 @@ function apply(s, keys) {
   if (has('undoOnlyGB')) history.budget = s.undoOnlyGB * 1e9;
   if (has('outputId') && keys) engine.setSink(s.outputId); // startup sink is set after the context is ready
   if (has('follow')) state.view.follow = s.follow;
-  if (has('keys')) K.setOverrides(s.keys);
+  if (has('keys')) { K.setOverrides(s.keys); tips(); } // tooltips name the keys commands have now
   if (keys && (has('metronome') || has('metroVol'))) C.syncMetro();
   if (has('autosaveMin')) {
     clearInterval(autosaveTimer);

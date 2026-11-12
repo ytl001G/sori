@@ -1,4 +1,5 @@
-// Size limits (and no stray control characters): every file in src/, test/ and main.js. Runs first in npm test.
+// Size limits (and no stray control characters): every file in src/, test/ and main.js; the design rules of every
+// stylesheet; spec.md's shortcut table against the code. Runs first in npm test.
 const fs = require('fs');
 const path = require('path');
 const acorn = require('acorn');
@@ -42,10 +43,64 @@ function check(file) {
   return bad;
 }
 
-const all = [...files(path.join(root, 'src')), ...files(path.join(root, 'test')), path.join(root, 'main.js')]
-  .flatMap(check);
+// The design rules of docs/ui-guide.md (Tokens, Type) in every stylesheet: colors only through tokens (raw ones only
+// in the :root token blocks of base.css), text 12px or more, spacing and corner radius from their scales
+// a negative margin pulls by a step of the scale; -1px pulls a 1px border over its neighbour
+const SPACE = new Set([2, 4, 6, 8, 10, 12, 14, 16, 20, 24]), space = (v) => SPACE.has(Math.abs(v)) || v === -1;
+const RADIUS = new Set([2, 4, 5, 6, 8, 999]); // 999: a pill (round ends at any height); circles use 50%
+const RAW = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?)\(|(?<![\w-])(?:white|black)(?![\w-])/g;
+function tokenBlocks(text) { // [start, end) of each ':root… { … }' block
+  return [...text.matchAll(/(^|\})\s*:root[^{]*\{/g)].map((m) => [m.index, text.indexOf('}', m.index + m[0].length)]);
+}
+function cssRules(file) {
+  const text = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '));
+  const rel = path.relative(root, file), line = (i) => text.slice(0, i).split('\n').length, bad = [];
+  const roots = path.basename(file) === 'base.css' ? tokenBlocks(text) : [];
+  for (const m of text.matchAll(RAW)) {
+    if (!roots.some(([a, b]) => m.index > a && m.index < b)) bad.push(`${rel}:${line(m.index)}: raw color ${m[0]}`);
+  }
+  const each = (re, ok, what) => {
+    for (const m of text.matchAll(re)) {
+      if (/calc\(|var\(/.test(m[2])) continue; // layout math with named widths
+      for (const px of m[2].matchAll(/-?\d+(?:\.\d+)?px/g)) {
+        if (!ok(parseFloat(px[0]))) bad.push(`${rel}:${line(m.index)}: ${what} ${px[0]}`);
+      }
+    }
+  };
+  each(/(font-size)\s*:\s*([^;}]+)/g, (v) => v >= 12, 'text under 12px:');
+  each(/((?:padding|margin|gap|column-gap|row-gap)(?:-[a-z]+)?)\s*:\s*([^;}]+)/g, space,
+    'spacing off the scale (2/4/6/8/10/12/14/16/20/24):');
+  each(/(border-radius)\s*:\s*([^;}]+)/g, (v) => RADIUS.has(v), 'radius off the scale (2/4/5/6/8, 999 pill):');
+  return bad;
+}
+
+// docs/spec.md §6 lists the same keys as src/core/shortcuts.js DEFAULT_KEYS. A row whose text says '(Shift = …)'
+// also covers its keys with Shift; '숫자패드' covers the number pad's +/-; wheel rows are the mouse
+function specKeys() {
+  const md = fs.readFileSync(path.join(root, 'docs', 'spec.md'), 'utf8');
+  const rows = md.slice(md.indexOf('\n## 6')).split('\n').filter((l) => /^\| /.test(l) && !/^\| 키 \|/.test(l));
+  const alias = { Esc: 'Escape', '메뉴 키': 'ContextMenu' }, keys = new Set();
+  for (const r of rows) {
+    const [cell, what] = r.slice(2, -2).split(' | ');
+    const ks = cell.replace(/\([^)]*\)/g, '').split(/ \/ |, /).map((k) => k.trim()).filter((k) => k && !/휠/.test(k));
+    for (const k of ks) keys.add(alias[k] || k);
+    if (/\(Shift = /.test(what)) for (const k of ks) keys.add('Shift+' + k);
+    if (/숫자패드/.test(cell)) { keys.add('Ctrl+Num +'); keys.add('Ctrl+Num -'); }
+  }
+  return keys;
+}
+function keyTable() {
+  const K = require('../src/core/shortcuts'), code = new Set(Object.keys(K.DEFAULT_KEYS).map(K.pretty));
+  const spec = specKeys(), only = (a, b) => [...a].filter((k) => !b.has(k));
+  return [...only(code, spec).map((k) => `docs/spec.md §6: no row for ${k} (shortcuts.js has it)`),
+    ...only(spec, code).map((k) => `docs/spec.md §6: ${k} is not in shortcuts.js DEFAULT_KEYS`)];
+}
+
+const every = [...files(path.join(root, 'src')), ...files(path.join(root, 'test')), path.join(root, 'main.js')];
+const styles = files(path.join(root, 'src', 'ui', 'styles'));
+const all = [...every.flatMap(check), ...styles.flatMap(cssRules), ...keyTable()];
 if (all.length) {
-  console.log(all.join('\n') + `\n\n${all.length} size-limit breaches`);
+  console.log(all.join('\n') + `\n\n${all.length} breaches of the size limits and design rules`);
   process.exit(1);
 }
-console.log('size limits ok');
+console.log('size limits, design rules and the shortcut table ok');

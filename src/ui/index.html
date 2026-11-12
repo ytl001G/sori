@@ -27,18 +27,18 @@
     </nav>
     <div class="vsep" aria-hidden="true"></div>
     <div id="transport" role="group" aria-label="재생">
-      <button class="icon" data-cmd="toHome" title="처음으로 (Home)" aria-label="처음으로"><i
+      <button class="icon" data-cmd="toHome" data-tip="처음으로" aria-label="처음으로"><i
           data-icon="skip-back"></i></button>
-      <button class="icon" id="btn-play" data-cmd="playPause" title="재생 / 일시정지 (Space)" aria-label="재생"
+      <button class="icon" id="btn-play" data-cmd="playPause" data-tip="재생 / 일시정지" aria-label="재생"
           aria-pressed="false">
         <i class="i-play" data-icon="play"></i><i class="i-pause" data-icon="pause"></i>
       </button>
       <button class="icon" data-cmd="stop" title="정지" aria-label="정지"><i data-icon="stop"></i></button>
-      <button class="icon rec" id="btn-rec" data-cmd="record" title="녹음 (R)" aria-label="녹음" aria-pressed="false"><i
+      <button class="icon rec" id="btn-rec" data-cmd="record" data-tip="녹음" aria-label="녹음" aria-pressed="false"><i
           data-icon="record"></i></button>
-      <button class="icon" id="btn-loop" data-cmd="toggleLoop" title="반복 재생 (L)" aria-label="반복 재생"
+      <button class="icon" id="btn-loop" data-cmd="toggleLoop" data-tip="반복 재생" aria-label="반복 재생"
           aria-pressed="false"><i data-icon="repeat"></i></button>
-      <button class="icon" id="btn-metro" data-cmd="toggleMetro" title="메트로놈 (K)" aria-label="메트로놈"
+      <button class="icon" id="btn-metro" data-cmd="toggleMetro" data-tip="메트로놈" aria-label="메트로놈"
           aria-pressed="false"><i data-icon="metronome"></i></button>
     </div>
     <div id="time" class="mono" role="timer" aria-label="재생 위치">00:00.000</div>
@@ -52,26 +52,26 @@
       </select>
       <button class="icon" id="btn-grid" data-cmd="toggleGrid" title="박자 격자 (자 · 스냅을 박자 단위로)" aria-label="박자 격자"
           aria-pressed="false"><i data-icon="music-notes"></i></button>
-      <button class="icon" id="btn-snap" data-cmd="toggleSnap" title="스냅: 끝 · 마커 · 박자에 붙기 (G)" aria-label="스냅"
+      <button class="icon" id="btn-snap" data-cmd="toggleSnap" data-tip="스냅: 끝 · 마커 · 박자에 붙기" aria-label="스냅"
           aria-pressed="true"><i data-icon="magnet"></i></button>
     </div>
     <div class="spacer"></div>
     <div id="zoom" role="group" aria-label="보기">
-      <button class="icon" data-cmd="zoomOut" title="축소 (Ctrl+-)" aria-label="축소"><i
+      <button class="icon" data-cmd="zoomOut" data-tip="축소" aria-label="축소"><i
           data-icon="magnifying-glass-minus"></i></button>
-      <button class="icon" data-cmd="zoomIn" title="확대 (Ctrl+=)" aria-label="확대"><i
+      <button class="icon" data-cmd="zoomIn" data-tip="확대" aria-label="확대"><i
           data-icon="magnifying-glass-plus"></i></button>
-      <button class="icon" data-cmd="zoomFit" title="전체 보기 (Ctrl+0)" aria-label="전체 보기"><i
+      <button class="icon" data-cmd="zoomFit" data-tip="전체 보기" aria-label="전체 보기"><i
           data-icon="arrows-out-line-horizontal"></i></button>
       <div class="vsep" aria-hidden="true"></div>
     </div>
-    <button class="icon" id="btn-mixer" data-cmd="toggleMixer" title="믹서 (F9)" aria-label="믹서" aria-pressed="false"><i
+    <button class="icon" id="btn-mixer" data-cmd="toggleMixer" data-tip="믹서" aria-label="믹서" aria-pressed="false"><i
         data-icon="faders"></i></button>
-    <button class="icon" id="btn-fx" data-cmd="toggleFxPanel" title="효과 패널 (F8)" aria-label="효과 패널"
+    <button class="icon" id="btn-fx" data-cmd="toggleFxPanel" data-tip="효과 패널" aria-label="효과 패널"
         aria-pressed="false"><i data-icon="sliders-horizontal"></i></button>
     <div class="vsep" aria-hidden="true"></div>
-    <button class="icon" data-cmd="settings" title="설정 (Ctrl+,)" aria-label="설정"><i data-icon="gear"></i></button>
-    <button class="icon" data-cmd="shortcuts" title="단축키 (F1)" aria-label="단축키 보기"><i data-icon="question"></i></button>
+    <button class="icon" data-cmd="settings" data-tip="설정" aria-label="설정"><i data-icon="gear"></i></button>
+    <button class="icon" data-cmd="shortcuts" data-tip="단축키" aria-label="단축키 보기"><i data-icon="question"></i></button>
     <button class="icon" id="btn-theme" data-cmd="toggleTheme" title="테마 전환" aria-label="밝은 테마로 전환">
       <i class="i-moon" data-icon="moon"></i><i class="i-sun" data-icon="sun"></i>
     </button>
@@ -83,7 +83,7 @@
       <div class="sp-tools">
         <button class="switch" id="sp-todo" type="button" aria-pressed="false"></button><label for="sp-todo">녹음 안 한
             것만</label>
-        <button class="icon sp-fold" data-cmd="toggleLines" title="대사 목록 접기 (F7)" aria-label="대사 목록 접기"><i
+        <button class="icon sp-fold" data-cmd="toggleLines" data-tip="대사 목록 접기" aria-label="대사 목록 접기"><i
             data-icon="caret-double-left"></i></button>
       </div>
       <div id="sp-list"></div>
@@ -92,17 +92,17 @@
       <div class="sb-name"></div><div class="sb-text"></div><div class="sb-hint"></div>
       <div class="sb-memo"></div><div class="sb-next"></div>
       <div class="sb-side"><button class="btn-small cont-rec" data-cmd="contRecord"
-          title="여러 대사를 길게 한 번에 녹음하고 대사별로 나눠요 (Shift+R)"><i data-icon="record"
+          data-tip="여러 대사를 길게 한 번에 녹음하고 대사별로 나눠요"><i data-icon="record"
             aria-hidden="true"></i>이어 녹음</button></div>
     </div>
     <aside id="headers-col" aria-label="트랙">
       <div id="headers-top">
-        <button class="icon lines-open" data-cmd="toggleLines" title="대사 목록 펴기 (F7)" aria-label="대사 목록 펴기"><i
+        <button class="icon lines-open" data-cmd="toggleLines" data-tip="대사 목록 펴기" aria-label="대사 목록 펴기"><i
             data-icon="caret-double-right"></i></button>
         <span class="takes-count"></span>
-        <button class="btn-small take-add" data-cmd="addTrack" title="새 빈 테이크 (Ctrl+Shift+N)"><i data-icon="plus"
+        <button class="btn-small take-add" data-cmd="addTrack" data-tip="새 빈 테이크"><i data-icon="plus"
             aria-hidden="true"></i>테이크</button>
-        <span class="split"><button class="btn-small" data-cmd="addTrack" title="새 빈 트랙 (Ctrl+Shift+N)"><i
+        <span class="split"><button class="btn-small" data-cmd="addTrack" data-tip="새 빈 트랙"><i
             data-icon="plus" aria-hidden="true"></i>트랙</button><button class="btn-small more" data-list="addTrack"
             aria-haspopup="menu" aria-expanded="false" aria-label="트랙 종류 골라 추가" title="트랙 종류 골라 추가"><i
             data-icon="caret-down" aria-hidden="true"></i></button></span>
@@ -128,9 +128,10 @@
   <aside id="fxpanel" hidden aria-label="효과 패널">
     <div class="fxp-band" aria-hidden="true"></div>
     <div class="fxp-tabs" role="tablist" aria-label="오른쪽 패널">
-      <button role="tab" id="tab-fx" data-tab="fx" aria-controls="fx-pane" title="효과 (F8)">효과</button>
-      <button role="tab" id="tab-history" data-tab="history" aria-controls="hist-pane" title="실행취소 기록 (F6)">실행취소
-        기록</button>
+      <button role="tab" id="tab-fx" data-tab="fx" data-key="toggleFxPanel" aria-controls="fx-pane"
+          data-tip="효과">효과</button>
+      <button role="tab" id="tab-history" data-tab="history" data-key="toggleHistory" aria-controls="hist-pane"
+          data-tip="실행취소 기록">실행취소 기록</button>
       <span class="spacer"></span>
       <button class="icon" id="fx-close" title="닫기" aria-label="오른쪽 패널 닫기"><i data-icon="x"></i></button>
     </div>

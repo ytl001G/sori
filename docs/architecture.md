@@ -149,7 +149,9 @@ src/ui/
   dialogs.js            modal (fields + presets + extra editor), sheet (settings, shortcuts), toast, busy
   controls.js           row / choice / switch controls (설정 window, 나누기 window)
   icons.js              replaces <i data-icon> with Phosphor SVGs
-test/standards.js       size limits (300 / 40 / 120), run first by npm test
+  tips.js               tooltips that name a key, built from the command's current keys (data-tip)
+test/standards.js       size limits (300 / 40 / 120), the stylesheets' design rules (tokens, 12px, spacing and radius
+                        steps: ui-guide), spec.md's shortcut table = DEFAULT_KEYS; run first by npm test
 test/run.js             Node self-checks: runs test/unit/*.js in order (helpers.js = assert, fakes, CLI runner) — core,
                         worklet math (vm sandbox), CLI commands and pipe
 test/smoke.js           scripted end-to-end run inside Electron (npm run smoke); shipped in the installer. Runs the steps

@@ -30,6 +30,18 @@ module.exports = [
     const split = require('../../src/ui/split/edit').t1(Math.round(59.96 * sr), sr);
     assert(top === '01:00.000' && ruler === '1:00.000' && split === '1:00.0', `${top} | ${ruler} | ${split}`);
   }],
+  ['tooltips name the key a command has now: a changed shortcut shows, no key = the name alone', async () => {
+    const mixer = document.getElementById('btn-mixer'), grip = document.querySelector('.track-h .grip');
+    assert(mixer.title === '믹서 (F9)' && grip.title === '끌어서 순서 옮기기 (Ctrl+Alt+↑ / Ctrl+Alt+↓)',
+      'default keys: ' + mixer.title + ' | ' + grip.title);
+    S.set({ keys: { toggleMixer: ['Shift+F5'], trackUp: [] } }); await painted();
+    assert(mixer.title === '믹서 (Shift+F5)' && grip.title === '끌어서 순서 옮기기 (Ctrl+Alt+↓)',
+      'after 설정 > 단축키: ' + mixer.title + ' | ' + grip.title);
+    S.set({ keys: { toggleMixer: [] } }); await painted();
+    assert(mixer.title === '믹서', 'no key: ' + mixer.title);
+    S.set({ keys: {} }); await painted();
+    assert(mixer.title === '믹서 (F9)', 'back to the default: ' + mixer.title);
+  }],
   ['theme toggle + redraw', async () => {
     await C.run('toggleTheme'); await wait(50); await C.run('toggleTheme'); await wait(50);
   }],

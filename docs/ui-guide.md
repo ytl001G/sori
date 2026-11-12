@@ -30,7 +30,7 @@ Lane height from settings (`--lane`, `state.view.laneH`); clip name strip 18px; 
 fade handles 8×8 at the top corners under the name strip; header column scrolls with lanes.
 Narrow windows: ≤1280px hides the brand and zoom buttons (Ctrl+= / Ctrl+- / Ctrl+0 stay); ≤1100px also hides
 the BPM label and the grid, snap, theme and shortcut buttons (all in the 보기 menu) and narrows the menu names'
-padding to 7px. BPM and beats stay. Menu names never wrap (900px wrapped 파일 into 파/일 once the six menus came).
+padding to 6px. BPM and beats stay. Menu names never wrap (900px wrapped 파일 into 파/일 once the six menus came).
 
 ## Tokens (`src/ui/styles/base.css :root`) — semantic only, no raw hex in components
 | Token | Dark | Light | Use |
@@ -52,8 +52,19 @@ padding to 7px. BPM and beats stay. Menu names never wrap (900px wrapped 파일 
 | `--sel` | rgba(20,184,166,.20) | rgba(13,148,136,.14) | selection fill |
 | `--hover` | rgba(248,250,252,.06) | rgba(15,23,42,.05) | hover layer |
 | `--meter-g` `--meter-l` `--meter-y` `--meter-o` `--meter-r` | #22C55E #84CC16 #EAB308 #F97316 #EF4444 | #15803D #4D7C0F #A16207 #EA580C #DC2626 | FL-style meter gradient: green to −24 dB, lime −18, yellow −12, orange −6, red from −2 dB. One gradient over the whole meter height, the bar shows the colors up to its level; the peak line takes the color of its level. Same stops on the settings mic-test bar. Graphic, ≥3:1 on surface |
-Shadows: `--shadow-lg` (menus, dialogs) only. Radius: 6px controls, 8px menus/dialogs, 4px clips.
-Spacing (density 8): 2/4/8/12/16/24. z-index: canvas 0, overlays 10, menus 40, modal 60, toast 70, busy 80.
+Shadows: `--shadow-lg` (menus, dialogs) only.
+Radius: 2px meters and small marks, 4px clips and badges, 5px 24px buttons and menu rows (inside the 8px menu),
+6px controls, 8px menus/dialogs/cards, `999px` pills (round ends at any height: switches, tabs, bars), 50% circles.
+Spacing: 2/4/6/8/10/12/14/16/20/24px (paddings, margins, gaps). A negative margin pulls by a step of the scale;
+-1px pulls a 1px border over its neighbour. Where an edge border sits inside the padding, write the step minus the
+border (`calc(14px - 3px)`). Column widths are tokens: `--heads-w` 224px (track headers), `--lines-w` 288px
+(script line list).
+Other colors: `--on-accent` (#000, text on a filled accent/secondary button: ★ · M · S), `--on-scrim` (#fff, the
+busy overlay on its dark scrim; its tints are `color-mix` of it). Same in both themes.
+`npm test` checks these in every stylesheet first (`test/standards.js`): no raw color outside the `:root` token
+blocks, no text under 12px, spacing and radius only from these steps; it also checks spec.md's shortcut table against
+`src/core/shortcuts.js`.
+z-index: canvas 0, overlays 10, menus 40, modal 60, toast 70, busy 80.
 
 Track colors (cycled, readable on both themes): `#38BDF8 #A78BFA #F472B6 #FBBF24 #34D399 #FB923C #60A5FA #E879F9`.
 Clip body = track color at 26% (dark) / 90% (light: the strong-clip look); name strip 85%; waveform full color
@@ -63,6 +74,11 @@ Clip body = track color at 26% (dark) / 90% (light: the strong-clip look); name 
 ## Type
 `"Pretendard Variable"` (Inter-based, has Hangul; bundled from npm `pretendard`), fallback `"Malgun Gothic", sans-serif`.
 13px base (dense desktop), 12px minimum anywhere, weights 400 body / 500 labels / 600 titles.
+Sizes in use: 12 secondary text (hints, badges, times, notes), 13 base, 14 the next line in the line bar and the ★
+button, 15 panel titles and timers, 18 the empty-timeline title, 20 the current line, 32 the current line while
+recording (prompter).
+Tooltips that name a key are built from the command's current keys (`data-tip` + `data-cmd` / `data-key`,
+`src/ui/tips.js`), so a key changed in 설정 > 단축키 shows there too; never type a key into a `title`.
 Timers: tabular numbers (`font-variant-numeric: tabular-nums`), 15px.
 
 ## Icons

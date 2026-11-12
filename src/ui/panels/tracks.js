@@ -2,6 +2,7 @@
 const C = require('../commands');
 const icons = require('../icons');
 const { el } = require('../dialogs');
+const { tip } = require('../tips');
 const { state, changed, trackById } = require('../../core/state');
 
 const MIN_DB = -60;
@@ -58,7 +59,9 @@ function header(t) {
   h.setAttribute('role', 'group'); h.setAttribute('aria-label', t.name + ' 트랙');
   h.append(el('div', { className: 'stripe' }));
   h.firstChild.style.background = t.color;
-  const grip = el('div', { className: 'grip', title: '끌어서 순서 옮기기 (Ctrl+Alt+↑/↓)' }, el('i'));
+  const grip = el('div', { className: 'grip' }, el('i'));
+  Object.assign(grip.dataset, { tip: '끌어서 순서 옮기기', key: 'trackUp,trackDown' });
+  tip(grip);
   grip.firstChild.dataset.icon = 'dots-six-vertical';
   grip.addEventListener('pointerdown', (e) => dragOrder(e, h, t.id));
   const buttons = [
