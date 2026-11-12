@@ -155,11 +155,14 @@ async function mixdown(tracks, master, a, b, onPart) {
   const g = buildGraph(off, tracks, master, off.destination, false);
   addClips(off, g, tracks, a, b, 0);
   const r = await new Promise((resolve, reject) => {
-    const total = (len + lat) / sr, every = Math.max(1, total / 50);
-    for (let t = every; onPart && t < total; t += every) {
+    // whole render quanta (128 frames) at least a second apart, a full quantum before the end: suspend() rounds a time
+    // up to a quantum and refuses one at or past the end, which time steps of total / 50 added up hit about every
+    // other length over 50 s (the 50th falls a hair under the end; the export failed)
+    const Q = 128, frames = len + lat, every = Q * Math.max(Math.ceil(sr / Q), Math.ceil(frames / 50 / Q));
+    for (let f = every; onPart && f + Q < frames; f += every) {
       // a stop: the sources stop and the render runs out (result dropped); a context left suspended keeps their
       // audio for good (measured: +110 MB per stop of a 5-min source)
-      off.suspend(t).then(() => onPart(t / total)).then(() => off.resume(), (e) => {
+      off.suspend(f / sr).then(() => onPart(f / frames)).then(() => off.resume(), (e) => {
         for (const s of g.sources) { try { s.stop(); } catch { /* not started */ } }
         off.resume(); reject(e);
       });

@@ -95,8 +95,9 @@ Settings and on/off states (theme, panels, snap) are the app's state, not a wind
   `aria-describedby`. File pickers (열기, 저장 위치, 폴더) stay the Windows ones.
 - Busy overlay: appears only if work exceeds 150 ms (`loading-states`, no flash), label says what runs. Long jobs add,
   under it (360px max): a 6px bar (white on 25 % white, `role=progressbar`), a 13px line '42% · 하는 일 · 트랙'
-  (tabular numbers, one line with ellipsis) and [멈추기 (Esc)] (28px, white outline). Stopping toasts '멈췄어요 — 바뀐 것
-  없어요'. While it shows, no key or click reaches the app (Esc = 멈추기).
+  (tabular numbers, one line with ellipsis) and [멈추기 (Esc)] (28px, white outline). The bar's track carries 45°
+  stripes (22 % white, 16px tile) moving 0.6 s per tile, so a long step still shows work going on; they stand still
+  under prefers-reduced-motion. Stopping toasts '멈췄어요 — 바뀐 것 없어요'. While it shows, no key or click reaches the app (Esc = 멈추기).
 - Empty state: title + how to start (drag, Ctrl+O, R).
 - Switch (effect on/off, settings toggles): 34×20 button, `aria-pressed`, knob moves right + `--primary` fill when on.
 - Select (preset, channel, beats): native `<select>`, 28px, `--surface` + `--line`; preset select shows

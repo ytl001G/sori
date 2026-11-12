@@ -20,14 +20,16 @@ function toast(msg, kind = '') {
 // text) between pieces of work: the bar, '42% · text' and 멈추기 (button or Esc) show; at most every 50 ms it yields a
 // frame so the screen draws and a stop lands, which throws out of step and makes busy return STOPPED. So fn changes
 // nothing before its last step (멈추면 아무것도 안 바뀜). Keys reach nothing else meanwhile; the overlay takes
-// the mouse. shortcut: one DSP step on a long file still blocks between updates; a worker would fix that
+// the mouse. Long DSP runs on workers (core/workers.js) with step.signal: a stop aborts it at once (the job rejects
+// with STOPPED); between steps the bar's stripes move, so a long step still shows work going on
 const STOPPED = Symbol('stopped');
 let busyNow = false;
 const frame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 async function busy(label, fn) {
   const b = $('busy'), prog = $('busy-progress'), bar = $('busy-bar');
   let stop = false, last = 0;
-  const keys = (e) => { e.stopImmediatePropagation(); e.preventDefault(); if (e.key === 'Escape') stop = true; };
+  const ac = new AbortController(), halt = () => { stop = true; ac.abort(STOPPED); };
+  const keys = (e) => { e.stopImmediatePropagation(); e.preventDefault(); if (e.key === 'Escape') halt(); };
   const step = async (done, total, text = '') => {
     if (stop) throw STOPPED;
     const pct = Math.min(100, Math.round((100 * done) / Math.max(1, total)));
@@ -37,7 +39,8 @@ async function busy(label, fn) {
     await frame(); last = performance.now();
     if (stop) throw STOPPED;
   };
-  $('busy-label').textContent = label; prog.hidden = true; $('busy-stop').onclick = () => { stop = true; };
+  step.signal = ac.signal;
+  $('busy-label').textContent = label; prog.hidden = true; $('busy-stop').onclick = halt;
   busyNow = true; b.hidden = false; window.addEventListener('keydown', keys, true);
   b.animate([{ opacity: 0 }, { opacity: 0, offset: 0.99 }, { opacity: 1 }], { duration: 150, fill: 'forwards' });
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));

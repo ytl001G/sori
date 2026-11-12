@@ -3,7 +3,7 @@
 const path = require('path');
 const port = typeof postMessage === 'function' ? null : require('worker_threads').parentPort;
 const send = (m, list) => (port ? port.postMessage(m, list) : postMessage(m, list));
-const MODS = new Set(['encoders', 'voicedit', 'audiopack']);
+const MODS = new Set(['encoders', 'voicedit', 'audiopack', 'effects']);
 
 // every typed array's buffer in x, once
 function buffers(x, out = new Set()) {

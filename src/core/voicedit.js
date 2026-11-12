@@ -5,6 +5,7 @@
 const E = require('./edit');
 const V = require('./voice');
 const FX = require('./effects');
+const { pool } = require('./pool');
 
 const ORDER = ['hum', 'noise', 'gate', 'lowcut', 'even', 'deess', 'loud']; // spec order; gaps last, per track
 const isOn = (rows, k) => !!rows[k] && rows[k] !== 'off';
@@ -96,27 +97,37 @@ async function cleanTake(ch, sr, rows, edges, at = noStep) {
   }
   return { out: out === ch ? null : out, got, skipped: [...skipped] };
 }
-// clean(ch, edges): cleanTake done elsewhere (cli/apply.js: on another CPU), no step reports
-async function voiceEdit(tracks, targets, sr, rows, step = noStep, clean = null) {
+// clean(ch, edges): cleanTake done elsewhere (on workers: the app, cli/apply.js), k ranges at once, a step report
+// per range done; without it every step of every range reports
+async function voiceEdit(tracks, targets, sr, rows, step = noStep, clean = null, k = 1) {
   const clips = new Map(tracks.map((t) => [t.id, t.clips])), names = new Map(tracks.map((t) => [t.id, t.name]));
   const skipped = new Set(), done = [], cuts = [], gaps = isOn(rows, 'gaps');
-  const per = ORDER.filter((k) => isOn(rows, k)).length + (gaps ? 1 : 0);
-  let n = 0;
-  // right to left: a shorter result pulls in only what is already done
-  for (const tg of [...targets].sort((x, y) => y.a - x.a)) {
-    const cs = clips.get(tg.trackId), ch = E.renderRegion(cs, tg.a, tg.b);
-    const at = (label) => step(n++, targets.length * per, `${label} · ${names.get(tg.trackId)}`);
-    if (!ch) { n += per; continue; }
+  const per = ORDER.filter((x) => isOn(rows, x)).length + (gaps ? 1 : 0), total = targets.length * per;
+  const order = [...targets].sort((x, y) => y.a - x.a); // right to left: a shorter result pulls in only what is done
+  let n = 0, fin = 0;
+  // every range read from the clips as they were: ranges never overlap and an edit moves only what is right of it
+  const work = async (tg) => {
+    const cs = clips.get(tg.trackId), ch = E.renderRegion(cs, tg.a, tg.b), name = names.get(tg.trackId);
+    if (!ch) { n += per; return null; }
     const edges = { start: !across(cs, tg.a), end: !across(cs, tg.b) };
-    const r = clean ? await clean(ch, edges) : await cleanTake(ch, sr, rows, edges, at);
-    if (clean) n += per;
-    r.skipped.forEach((k) => skipped.add(k));
-    const out = r.out || ch;
+    const at = (label) => step(n++, total, `${label} · ${name}`);
+    if (!clean) return { len: ch[0].length, r: await cleanTake(ch, sr, rows, edges, at) };
+    const r = await clean(ch, edges);
+    n += per;
+    await step(n, total, `${name} (${++fin}/${order.length})`);
+    return { len: ch[0].length, r };
+  };
+  if (clean) await step(0, total, '계산 중');
+  const res = await pool(order.length, clean ? k : 1, (i) => work(order[i]));
+  for (const [i, tg] of order.entries()) {
+    if (!res[i]) continue;
+    const { len, r } = res[i], cs = clips.get(tg.trackId);
+    r.skipped.forEach((x) => skipped.add(x));
     for (const [a, b, add] of r.got) cuts.push({ trackId: tg.trackId, a: tg.a + a, b: tg.a + b, add });
-    done.push({ ...tg, grew: out[0].length - ch[0].length });
-    if (out === ch) continue;
+    done.push({ ...tg, grew: (r.out ? r.out[0].length : len) - len });
+    if (!r.out) continue;
     const first = cs.find((c) => c.start < tg.b && E.clipEnd(c) > tg.a);
-    clips.set(tg.trackId, E.replaceRegion(cs, tg.a, tg.b, out, first ? first.name : names.get(tg.trackId), true));
+    clips.set(tg.trackId, E.replaceRegion(cs, tg.a, tg.b, r.out, first ? first.name : names.get(tg.trackId), true));
   }
   // each target moves by what its track's targets to the left grew (targets never overlap)
   const moved = done.map(({ trackId, a, b, grew }) => {

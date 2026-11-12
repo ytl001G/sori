@@ -74,3 +74,17 @@ t('workers: a job that throws rejects, and the next jobs still run', async () =>
   const r = await W.run('audiopack', 'pack', [ch]);
   assert(r instanceof Uint8Array && require('../../src/core/audiopack').unpack(r, 1, 48000)[0][9] === 0.25);
 });
+t('workers: a stop ends a running job at once (terminated) and drops a waiting one; the next jobs run', async () => {
+  const W = require('../../src/core/workers'), sr = 48000;
+  const long = [Float32Array.from({ length: sr * 120 }, (_, i) => Math.sin(i / 7))]; // reverb: seconds of work
+  const ac = new AbortController(), why = new Error('stopped');
+  const jobs = Array.from({ length: W.WORKERS + 1 }, () => W.run('effects', 'reverb', [long, sr, {}], ac.signal));
+  await new Promise((r) => setTimeout(r, 300));
+  const t0 = Date.now();
+  ac.abort(why);
+  for (const j of jobs) await assert.rejects(j, (e) => e === why);
+  assert(Date.now() - t0 < 200, 'stopped in ' + (Date.now() - t0) + ' ms');
+  await assert.rejects(W.run('effects', 'gain', [long, sr, { db: 0 }], ac.signal), (e) => e === why); // stopped before
+  const r = await W.run('effects', 'gain', [[new Float32Array(4).fill(0.5)], sr, { db: 0 }]);
+  assert.strictEqual(r[0][3], 0.5);
+});

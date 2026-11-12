@@ -100,6 +100,23 @@ module.exports = [
     assert(Math.abs(voice - 0.15) < 0.01, 'voice ' + voice);
     drop();
   }],
+  ['long work on workers: the screen thread stays free; 멈추기 ends it at once, nothing changed', async () => {
+    const x = Float32Array.from({ length: sr * 120 }, (_, i) => 0.3 * Math.sin(i / 7)); // reverb: seconds of work
+    addLane([x, x]); sel(0, 120, [lane]);
+    let ticks = 0;
+    const tick = setInterval(() => ticks++, 10), t0 = performance.now();
+    await C.run('fxReverb');
+    clearInterval(tick);
+    const ms = performance.now() - t0; // computed on the screen's thread: no tick until it is done
+    assert(ticks > ms / 40 && lane.clips !== T().at(-1).clips, `${ticks} ticks in ${Math.round(ms)} ms`);
+    const before = T().at(-1).clips;
+    setTimeout(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })), 300);
+    const t1 = performance.now();
+    await C.run('fxReverb');
+    const stopMs = performance.now() - t1;
+    assert(stopMs < 900 && T().at(-1).clips === before && toasts.at(-1).startsWith('멈췄어요'), 'stop ' + stopMs);
+    drop();
+  }],
   ['progress bar: 멈추기 (Esc) leaves everything as it was; 긴 침묵 per track; export stop writes no file', async () => {
     kept = T();
     const mk = (name, parts) => makeTrack({ name, clips: [E.makeClip(E.makeSource(talk(parts)), 0, name)] });
@@ -108,7 +125,7 @@ module.exports = [
     state.project.tracks = [...kept, a, b]; changed(); sel(0, 5, [a, b]);
     const before = T().map((t) => t.clips), shown = stopOnBar();
     await C.run('voiceClean');
-    assert(/^\d+% · .+ · [AB]$/.test(await shown), 'bar line ' + (await shown));
+    assert(/^\d+% · 계산 중$/.test(await shown), 'bar line ' + (await shown)); // the ranges on workers, at once
     assert(T().every((t, i) => t.clips === before[i]) && toasts.at(-1) === '멈췄어요 — 바뀐 것 없어요', toasts.at(-1));
     assert(document.getElementById('busy').hidden, 'overlay gone');
     await C.run('voiceClean');

@@ -3,6 +3,8 @@ const FX = require('../../core/effects');
 const E = require('../../core/edit');
 const P = require('../../core/fxparams');
 const engine = require('../../audio/engine');
+const W = require('../../core/workers');
+const { pool } = require('../../core/pool');
 const D = require('../dialogs');
 const { def, T, frames, selClips, rangeTracks, setClips } = require('./core');
 const { pause, afterEdit } = require('./play');
@@ -45,15 +47,29 @@ const FXDEFS = [
     note: '메아리 꼬리는 선택 구간 뒤로 이어져서 뒤 소리와 겹쳐요.' }],
 ];
 
+// effects compute on workers, by name (the screen keeps drawing, 멈추기 lands at once)
+const FX_NAME = new Map(Object.entries(FX).map(([k, f]) => [f, k]));
+const onWorker = (fn, ch, params, signal) => W.run('effects', FX_NAME.get(fn), [ch, sr(), params], signal);
+// ranges at once: as many as there are workers, fewer for long ones (each holds its sound twice while it runs: 30 min
+// of frames in flight at most)
+const atOnce = (lens) => Math.max(1, Math.min(W.WORKERS, Math.floor(frames(1800) / Math.max(1, ...lens))));
+// a preview plays only while it is the latest and its window is open (a worker may answer after either changed)
+let previewSeq = 0;
+const previewTicket = () => { const my = ++previewSeq; return () => my === previewSeq; };
+const stopPreview = () => { previewSeq++; engine.stopPreview(); };
 // a preview would stop the recording's playback: it is blocked while recording
 const noPreview = () => state.recording && (D.toast('녹음 중에는 미리 들을 수 없어요'), true);
-function previewFx(fn, opt, targets, vals) {
+async function previewFx(fn, opt, targets, vals) {
   const tg = targets[0], t = trackById(tg.trackId);
   const ch = t && E.renderRegion(t.clips, tg.a, Math.min(tg.b, tg.a + frames(10)));
   if (!ch || noPreview()) return;
+  const live = previewTicket();
   pause(); changed();
-  try { engine.playPreview(fn(ch, sr(), opt.profile ? { ...vals, profile: state.noiseProfile } : vals)); } catch (e) {
-    D.toast('미리듣기 실패: ' + e.message, 'error');
+  try {
+    const out = await onWorker(fn, ch, opt.profile ? { ...vals, profile: state.noiseProfile } : vals);
+    if (live()) engine.playPreview(out);
+  } catch (e) {
+    if (live()) D.toast('미리듣기 실패: ' + e.message, 'error');
   }
 }
 // the effect's dialog (the EQ graph); null = 취소. It always opens with the same values (no memory)
@@ -63,7 +79,7 @@ function askParams(label, fn, opt, targets) {
     api.onChange(gr.update);
   } : null;
   return D.modal({ title: label, note: opt.note, fields: opt.fields, presets: opt.presets, extra,
-    onPreview: (v) => previewFx(fn, opt, targets, v), onClose: () => engine.stopPreview() });
+    onPreview: (v) => previewFx(fn, opt, targets, v), onClose: stopPreview });
 }
 // markers follow a stretch only when every track with sound after its start got it; checked before the
 // edit, applied right to left like the edits
@@ -79,16 +95,19 @@ function stretchMarkers(results) {
     }
   };
 }
-// compute everything first (a progress step per target, where 멈추기 lands), then commit + assign: an exception or a
-// stop leaves the project untouched. false: no sound in the targets (nothing done)
+// compute everything first (on workers, several at once; a progress step per target done, 멈추기 aborts the workers),
+// then commit + assign: an exception or a stop leaves the project untouched. false: no sound in the targets
 async function applyFx(targets, fn, opt, params, step) {
-  const results = [];
-  for (const [i, tg] of targets.entries()) {
-    const t = trackById(tg.trackId), ch = E.renderRegion(t.clips, tg.a, tg.b);
-    await step(i, targets.length, `${t.name} (${i + 1}/${targets.length})`);
+  let fin = 0;
+  await step(0, targets.length, '계산 중');
+  const got = await pool(targets.length, atOnce(targets.map((tg) => tg.b - tg.a)), async (i) => {
+    const tg = targets[i], t = trackById(tg.trackId), ch = E.renderRegion(t.clips, tg.a, tg.b);
+    const out = ch && await onWorker(fn, ch, params, step.signal);
+    await step(++fin, targets.length, `${t.name} (${fin}/${targets.length})`);
     const first = t.clips.find((c) => c.start < tg.b && E.clipEnd(c) > tg.a);
-    if (ch) results.push({ tg, name: first ? first.name : t.name, out: fn(ch, sr(), params) });
-  }
+    return out && { tg, name: first ? first.name : t.name, out };
+  });
+  const results = got.filter(Boolean);
   results.sort((x, y) => y.tg.a - x.tg.a); // right to left so ripple shifts never move pending targets
   if (!results.length) return false;
   const markers = opt.ripple ? stretchMarkers(results) : () => {};
@@ -188,4 +207,4 @@ def('clipProps', '클립 볼륨 · 페이드…', async () => {
   afterEdit();
 }, () => state.sel.clipIds.size > 0);
 
-module.exports = { FADE_SHAPES, shapeOf, setFadeShape, fxTargets, noPreview };
+module.exports = { FADE_SHAPES, shapeOf, setFadeShape, fxTargets, noPreview, previewTicket, stopPreview, atOnce };

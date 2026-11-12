@@ -120,6 +120,15 @@ module.exports = [
     assert(step(j - 300, j + 300) < 0.03, 'a step at the join ' + step(j - 300, j + 300));
     assert(step(s0 - 10, s0 + 300) < 0.03, 'a step at the clip start ' + step(s0 - 10, s0 + 300));
   }],
+  ['export progress works at any length over 50 s (no suspend at the very end)', async () => {
+    const tr = makeTrack({ clips: [E.makeClip(E.makeSource([new Float32Array(sr)]), 0, 'c')] });
+    // 12 lengths around 61 s: with time steps of total / 50, about every other one failed (61.3 s did)
+    for (let k = 0; k < 12; k++) {
+      const b = Math.round((61 + k * 0.0731) * sr), seen = [];
+      await engine.mixdown([tr], state.project.master, 0, b, (x) => { seen.push(x); });
+      assert(seen.length >= 40 && seen.at(-1) < 1, `length ${b / sr}: ${seen.length} parts`);
+    }
+  }],
   ['이 클립만 내보내기: one selected clip alone, from its start to its end; in the right-click menu', async () => {
     const M = require('../../src/ui/menus'), x0 = T()[0].clips[0];
     state.sel.range = null; state.sel.clipIds = new Set([x0.id]); state.sel.playhead = x0.start + Math.round(sr * 0.3);

@@ -5,10 +5,11 @@
 const E = require('../../core/edit');
 const V = require('../../core/voice');
 const VE = require('../../core/voicedit');
+const W = require('../../core/workers');
 const engine = require('../../audio/engine');
 const D = require('../dialogs');
 const { def, T, frames, setClips } = require('./core');
-const { fxTargets, noPreview } = require('./effects');
+const { fxTargets, noPreview, previewTicket, stopPreview, atOnce } = require('./effects');
 const { rippleMarkers } = require('./edit');
 const { pause, afterEdit } = require('./play');
 const { state, history, changed, trackById, sr } = require('../../core/state');
@@ -29,19 +30,24 @@ const SINGLE = [
 const OFF = { value: 'off', label: '끄기' };
 
 // the first target's first 10 s through the same edit, played
+// one range's 목소리 정리 on a worker (the screen keeps drawing; signal: 멈추기 aborts it)
+const onWorker = (rows, signal) => (ch, edges) => W.run('voicedit', 'cleanTake', [ch, sr(), rows, edges], signal);
 async function preview(rows) {
   const tg = fxTargets()[0], t = tg && trackById(tg.trackId);
   const ch = t && E.renderRegion(t.clips, tg.a, Math.min(tg.b, tg.a + frames(10)));
   if (!ch || noPreview()) return;
+  const live = previewTicket();
   pause(); changed();
   try {
     const lane = { id: 'p', name: '', clips: [E.makeClip(E.makeSource(ch), 0, '')] };
-    const r = await VE.voiceEdit([lane], [{ trackId: 'p', a: 0, b: ch[0].length }], sr(), rows);
+    const whole = [{ trackId: 'p', a: 0, b: ch[0].length }];
+    const r = await VE.voiceEdit([lane], whole, sr(), rows, undefined, onWorker(rows));
+    if (!live()) return;
     const cs = r.clips.get('p');
     engine.playPreview(E.renderRegion(cs, 0, E.projectEnd([{ clips: cs }])) || ch);
     if (r.skipped.length) D.toast(r.skipped.map(V.skipNote).join(' · '));
   } catch (e) {
-    D.toast('미리듣기 실패: ' + e.message, 'error');
+    if (live()) D.toast('미리듣기 실패: ' + e.message, 'error');
   }
 }
 // after the edit: a range ends where its sound now ends, selected clips are the new ones
@@ -57,7 +63,9 @@ async function apply(label, rows) {
   if (!targets.length) return D.toast('먼저 소리를 불러오세요');
   let r;
   try {
-    r = await D.busy(label + ' 적용 중', (step) => VE.voiceEdit(T(), targets, sr(), rows, step));
+    const k = atOnce(targets.map((tg) => tg.b - tg.a));
+    const run = (step) => VE.voiceEdit(T(), targets, sr(), rows, step, onWorker(rows, step.signal), k);
+    r = await D.busy(label + ' 적용 중', run);
   } catch (e) {
     return D.toast(label + ' 실패: ' + e.message, 'error');
   }
@@ -79,7 +87,7 @@ for (const [name, step, note] of SINGLE) {
     if (!fxTargets().length) return D.toast('먼저 소리를 불러오세요');
     const level = { key: 'level', label: step === 'loud' ? '크기' : '세기', options: choices(step), value: 'mid' };
     const v = await D.modal({ title: label, note, fields: [level], onPreview: (x) => preview({ [step]: x.level }),
-      onClose: () => engine.stopPreview() });
+      onClose: stopPreview });
     if (v) await apply(label, { [step]: v.level });
   });
 }
@@ -88,6 +96,6 @@ def('voiceClean', '한 번에 깔끔하게…', async () => {
   const row = ([k, value]) => ({ key: k, label: V.LABELS[k], options: [OFF, ...choices(k)], value });
   const fields = Object.entries(V.CLEAN).map(row);
   const v = await D.modal({ title: '한 번에 깔끔하게', note: '위에서부터 차례로 해요. 실행취소 한 번이면 모두 되돌려요.',
-    fields, onPreview: preview, onClose: () => engine.stopPreview() });
+    fields, onPreview: preview, onClose: stopPreview });
   if (v) await apply('한 번에 깔끔하게', v);
 });

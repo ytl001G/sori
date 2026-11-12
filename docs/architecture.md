@@ -48,11 +48,14 @@ src/core/  (plain Node, no DOM / AudioContext)
   downmix.js            more than 2 channels -> stereo on import: WAV channel order per count (3-8), centre/surrounds
                         -3 dB, LFE left out (Web Audio's quad/5.1 rules); other counts evenly to both sides
   pool.js               several jobs at once (RENDERS = 4 renders in flight: exports, sori measure), results in order
-  workers.js / worker.js pure work on other CPUs: run(mod, fn, args) calls require('./' + mod)[fn] on one of up to 8
-                        workers (CPUs - 2): Web Workers with Node in Sori's windows (main.js nodeIntegrationInWorker),
+  workers.js / worker.js pure work on other CPUs: run(mod, fn, args, signal) calls require('./' + mod)[fn] on one
+                        of up to 8 workers (CPUs - 2): Web Workers with Node in Sori's windows (main.js nodeIntegrationInWorker),
                         worker_threads in plain Node (unref'd while idle so a command exits); closed after 30 s idle.
-                        worker.js runs only encoders / voicedit / audiopack and hands result buffers back uncopied.
-                        Users: MP3 encoding, apply on several lines (voicedit.cleanTake), the CLI's packAhead
+                        worker.js runs only encoders / voicedit / audiopack / effects and hands result buffers back
+                        uncopied. signal (AbortSignal): on abort a queued job leaves, a running one's worker is
+                        terminated, the promise rejects with signal.reason (멈추기 lands at once).
+                        Users: MP3 encoding, the app's effects and 목소리 정리 (and their previews, so the screen's
+                        thread never runs DSP), apply on several lines (voicedit.cleanTake), the CLI's packAhead
   measure.js            sori measure: one rendered piece -> LUFS, peak, places over 0 dBFS, room noise, speech level,
                         quiet stretches (voicedit.quietLevels: the same reading as 긴 침묵 줄이기)
   voicedit.js           목소리 정리 on tracks for the app and the CLI: steps in place, then 긴 침묵 줄이기 cuts/pads;
@@ -311,10 +314,18 @@ last step (effects: applyFx; 목소리 정리: voiceEdit; import: decodeAll; ope
 of the bar, then `IO.loadSteps` a step per source unpacked = the second, '소리 푸는 중'). While busy a
 capture-phase keydown listener swallows every key (Esc = stop), the overlay takes the mouse and `sori live` editing
 requests get `BUSY` (`D.isBusy`), so nothing changes the project between steps. Export: `engine.mixdown(..., onPart)`
-suspends the OfflineAudioContext about every 2 % and awaits onPart (a throw leaves it suspended and rejects);
+suspends the OfflineAudioContext about every 2 % (at whole 128-frame quanta, at least 1 s apart, a quantum
+before the end: suspend() rounds a time up and refuses one at the end, which summed time steps hit on about half of
+all lengths over 50 s) and awaits onPart (a throw leaves it suspended and rejects);
 `writeAll` writes `<name>.part` files and renames them all at the end (a stop or error removes them). Autosave
 recovery loads without steps (no 멈추기: stopping, then editing, would let autosave overwrite the crashed work).
-A single DSP step on a long file still blocks between updates (shortcut in dialogs.js; a worker would fix it).
+Effects and 목소리 정리 compute on workers (measured 2026-11-12 on 5 min of stereo, each blocked the screen whole:
+잡음 줄이기 16.5 s, 목소리 정리 › 잡음 12.2 s, reverb 7.1 s, 음량 맞추기 5.9 s, comp 4.6 s): `applyFx` and
+`voiceEdit(…, clean, k)` read every range from the clips as they are, run them k at once (`atOnce`: up to
+WORKERS, fewer for long ranges, at most 30 min of frames in flight: each is held twice while it runs), report a step
+per range done ('0% · 계산 중' first), then apply right to left. `step.signal` aborts them on 멈추기. Between steps
+the bar's stripes move (CSS; they stand still under reduced motion). A preview plays only while it is the latest and its window is
+open (`previewTicket`, `stopPreview`).
 - EQ: RBJ biquads (highpass lowcut, lowshelf lowFreq, peaking midFreq/midQ, highshelf highFreq, lowpass highcut).
   `eqStages(sr, params)` returns the active stages (lowcut 0 Hz / highcut 20000 Hz = off); `biquadMag`
   gives the response for the EQ graph, so the curve is the exact filter.
