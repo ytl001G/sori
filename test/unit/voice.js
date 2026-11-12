@@ -43,6 +43,14 @@ t('loudness: a 997 Hz sine at -20 dBFS is -23 LUFS; 음량 맞추기 hits the ta
   assert(top <= 10 ** (-1 / 20) * 1.001, 'the wave between samples tops at ' + top);
   const pk = LD.peaks([spiky]), part = LD.peaks([spiky], 0.1);
   assert(pk.every((v, i) => v <= 0.1 || v === part[i]) && pk.some((v, i) => v > part[i]), 'skips only below the floor');
+  // read a piece at a time (memory): the points at a piece's edge are read from both sides, as one would
+  const rows = LD.tpTaps(), H = LD.TP_HALF, z = spiky.map((v, i) => v + 0.2 * Math.sin(i / 3));
+  const dot = (r, i) => Math.abs(r.reduce((a, w, k) => a + w * (z[i - H + 1 + k] || 0), 0));
+  const direct = (i) => Math.max(Math.abs(z[i]), ...rows.map((r) => dot(r, i)));
+  const got = LD.peaks([z]);
+  for (const i of [0, 65535, 65536, 65537, 131071, z.length - 1]) {
+    assert(Math.abs(got[i] - direct(i)) < 1e-6, 'frame ' + i);
+  }
 });
 t('noise floor: the quietest 0.5 s with sound; digital silence only as a last resort; none in steady sound', () => {
   const x = talk([['on', 1], ['off', 1], ['on', 1]]), q = V.quietest(x, sr);

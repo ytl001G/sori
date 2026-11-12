@@ -40,7 +40,8 @@ function pump() {
     w.job = waiting.shift();
     w.job.worker = w;
     w.busy();
-    w.postMessage({ mod: w.job.mod, fn: w.job.fn, args: w.job.args }); // a copy: the caller keeps its arrays
+    // a copy (the caller keeps its arrays), except the buffers it gives away (moved: no second copy of a long sound)
+    w.postMessage({ mod: w.job.mod, fn: w.job.fn, args: w.job.args }, w.job.give);
   }
   if (!waiting.length && free.length === made) {
     idle = setTimeout(() => { while (free.length) { free.pop().terminate(); made--; } }, IDLE);
@@ -50,11 +51,11 @@ function pump() {
 
 // require('./' + mod)[fn](...args) on a worker (a Promise of its result); args and result must be cloneable.
 // signal (AbortSignal): on abort a waiting job leaves the queue and a running one's worker is terminated (no waiting
-// for it to finish); the promise rejects with signal.reason
-function run(mod, fn, args, signal) {
+// for it to finish); the promise rejects with signal.reason. give: buffers of args the caller no longer needs (moved)
+function run(mod, fn, args, signal, give = []) {
   return new Promise((resolve, reject) => {
     if (signal && signal.aborted) return reject(signal.reason);
-    const job = { mod, fn, args, resolve, reject };
+    const job = { mod, fn, args, give, resolve, reject };
     waiting.push(job);
     if (signal) signal.addEventListener('abort', () => stop(job, signal.reason), { once: true });
     pump();

@@ -68,21 +68,28 @@ const TAPS = tpTaps(), REACH = Math.max(...TAPS.map((r) => r.reduce((a, v) => a 
 // A point is at most REACH x the largest |x| it is read from: where that stays <= floor the filter is skipped (the
 // frame's own |x| stands), exact for anything above floor; a limiter needs no more
 function peaks(ch, floor = 0) {
-  const n = ch[0].length, H = TP_HALF, out = new Float32Array(n);
-  const [r1, r2, r3] = TAPS;
+  const n = ch[0].length, H = TP_HALF, B = 1 << 16, out = new Float32Array(n), [r1, r2, r3] = TAPS;
+  // B frames at a time (memory stays small: the whole take at once briefly held 7x its size, audit 2026-11-12)
+  const p = new Float32Array(B + 2 * H), neg = new Float32Array(B + 2 * H);
   for (const x of ch) {
-    const p = new Float64Array(n + 2 * H); // p[i + k] = x[i - H + 1 + k], zeros outside
-    p.set(x, H - 1);
-    const near = slideMin(p.map((v) => -Math.abs(v)), 2 * H); // -max |p[j - 2H + 1 .. j]|
-    for (let i = 0; i < n; i++) {
-      out[i] = Math.max(out[i], Math.abs(x[i]));
-      if (-near[i + 2 * H - 1] * REACH <= floor) continue;
-      let a = 0, b = 0, c = 0;
-      for (let k = 0; k < 2 * H; k++) {
-        const v = p[i + k];
-        a += v * r1[k]; b += v * r2[k]; c += v * r3[k];
+    for (let s = 0; s < n; s += B) {
+      const m = Math.min(B, n - s), w = m + 2 * H - 1;
+      for (let j = 0; j < w; j++) { // p[i + k] = x[s + i - H + 1 + k], zeros outside
+        const at = s - H + 1 + j;
+        p[j] = at >= 0 && at < n ? x[at] : 0;
+        neg[j] = -Math.abs(p[j]);
       }
-      out[i] = Math.max(out[i], Math.abs(a), Math.abs(b), Math.abs(c));
+      const near = slideMin(neg.subarray(0, w), 2 * H); // -max |p[j - 2H + 1 .. j]|
+      for (let i = 0; i < m; i++) {
+        out[s + i] = Math.max(out[s + i], Math.abs(x[s + i]));
+        if (-near[i + 2 * H - 1] * REACH <= floor) continue;
+        let a = 0, b = 0, c = 0;
+        for (let k = 0; k < 2 * H; k++) {
+          const v = p[i + k];
+          a += v * r1[k]; b += v * r2[k]; c += v * r3[k];
+        }
+        out[s + i] = Math.max(out[s + i], Math.abs(a), Math.abs(b), Math.abs(c));
+      }
     }
   }
   return out;

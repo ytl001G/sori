@@ -9,7 +9,7 @@ const W = require('../../core/workers');
 const engine = require('../../audio/engine');
 const D = require('../dialogs');
 const { def, T, frames, setClips } = require('./core');
-const { fxTargets, noPreview, previewTicket, stopPreview, atOnce } = require('./effects');
+const { fxTargets, noPreview, previewTicket, stopPreview, atOnce, owned } = require('./effects');
 const { rippleMarkers } = require('./edit');
 const { pause, afterEdit } = require('./play');
 const { state, history, changed, trackById, sr } = require('../../core/state');
@@ -30,8 +30,10 @@ const SINGLE = [
 const OFF = { value: 'off', label: '끄기' };
 
 // the first target's first 10 s through the same edit, played
-// one range's 목소리 정리 on a worker (the screen keeps drawing; signal: 멈추기 aborts it)
-const onWorker = (rows, signal) => (ch, edges) => W.run('voicedit', 'cleanTake', [ch, sr(), rows, edges], signal);
+// one range's 목소리 정리 on a worker (the screen keeps drawing; signal: 멈추기 aborts it). give: hand the render over
+// (apply: voiceEdit reads only its length first; the preview plays ch itself when nothing comes back)
+const onWorker = (rows, signal, give) => (ch, edges) =>
+  W.run('voicedit', 'cleanTake', [ch, sr(), rows, edges], signal, give ? owned(ch) : []);
 async function preview(rows) {
   const tg = fxTargets()[0], t = tg && trackById(tg.trackId);
   const ch = t && E.renderRegion(t.clips, tg.a, Math.min(tg.b, tg.a + frames(10)));
@@ -64,7 +66,7 @@ async function apply(label, rows) {
   let r;
   try {
     const k = atOnce(targets.map((tg) => tg.b - tg.a));
-    const run = (step) => VE.voiceEdit(T(), targets, sr(), rows, step, onWorker(rows, step.signal), k);
+    const run = (step) => VE.voiceEdit(T(), targets, sr(), rows, step, onWorker(rows, step.signal, true), k);
     r = await D.busy(label + ' 적용 중', run);
   } catch (e) {
     return D.toast(label + ' 실패: ' + e.message, 'error');

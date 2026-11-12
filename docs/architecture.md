@@ -53,7 +53,8 @@ src/core/  (plain Node, no DOM / AudioContext)
                         worker_threads in plain Node (unref'd while idle so a command exits); closed after 30 s idle.
                         worker.js runs only encoders / voicedit / audiopack / effects and hands result buffers back
                         uncopied. signal (AbortSignal): on abort a queued job leaves, a running one's worker is
-                        terminated, the promise rejects with signal.reason (멈추기 lands at once).
+                        terminated, the promise rejects with signal.reason (멈추기 lands at once). give: buffers
+                        of args moved instead of copied (effects and 목소리 정리 hand over their fresh render).
                         Users: MP3 encoding, the app's effects and 목소리 정리 (and their previews, so the screen's
                         thread never runs DSP), apply on several lines (voicedit.cleanTake), the CLI's packAhead
   measure.js            sori measure: one rendered piece -> LUFS, peak, places over 0 dBFS, room noise, speech level,
@@ -262,8 +263,11 @@ Every value is validated on load (`validate`); bad values fall back to defaults.
    `renderRegion`): a cut joins two waves at any value, so the sound would jump there in one sample (a 220 Hz sine cut
    at random: a step 49x its largest normal one, a click). Where a clip's end meets another's start on the track,
    each plays on into the sound it has past the edge (its handle, up to `EDGE` = 120 frames a side: 2.5 ms at 48 kHz)
-   and the overlap crossfades them (rule 6), as Pro Tools / Reaper / Audition do; one handle is enough, none: each
-   side fades over EDGE in its own sound. A plain split crossfades the same samples (sounds as before, < 1e-6).
+   and the overlap crossfades them (rule 6), as Pro Tools / Reaper / Audition do; one handle is enough. None (two new
+   sources an effect made, recordings): each side fades over EDGE in its own sound only if the sound jumps there
+   (`jumps`: b's first sample off the one foreseen from a's last two by more than twice their own steps, with clip
+   volume); pieces of one sound processed one by one meet themselves and are left as they are (fading them made a
+   dip: up to 0.3 on a 0.5 sine, audit 2026-11-12). A plain split crossfades the same samples (sounds as before, < 1e-6).
    An edge with its own fade keeps it (the other side of that join fades over EDGE). `silence` (engine: playback and
    export): an edge against silence fades over 2 * EDGE; edits leave it out, or every effect would bake it in again.
 
@@ -356,7 +360,8 @@ open (`previewTicket`, `stopPreview`).
   BS.1770 Annex 2 does, with a longer filter: `tpTaps()` = 3 rows (points 1/4, 2/4, 3/4 to the next sample) of a
   Blackman-windowed sinc, `2 * TP_HALF` = 64 taps each, unit gain. After a -1 dB limit (8x / 128-tap reference):
   sines and voice -1.00, bright noise -0.67 dBTP (48 taps: -0.38). A point is at most REACH (2.81) x the largest
-  sample it reads, so frames whose neighbourhood stays under the ceiling skip the filter (exact above it). Cost:
+  sample it reads, so frames whose neighbourhood stays under the ceiling skip the filter (exact above it). Read 65536
+  frames at a time (the whole take at once briefly held 7x its size: 806 MB for 10 min mono, now 145). Cost:
   offline about +1 s per minute of stereo when every frame is near the ceiling; live 1.6% of one core.
 - De-esser: Linkwitz-Riley split (2 × Butterworth each side) at `freq`; the high band × g while its envelope is
   within 12 dB of the whole (full amount at 3 dB), only above -50 dBFS. An LR split keeps both bands in phase:

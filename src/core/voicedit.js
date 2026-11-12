@@ -112,10 +112,10 @@ async function voiceEdit(tracks, targets, sr, rows, step = noStep, clean = null,
     const edges = { start: !across(cs, tg.a), end: !across(cs, tg.b) };
     const at = (label) => step(n++, total, `${label} · ${name}`);
     if (!clean) return { len: ch[0].length, r: await cleanTake(ch, sr, rows, edges, at) };
-    const r = await clean(ch, edges);
+    const len = ch[0].length, r = await clean(ch, edges); // clean may take ch over (moved to a worker)
     n += per;
     await step(n, total, `${name} (${++fin}/${order.length})`);
-    return { len: ch[0].length, r };
+    return { len, r };
   };
   if (clean) await step(0, total, '계산 중');
   const res = await pool(order.length, clean ? k : 1, (i) => work(order[i]));

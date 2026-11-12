@@ -64,6 +64,20 @@ function fades(clips) {
 // meeting it) fades over 2 * EDGE (playback and export); edits leave that out, or every effect would bake it in again.
 // An edge with its own fade is left as it is; at a join with one, the other side fades over EDGE in its own sound.
 const EDGE = 120; // frames: 2.5 ms at 48 kHz, 2.7 ms at 44.1 kHz
+// with no handle on either side: does the sound jump where a's end meets b's start? The next sample foreseen from a's
+// last two (with clip volume) is off from b's first by more than twice their own steps. A sound cut in two and
+// processed piece by piece (each piece a new source, no handle) meets itself (a 220 Hz sine: 0.0004 against steps of
+// 0.014) and is left as it is: two fades there made a dip (audit 2026-11-12); a real cut jumps (up to 0.7) and fades
+function jumps(a, b) {
+  if (a.length < 2 || b.length < 2) return true;
+  const ca = a.src.ch, cb = b.src.ch, e = a.offset + a.length, ga = a.gain ?? 1, gb = b.gain ?? 1;
+  for (let k = 0; k < Math.max(ca.length, cb.length); k++) {
+    const p = ca[Math.min(k, ca.length - 1)], q = cb[Math.min(k, cb.length - 1)];
+    const a1 = ga * p[e - 1], a0 = ga * p[e - 2], b0 = gb * q[b.offset], b1 = gb * q[b.offset + 1];
+    if (Math.abs(b0 - 2 * a1 + a0) > 2 * Math.max(Math.abs(a1 - a0), Math.abs(b1 - b0)) + 1e-4) return true;
+  }
+  return false;
+}
 function played(clips, silence = false) {
   const s = sortClips(clips), out = new Map(s.map((c) => [c, { ...c }])), byStart = new Map();
   const metIn = new Set(), metOut = new Set();
@@ -83,7 +97,7 @@ function played(clips, silence = false) {
     for (const b of next) {
       const B = out.get(b), x = Math.max(0, Math.min(EDGE, b.offset, b.start));
       Object.assign(B, { start: b.start - x, offset: b.offset - x, length: b.length + x });
-      if (x + y === 0) { A.fadeOut = EDGE; B.fadeIn = EDGE; } // no sound past either edge: two short fades
+      if (x + y === 0 && jumps(a, b)) { A.fadeOut = EDGE; B.fadeIn = EDGE; } // no handles: short fades on a jump
     }
   }
   if (silence) {

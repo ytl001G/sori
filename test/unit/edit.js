@@ -113,3 +113,11 @@ t('played: edges against silence fade (playback only); own fades and the stored 
   assert(po.length === 4000 && po.fadeOut === 50, 'an own fade-out stays as it is');
   assert(pb.start === 4000 && pb.fadeIn === H, 'the clip after it fades in over its own sound');
 });
+t('played: pieces of one sound made new sources (no handles) still meet without a dip; a real cut still fades', () => {
+  const x = wave(48000), [a, b] = E.splitAt([E.makeClip(E.makeSource(x), 0, 'c')], 24050); // not at a zero
+  const own = (c) => E.makeClip(E.makeSource([x[0].slice(c.offset, c.offset + c.length)]), c.start, c.name);
+  const r = E.renderRegion([own(a), own(b)], 23000, 25000)[0]; // as an effect leaves each piece: new, no handle
+  assert(r.every((v, i) => Math.abs(v - x[0][23000 + i]) < 1e-6), 'the pieces sound as the sound itself');
+  const louder = { ...own(b), gain: 2 }, [, pb] = E.played([own(a), louder]);
+  assert.strictEqual(pb.fadeIn, E.EDGE, 'a clip volume step is a jump');
+});

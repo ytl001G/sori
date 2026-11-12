@@ -88,3 +88,11 @@ t('workers: a stop ends a running job at once (terminated) and drops a waiting o
   const r = await W.run('effects', 'gain', [[new Float32Array(4).fill(0.5)], sr, { db: 0 }]);
   assert.strictEqual(r[0][3], 0.5);
 });
+t('workers: buffers given away move to the worker (no copy left behind); others are copied', async () => {
+  const W = require('../../src/core/workers');
+  const a = new Float32Array(1000).fill(0.5), b = new Float32Array(1000).fill(0.5);
+  const r = await W.run('effects', 'gain', [[a], 48000, { db: 0 }], undefined, [a.buffer]);
+  assert(a.byteLength === 0 && r[0][999] === 0.5, 'moved');
+  await W.run('effects', 'gain', [[b], 48000, { db: 0 }]);
+  assert.strictEqual(b.byteLength, 4000, 'copied: the caller keeps it');
+});

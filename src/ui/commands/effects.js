@@ -49,7 +49,9 @@ const FXDEFS = [
 
 // effects compute on workers, by name (the screen keeps drawing, 멈추기 lands at once)
 const FX_NAME = new Map(Object.entries(FX).map(([k, f]) => [f, k]));
-const onWorker = (fn, ch, params, signal) => W.run('effects', FX_NAME.get(fn), [ch, sr(), params], signal);
+// ch is a fresh render nobody reads after: handed over, not copied
+const onWorker = (fn, ch, params, signal) => W.run('effects', FX_NAME.get(fn), [ch, sr(), params], signal, owned(ch));
+const owned = (ch) => [...new Set(ch.map((c) => c.buffer))];
 // ranges at once: as many as there are workers, fewer for long ones (each holds its sound twice while it runs: 30 min
 // of frames in flight at most)
 const atOnce = (lens) => Math.max(1, Math.min(W.WORKERS, Math.floor(frames(1800) / Math.max(1, ...lens))));
@@ -207,4 +209,5 @@ def('clipProps', '클립 볼륨 · 페이드…', async () => {
   afterEdit();
 }, () => state.sel.clipIds.size > 0);
 
-module.exports = { FADE_SHAPES, shapeOf, setFadeShape, fxTargets, noPreview, previewTicket, stopPreview, atOnce };
+module.exports = { FADE_SHAPES, shapeOf, setFadeShape, fxTargets, noPreview, previewTicket, stopPreview, atOnce,
+  owned };
