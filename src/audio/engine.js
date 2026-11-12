@@ -69,7 +69,7 @@ function addClips(c, g, tracks, from, to, when) {
   const sr = c.sampleRate;
   for (const t of tracks) {
     // as they sound: crossfaded joins, short fades against silence (edit.played)
-    const pc = played(t.clips, true), fd = fades(pc), input = g.nodes.get(t.id).chain.input;
+    const pc = played(t.clips, true, from, to), fd = fades(pc), input = g.nodes.get(t.id).chain.input;
     for (const clip of pc) {
       if (clipEnd(clip) <= from || clip.start >= to) continue;
       const skip = Math.max(0, from - clip.start), len = Math.min(clip.length - skip, to - Math.max(from, clip.start));

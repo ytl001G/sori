@@ -267,7 +267,10 @@ Every value is validated on load (`validate`); bad values fall back to defaults.
    sources an effect made, recordings): each side fades over EDGE in its own sound only if the sound jumps there
    (`jumps`: b's first sample off the one foreseen from a's last two by more than twice their own steps, with clip
    volume); pieces of one sound processed one by one meet themselves and are left as they are (fading them made a
-   dip: up to 0.3 on a 0.5 sine, audit 2026-11-12). A plain split crossfades the same samples (sounds as before, < 1e-6).
+   dip: up to 0.3 on a 0.5 sine, audit 2026-11-12).
+   Only clips within 3 EDGE of the range played or rendered count (`played(clips, silence, from, to)`): a join
+   further away changes nothing there, and reading it would decode sources parked far away.
+   A plain split crossfades the same samples (sounds as before, < 1e-6).
    An edge with its own fade keeps it (the other side of that join fades over EDGE). `silence` (engine: playback and
    export): an edge against silence fades over 2 * EDGE; edits leave it out, or every effect would bake it in again.
 

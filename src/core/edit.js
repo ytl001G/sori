@@ -78,8 +78,11 @@ function jumps(a, b) {
   }
   return false;
 }
-function played(clips, silence = false) {
-  const s = sortClips(clips), out = new Map(s.map((c) => [c, { ...c }])), byStart = new Map();
+// [from, to): only clips within 3 EDGE of it count (a join further away changes nothing there, and jumps() would
+// read, so decode, sources parked far away)
+function played(clips, silence = false, from = -Infinity, to = Infinity) {
+  const M = 3 * EDGE, s = sortClips(clips.filter((c) => c.start < to + M && clipEnd(c) > from - M));
+  const out = new Map(s.map((c) => [c, { ...c }])), byStart = new Map();
   const metIn = new Set(), metOut = new Set();
   for (const c of s) byStart.set(c.start, [...(byStart.get(c.start) || []), c]);
   for (const a of s) {
@@ -148,7 +151,7 @@ const flatEnv = (c, fd) => (c.gain ?? 1) === 1 && !fd[0] && !fd[1];
 // Sum of clips (with clip volume, fades, crossfades and the crossfaded joins of `played`) over [a, b), for edits
 // (effects, merge, copy...). Returns null when nothing overlaps.
 function renderRegion(stored, a, b) {
-  const clips = played(stored), hit = clips.filter((c) => c.start < b && clipEnd(c) > a);
+  const clips = played(stored, false, a, b), hit = clips.filter((c) => c.start < b && clipEnd(c) > a);
   if (!hit.length) return null;
   const fd = fades(clips);
   const nch = Math.max(...hit.map((c) => c.src.ch.length));

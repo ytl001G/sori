@@ -121,3 +121,13 @@ t('played: pieces of one sound made new sources (no handles) still meet without 
   const louder = { ...own(b), gain: 2 }, [, pb] = E.played([own(a), louder]);
   assert.strictEqual(pb.fadeIn, E.EDGE, 'a clip volume step is a jump');
 });
+t('played: only clips near the range are read (a source parked far away stays packed)', () => {
+  const x = wave(9000), far = { id: 'p', frames: 9000, reads: 0 };
+  Object.defineProperty(far, 'ch', { get() { far.reads++; return x; } });
+  const near = [E.makeClip(E.makeSource([x[0].slice(0, 4000)]), 0, 'a'),
+    E.makeClip(E.makeSource([x[0].slice(10)]), 4000, 'b')];
+  const away = [E.makeClip(far, 100000, 'c', 6000, 3000), E.makeClip(far, 103000, 'd', 0, 3000)]; // join, no handles
+  E.renderRegion([...near, ...away], 0, 5000);
+  assert.strictEqual(far.reads, 0, 'read a source 95 000 frames away');
+  assert(E.renderRegion([...near, ...away], 102000, 104000) && far.reads > 0, 'read where it plays');
+});
