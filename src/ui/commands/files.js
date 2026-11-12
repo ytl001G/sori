@@ -175,7 +175,7 @@ async function importAudio(paths, target) {
   const decoded = await decodeAll(paths);
   if (!decoded) return D.toast('멈췄어요 — 바뀐 것 없어요');
   if (!decoded.length) return;
-  history.commit();
+  history.commit(null, '파일 가져오기');
   decoded.forEach(({ p, ch }, i) => {
     const clip = E.makeClip(E.makeSource(ch), i === 0 && target ? Math.max(0, target.at) : 0, baseName(p));
     const t = i === 0 && target && trackById(target.trackId);

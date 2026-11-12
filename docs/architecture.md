@@ -135,7 +135,8 @@ src/ui/
                         bottom mixer (strips, faders, meters); fx.js = right effect panel (always-on effects of master,
                         one track, or one character); eq.js = draggable EQ curve (effect panel + EQ dialog); script.js =
                         script mode views: line list (tabs, filter, progress) + line bar / prompter; find.js =
-                        the Ctrl+F box over the timeline (built on first use, opens fresh each time)
+                        the Ctrl+F box over the timeline (built on first use, opens fresh each time); history.js =
+                        실행취소 기록, the effect panel's second tab (rows from `history.steps()`)
   split/                긴 녹음 나누기 window (sheet): index.js = tools, keys, mouse, foot; edit.js = its state, edits,
                         line list; draw.js = its two waveforms and their hit tests
   settings/             설정 window: index.js = the 4 tabs; audio.js = 오디오 장치 tab; keys.js = the editable shortcut
@@ -250,6 +251,12 @@ Every value is validated on load (`validate`); bad values fall back to defaults.
    shows; undo/redo show the line the step changed (the opposite stack gets the present state viewed at that line),
    so Ctrl+Z on another line jumps back to the edited one (stopping playback / a recording first, its take kept).
    Moving between lines is not an undo step.
+   Every step carries `label` and `time` (실행취소 기록): `commit(lineId, label)` names it, else `history.label` =
+   the command running (commands/core.js `run` sets it from the command's label, without '…'; several in flight:
+   the newest), else '편집'. Edits made outside a command (mouse drags, the end of a recording, a sori live file
+   command, 대본 넣기, ★) pass their own name. Undo/redo move the name and time with the step. `history.steps()` =
+   { done (oldest first), undone (redo order) }; `historyTo(n)` (commands/edit.js) undoes / redoes one step at a
+   time to just after step n, so each does exactly what Ctrl+Z / Ctrl+Y does, and stops where a step is refused.
 4. Clips may overlap within a track; playback and region render sum them, with the automatic crossfade below.
 5. Live, not in history: mixer props (gain, pan, mute, solo, name), track/master effects,
    track view, tempo/grid. Undo restores clips + markers and keeps the current live values.

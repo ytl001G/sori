@@ -112,6 +112,10 @@ function render() {
   }
   for (const x of [panel, bar]) if (x.hidden === on) x.hidden = !on;
   if (!on) return;
+  // 대사 목록 접기 (F7): scripts.css moves the line bar and the takes left
+  if (document.body.classList.contains('lines-off') === state.ui.lines) {
+    document.body.classList.toggle('lines-off', !state.ui.lines);
+  }
   heads(!!C.cue());
   const v = state.ui.scriptView;
   // emptying the ★ take changes it

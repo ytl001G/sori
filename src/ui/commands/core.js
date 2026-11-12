@@ -1,14 +1,25 @@
 // The command registry and what every command group shares: the selection, the tracks on screen, the current line.
 const D = require('../dialogs');
-const { state, trackById, sr } = require('../../core/state');
+const { state, history, trackById, sr } = require('../../core/state');
 
 const cmds = {};
 // checked(): menu items show a check mark (toggles)
 const def = (name, label, run, enabled, checked) => { cmds[name] = { name, label, run, enabled, checked }; };
+// an undo step made while a command runs carries its name (실행취소 기록); commands in flight, newest last: they can
+// end in any order (an async one waits while another runs), and the name is always the newest still running
+const running = [];
 function run(name, ...args) {
   const c = cmds[name];
   if (!c || (c.enabled && !c.enabled())) return;
-  return Promise.resolve(c.run(...args)).catch((e) => D.toast('문제가 생겼어요: ' + e.message, 'error'));
+  const me = c.label.replace(/…$/, ''), mark = { me };
+  running.push(mark); history.label = me;
+  const back = () => {
+    running.splice(running.indexOf(mark), 1);
+    history.label = running.length ? running[running.length - 1].me : null;
+  };
+  try {
+    return Promise.resolve(c.run(...args)).catch((e) => D.toast('문제가 생겼어요: ' + e.message, 'error')).finally(back);
+  } catch (e) { back(); throw e; }
 }
 const tl = () => require('../timeline'); // lazy: timeline requires commands too
 

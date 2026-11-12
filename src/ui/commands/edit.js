@@ -48,6 +48,19 @@ const undoRedo = (fn, back) => {
 };
 def('undo', '실행취소', () => undoRedo(() => history.undo(), () => history.redo()), () => history.canUndo());
 def('redo', '다시실행', () => undoRedo(() => history.redo(), () => history.undo()), () => history.canRedo());
+// 실행취소 기록: back to just after step n (0 = before them all), one undo / redo at a time, so each does what
+// Ctrl+Z / Ctrl+Y would; stops where a step is refused (the take being recorded keeps it)
+async function historyTo(n) {
+  if (!Number.isInteger(n) || n < 0 || n > history.depth() + history.redoDepth()) return false; // live run, no step
+  for (let d = history.depth(); d !== n; d = history.depth()) {
+    await (d > n ? undoRedo(() => history.undo(), () => history.redo())
+      : undoRedo(() => history.redo(), () => history.undo()));
+    if (history.depth() === d) return false;
+  }
+  return true;
+}
+// a row of the 실행취소 기록 list (not a menu row: it takes the step)
+def('historyTo', '실행취소 기록의 단계로', historyTo, () => history.canUndo() || history.canRedo());
 
 function copySelection() {
   const r = state.sel.range;
@@ -282,4 +295,4 @@ def('insertSilence', '무음 넣기…', async () => {
   afterEdit();
 });
 
-module.exports = { rippleMarkers };
+module.exports = { rippleMarkers, historyTo };

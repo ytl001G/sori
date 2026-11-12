@@ -73,8 +73,8 @@ async function script({ what, ref, view }) {
   return { ok: true, script: describeScript(state.project), ui: ui(), canUndo: history.canUndo() };
 }
 // panels and list view: what the user sees besides the project
-const ui = () => ({ mixer: state.ui.mixer, fxPanel: state.ui.fxPanel, spectrogram: state.view.spec,
-  ...(state.project.script && list()) });
+const ui = () => ({ mixer: state.ui.mixer, fxPanel: state.ui.fxPanel, panelTab: state.ui.fxTab,
+  spectrogram: state.view.spec, ...(state.project.script && { lines: state.ui.lines, ...list() }) });
 // visible first: it may set the view back to 전체
 const list = () => {
   const visible = C.visibleLines().map(SCR.lineName);
@@ -174,6 +174,21 @@ async function find({ text, clips, markers, memo, dir }) {
     ...(state.project.script && { line: SCR.lineName(C.curLine()) }) };
 }
 
+// `live history [--to N]`: the 실행취소 기록 list; --to goes there as clicking its row (commands/edit.js historyTo)
+async function historyOp({ to }) {
+  const all = () => history.depth() + history.redoDepth();
+  if (to !== undefined) {
+    if (!Number.isInteger(to) || to < 0 || to > all()) return bad(`--to needs a step from 0 to ${all()}`);
+    await C.run('historyTo', to);
+  }
+  const { done, undone } = history.steps(), s = state.project.script;
+  const name = (id) => { const l = s && id && s.lines.find((x) => x.id === id); return l ? SCR.lineName(l) : null; };
+  const steps = [...done, ...undone].map((x, i) => ({ step: i + 1, label: x.label,
+    time: new Date(x.time).toISOString(), line: name(x.line), undone: i >= done.length }));
+  return { ok: true, at: done.length, steps, ...(to !== undefined && { reached: done.length === to }),
+    canUndo: history.canUndo(), canRedo: history.canRedo() };
+}
+
 function handle(req) {
   // the CLI gave up waiting (it reported TIMEOUT): a request still queued then must not act late
   if (Number.isFinite(req.deadline) && Date.now() > req.deadline) {
@@ -181,6 +196,7 @@ function handle(req) {
   }
   if (req.op === 'state') return snapshot();
   if (req.op === 'commands') return commands();
+  if (req.op === 'history' && req.to === undefined) return historyOp(req); // only reads, as state
   if (D.isBusy()) { // a long job with its progress bar is running; it must not see the project change under it
     return { ok: false, error: 'BUSY', message: 'the app is busy with a long job (progress on screen); try later' };
   }
@@ -189,6 +205,7 @@ function handle(req) {
   }
   if (req.op === 'select') return select(req);
   if (req.op === 'find') return find(req);
+  if (req.op === 'history') return historyOp(req);
   if (req.op === 'run') {
     const args = req.args && typeof req.args === 'object' ? req.args : {};
     return run(req.name, args, { path: req.path, yes: req.yes === true });

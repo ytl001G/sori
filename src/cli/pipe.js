@@ -9,7 +9,7 @@ const net = require('net');
 const os = require('os');
 const path = require('path');
 
-const OPS = ['state', 'commands', 'run', 'select', 'script', 'verb', 'settings', 'find'];
+const OPS = ['state', 'commands', 'run', 'select', 'script', 'verb', 'settings', 'find', 'history'];
 const MAX = 1 << 16; // request bytes
 
 // <app data>/Sori/live-pipe (Electron's userData folder of Sori, other accounts cannot read it)

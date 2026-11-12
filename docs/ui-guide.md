@@ -21,6 +21,9 @@ What they do not show:
 - Status bar: hint (left) · 선택 a – b (n초) · 48000 Hz · 트랙 n개 · 길이 (right).
 Script mode (`body.script`): `#main` becomes `line list 288px | header col 224px | timeline`, with the line bar on top
 of the header col + timeline (the list runs the full height). Header top shows "테이크" instead of the add button.
+대사 목록 접기 (`state.ui.lines` false → `body.lines-off`): the list column goes, the line bar spans header col +
+timeline, the timeline gets the 288px; 접기 = « (caret-double-left) at the right of the list's tool row, 펴기 = »
+(caret-double-right) at the left of the header top, shown only while folded.
 Body grid: rows topbar / main / hscroll / mixer / status; the effect panel is a right column from main
 to mixer. Panels open and close without moving the timeline's time scale.
 Lane height from settings (`--lane`, `state.view.laneH`); clip name strip 18px; trim handle 6px each edge;
@@ -111,6 +114,12 @@ Settings and on/off states (theme, panels, snap) are the app's state, not a wind
   [끄기] first, always opening with the same rows (no memory of the last pick: a button always does the same).
 - Menu group title (`'#title'` in menus.js): 12px `--subtle` text row, not focusable; the rows under it (up to the next
   separator) are indented 22px. Used for 효과 > 목소리 정리.
+- Right panel tabs: [효과 | 실행취소 기록] under the band, 13px, the shown tab 600 with a 2px `--primary` underline,
+  ✕ at the right closes the panel (either tab). WAI tabs: `role="tab"`, `aria-selected`, ←/→ move, only the shown tab
+  is in the tab order. The history tab's band is `--line` (no channel).
+- 실행취소 기록 rows: name (13px) · time (12px `--subtle`, right) · line number in a script project (12px `--muted`);
+  the current state 600 on `--sel` with a 3px `--primary` left edge (`aria-current="step"`), redo steps `--subtle`.
+  A note on top says what a click does. First row '처음 (더 되돌릴 수 없는 곳)'.
 - Effect panel head: 4px band in the channel color `--ch` (track color, master `--secondary` like its mixer strip),
   title "트랙 효과 · name" / "마스터 효과 · 전체 소리에" 15px with ✕, channel select full width under it, note says
   where the effects apply. Cards get a 3px left edge in `--ch` (`color-not-only`: the title says it too).
@@ -215,7 +224,7 @@ Cursors: `text` over lanes, `grab`/`grabbing` on name strip, EQ points and the t
 ## Wording (Korean UI glossary)
 트랙, 클립, 구간 선택, 재생 위치, 잘라내기, 복사, 붙여넣기, 삭제, 나누기, 합치기, 복제, 선택만 남기기,
 무음 넣기, 무음 처리, 실행취소, 다시실행, 내보내기, 프로젝트 저장, 음소거(M), 솔로(S), 볼륨, 팬,
-믹서, 효과 패널, 마스터, 트랙 효과, 프리셋, 직접 조절, 리미터, 마커, 페이드 인/아웃, 클립 볼륨, 메트로놈,
+믹서, 효과 패널, 실행취소 기록, 대사 목록 접기 / 펴기, 마스터, 트랙 효과, 프리셋, 직접 조절, 리미터, 마커, 페이드 인/아웃, 클립 볼륨, 메트로놈,
 카운트인, 빠르기(BPM), 박자 격자, 스냅, 스펙트로그램, 자동 저장, 복구, 녹음 지연 보정, 설정, 단축키.
 Effect names as spec.md §5. Messages short, polite-informal (…했어요). Errors = cause + what to do.
 

@@ -6,7 +6,7 @@ const DEFAULTS = {
   countIn: 0, follow: true, stopReturn: true, metroVol: 70,
   autosaveMin: 2, exportFormat: 'wav16', sampleRate: 48000, undoOnlyGB: 0.5,
   theme: 'dark', zoom: 100, laneH: 96, keys: {},
-  recent: [], mixer: false, mixerH: 220, fxPanel: false, metronome: false, snap: true,
+  recent: [], mixer: false, mixerH: 220, fxPanel: false, metronome: false, snap: true, lines: true,
 };
 const ONE_OF = {
   recChannels: [1, 2], countIn: [0, 1, 2], autosaveMin: [0, 1, 2, 5, 10],

@@ -98,9 +98,22 @@ function labelChannel() {
   document.getElementById('fx-note').textContent = where + ' 원본은 그대로고, 재생과 내보내기에 모두 들어가요.';
 }
 
+// the two tabs: 효과 and 실행취소 기록 (panels/history.js fills its pane)
+function tabs() {
+  const hist = state.ui.fxTab === 'history';
+  root.classList.toggle('hist', hist);
+  for (const t of root.querySelectorAll('[role="tab"]')) {
+    const on = t.dataset.tab === state.ui.fxTab;
+    t.setAttribute('aria-selected', String(on));
+    t.tabIndex = on ? 0 : -1;
+  }
+  document.getElementById('fx-pane').hidden = hist;
+  document.getElementById('hist-pane').hidden = !hist;
+  return hist;
+}
 function render() {
   root.hidden = !state.ui.fxPanel;
-  if (root.hidden) return;
+  if (root.hidden || tabs()) return;
   if (tgt() !== 'master' && !trackById(tgt()) && !charOf(tgt())) state.ui.fxTarget = 'master';
   // the picker and title follow the channels' names and colors; the cards are rebuilt for another channel
   const sc = state.project.script, { tracks } = state.project; // a character's color can change (sori script color)
@@ -133,7 +146,20 @@ function init() {
   body = document.getElementById('fx-body');
   picker = document.getElementById('fx-target');
   picker.onchange = () => { state.ui.fxTarget = picker.value; changed(); };
-  document.getElementById('fx-close').onclick = () => C.run('toggleFxPanel');
+  // a key or a tab click shows its tab; on the tab shown the same key closes the panel, the X always closes
+  const cmd = (tab) => (tab === 'history' ? 'toggleHistory' : 'toggleFxPanel');
+  document.getElementById('fx-close').onclick = () => C.run(cmd(state.ui.fxTab));
+  for (const t of root.querySelectorAll('[role="tab"]')) {
+    t.onclick = () => { if (t.dataset.tab !== state.ui.fxTab) C.run(cmd(t.dataset.tab)); };
+    // arrow keys move between the tabs (WAI tabs pattern)
+    t.onkeydown = (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const other = root.querySelector(`[role="tab"]:not([data-tab="${t.dataset.tab}"])`);
+      C.run(cmd(other.dataset.tab));
+      other.focus();
+      e.preventDefault(); e.stopPropagation(); // not also the app's ←/→ (the play position)
+    };
+  }
 }
 
 module.exports = { init, render };

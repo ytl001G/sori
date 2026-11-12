@@ -83,7 +83,7 @@ function setStar(takeId) {
   const l = curLine();
   if (!l || (l.star === takeId && l.state !== 'redo')) return;
   if (!T().some((t) => t.id === takeId)) return;
-  history.commit();
+  history.commit(null, '★ 고르기');
   setLine(l.id, SCR.withStar(takeId)); // picking ★ (even the same one) clears '다시 녹음 필요'
   afterEdit();
 }
@@ -129,7 +129,7 @@ async function importScript(p) {
   const n = T().length;
   const note = `트랙 ${n}개가 모두 지워지고 대본 프로젝트가 돼요. Ctrl+Z로 되돌릴 수 있어요.`;
   if (n && !(await D.modal({ title: '대본 넣기', okLabel: '지우고 대본 넣기', note }))) return;
-  history.commit();
+  history.commit(null, '대본 넣기');
   const script = { lines: got.lines, lineId: null, chars: Object.create(null) }; // no inherited keys as characters
   SCR.addChars(script.chars, got.lines, COLORS);
   state.project.script = script;
@@ -150,7 +150,7 @@ async function reimportScript(fresh, dup) {
   const note = `새 대사 ${n.added}개 · 내용 바뀜 ${n.changed}개 (녹음이 있으면 '다시 녹음 필요') · 없어짐 ${n.gone}개${takes}`
     + ` · 그대로 ${n.same}개${dup}`;
   if (!(await D.modal({ title: '대본 넣기', okLabel: '바꾸기', note }))) return;
-  history.commit();
+  history.commit(null, '대본 넣기');
   const s = SC();
   SCR.addChars(s.chars, lines, COLORS);
   s.lines = lines;

@@ -9,7 +9,7 @@ const { takeCount, goLine, visibleLines, lineAfter, setScriptView, setStar, impo
 const F = require('./files');
 require('./outside'); // the window's X, a file opened from outside
 const { markerSegments } = require('./export');
-require('./edit');
+const { historyTo } = require('./edit');
 require('./nudge');
 const { removeTrack, moveTrack, mixer, setFx, showFx, fxKey } = require('./tracks');
 const { FADE_SHAPES, shapeOf, setFadeShape } = require('./effects');
@@ -27,5 +27,6 @@ module.exports = {
   writeProject: F.writeProject, autosave: F.autosave, clearAutosave: F.clearAutosave,
   recoverAutosave: F.recoverAutosave, backupNow, BACKUP_MS,
   removeTrack, moveTrack, mixer, setFx, showFx, fxKey, FADE_SHAPES, setFadeShape, shapeOf, setTempo, moveMarker,
-  find, curLine, cue, cueNextLine, takeCount, goLine, visibleLines, lineAfter, setScriptView, setStar, importScript,
+  historyTo, find, curLine, cue, cueNextLine, takeCount, goLine, visibleLines, lineAfter, setScriptView, setStar,
+  importScript,
 };

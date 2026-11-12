@@ -29,6 +29,9 @@ const LIVE = [
   ['live settings [--NAME VALUE ...]', 'everything the app remembers: without options shows settings, audio '
     + 'devices, recent files, shortcuts; options change them like the window or menu (--theme light, --metronome '
     + 'on, --latencyMs 30 or auto, --key split=Ctrl+K, --keys default, --recent clear, --mic-test 2)'],
+  ['live history [--to N]', '실행취소 기록: every undo step by name (steps: step, label, time, line, undone; at = '
+    + 'the steps done now). --to N goes back to just after step N (0 = before them all), as clicking its row; the '
+    + 'steps after stay for redo (reached: false when a recording kept a step)'],
   ['live script line <NAME>', 'script project: go to that line (철수-001), as clicking it in the list'],
   ['live script star <N|NAME>', 'script project: ★ the current line\'s take N (테이크 N) or the take with that name '
     + '(undoable)'],
@@ -43,8 +46,8 @@ const LIVE_SELECT = {
   from: 'sec', to: 'sec', track: 'trks', clip: 'pairs', active: 'trk', marker: 'idx', playhead: 'sec', none: 'bool',
 };
 
-const LIVE_NAMES = ['state', 'commands', 'select', 'run', 'find', 'settings', 'script line', 'script star',
-  'script view'];
+const LIVE_NAMES = ['state', 'commands', 'select', 'run', 'find', 'settings', 'history', 'script line',
+  'script star', 'script view'];
 const TAKES = ' (a script project: --line NAME, --take N|NAME for --track)';
 // every command: name, usage, about (a file command also as sori live, without <project>)
 const ROWS = [...V.VERBS.flatMap((v) => {
@@ -134,6 +137,11 @@ const LIVE_REQ = {
     return { op: 'find', text: pos[0], clips: !!o.clips, markers: !!o.markers, memo: !!o.memo,
       dir: o.next ? 1 : o.prev ? -1 : 0 };
   },
+  history(rest) {
+    const { pos, o } = A.parse(rest, { to: 'int' });
+    if (pos.length) throw A.bad('live history takes only --to N');
+    return { op: 'history', ...(o.to !== undefined && { to: o.to }) };
+  },
   settings(rest) {
     const { pos, fields } = A.parse(rest, {}, true);
     if (pos.length) throw A.bad('live settings takes only --NAME VALUE options');
@@ -144,7 +152,7 @@ const LIVE_REQ = {
     return { op: 'verb', argv: argv.slice(1), cwd: process.cwd() };
   },
 };
-const LIVE_LIST = 'live commands: state, commands, select, run, find, settings, script line|star|view, '
+const LIVE_LIST = 'live commands: state, commands, select, run, find, settings, history, script line|star|view, '
   + 'or any file command without <project>';
 // ops that may wait for a dialog or a measurement
 const SLOW = ['run', 'verb', 'settings'];

@@ -19,7 +19,7 @@ const DEFAULT_KEYS = {
   'KeyM': 'addMarker', 'BracketLeft': 'prevMarker', 'BracketRight': 'nextMarker',
   'Ctrl+Equal': 'zoomIn', 'Ctrl+NumpadAdd': 'zoomIn', 'Ctrl+Minus': 'zoomOut', 'Ctrl+NumpadSubtract': 'zoomOut',
   'Ctrl+Digit0': 'zoomFit', 'Ctrl+Shift+KeyF': 'zoomSel', 'Ctrl+KeyF': 'find', 'KeyG': 'toggleSnap',
-  'F9': 'toggleMixer', 'F8': 'toggleFxPanel',
+  'F9': 'toggleMixer', 'F8': 'toggleFxPanel', 'F7': 'toggleLines', 'F6': 'toggleHistory',
   'Ctrl+KeyN': 'newProject', 'Ctrl+KeyO': 'open', 'Ctrl+KeyS': 'save', 'Ctrl+Shift+KeyS': 'saveAs',
   'Ctrl+KeyE': 'export',
   'Ctrl+Shift+KeyN': 'addTrack', 'Ctrl+Shift+KeyD': 'dupTrack', 'Ctrl+Alt+ArrowUp': 'trackUp',

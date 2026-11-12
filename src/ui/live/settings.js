@@ -1,5 +1,5 @@
 // `sori live settings`: everything the app remembers (the 설정 window, metronome, snap, mixer, effects
-// panel, mixer height, the next fade's shape), checked like the window (choices must match, numbers clamped to their
+// panel, the line list, mixer height), checked like the window (choices must match, numbers clamped to their
 // range), and the window's buttons: 자동 측정 (--latencyMs auto), 마이크 테스트 (--mic-test SEC), 단축키 바꾸기 /
 // 기본값 (--key CMD=KEY|default, --keys default), 최근 파일 목록 지우기 (--recent clear, or one PATH).
 const engine = require('../../audio/engine');

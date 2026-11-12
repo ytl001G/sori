@@ -7,8 +7,8 @@ const K = require('./smoke/kit');
 
 // SORI_PERF=<a copy of a .vproj>: only the speed steps (perf.js); SORI_FUZZ=<actions>: only random editing (fuzz.js)
 const GROUPS = process.env.SORI_PERF ? ['perf'] : process.env.SORI_FUZZ ? ['fuzz']
-  : ['edit', 'fx', 'voice', 'panels', 'files', 'script', 'longrec', 'cli', 'cliscript', 'view', 'find', 'shots',
-    'layout'];
+  : ['edit', 'fx', 'voice', 'panels', 'files', 'script', 'longrec', 'cli', 'cliscript', 'view', 'find', 'history',
+    'shots', 'layout'];
 
 async function run() {
   K.install();

@@ -83,6 +83,8 @@
       <div class="sp-tools">
         <button class="switch" id="sp-todo" type="button" aria-pressed="false"></button><label for="sp-todo">녹음 안 한
             것만</label>
+        <button class="icon sp-fold" data-cmd="toggleLines" title="대사 목록 접기 (F7)" aria-label="대사 목록 접기"><i
+            data-icon="caret-double-left"></i></button>
       </div>
       <div id="sp-list"></div>
     </aside>
@@ -95,6 +97,8 @@
     </div>
     <aside id="headers-col" aria-label="트랙">
       <div id="headers-top">
+        <button class="icon lines-open" data-cmd="toggleLines" title="대사 목록 펴기 (F7)" aria-label="대사 목록 펴기"><i
+            data-icon="caret-double-right"></i></button>
         <span class="takes-count"></span>
         <button class="btn-small take-add" data-cmd="addTrack" title="새 빈 테이크 (Ctrl+Shift+N)"><i data-icon="plus"
             aria-hidden="true"></i>테이크</button>
@@ -123,13 +127,24 @@
   </section>
   <aside id="fxpanel" hidden aria-label="효과 패널">
     <div class="fxp-band" aria-hidden="true"></div>
-    <div class="fxp-head">
-      <h2 id="fx-title">효과</h2>
-      <button class="icon" id="fx-close" title="닫기 (F8)" aria-label="효과 패널 닫기"><i data-icon="x"></i></button>
+    <div class="fxp-tabs" role="tablist" aria-label="오른쪽 패널">
+      <button role="tab" id="tab-fx" data-tab="fx" aria-controls="fx-pane" title="효과 (F8)">효과</button>
+      <button role="tab" id="tab-history" data-tab="history" aria-controls="hist-pane" title="실행취소 기록 (F6)">실행취소
+        기록</button>
+      <span class="spacer"></span>
+      <button class="icon" id="fx-close" title="닫기" aria-label="오른쪽 패널 닫기"><i data-icon="x"></i></button>
     </div>
-    <div class="fxp-pick"><select id="fx-target" aria-label="효과를 볼 채널"></select></div>
-    <div class="fxp-note" id="fx-note"></div>
-    <div id="fx-body"></div>
+    <div id="fx-pane" class="fxp-pane" role="tabpanel" aria-labelledby="tab-fx">
+      <div class="fxp-head"><h2 id="fx-title">효과</h2></div>
+      <div class="fxp-pick"><select id="fx-target" aria-label="효과를 볼 채널"></select></div>
+      <div class="fxp-note" id="fx-note"></div>
+      <div id="fx-body"></div>
+    </div>
+    <div id="hist-pane" class="fxp-pane" role="tabpanel" aria-labelledby="tab-history" hidden>
+      <div class="fxp-note">누르면 그 단계 바로 뒤로 돌아가요. 그 뒤 단계는 흐리게 남아서 다시 누르거나 다시실행(Ctrl+Y)으로
+        돌아올 수 있어요. 새로 편집하면 흐린 단계는 사라져요.</div>
+      <ol id="hist-list" class="hist-list" aria-label="실행취소 단계"></ol>
+    </div>
   </aside>
   <footer id="status"><span id="hint"></span><span class="spacer"></span><span id="seltime" class="mono"></span><span
       id="info"></span></footer>

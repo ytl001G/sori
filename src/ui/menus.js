@@ -17,7 +17,7 @@ const MENUS = {
   track: ['addTrack', 'dupTrack', '|', 'addVoiceTrack', 'addMusicTrack', 'addSfxTrack', '|', 'trackUp', 'trackDown',
     '|', 'sortTracks'],
   marker: ['addMarker', 'prevMarker', 'nextMarker'],
-  view: ['toggleMixer', 'toggleFxPanel', 'masterFx', 'trackFx', '|', 'toggleSpec', '|',
+  view: ['toggleMixer', 'toggleFxPanel', 'toggleHistory', 'toggleLines', 'masterFx', 'trackFx', '|', 'toggleSpec', '|',
     'zoomIn', 'zoomOut', 'zoomFit', 'zoomSel', '|', 'toggleSnap', 'toggleGrid', '|',
     'toggleTheme', 'shortcuts'],
   fx: ['#목소리 정리', 'voiceClean', 'voiceLoud', 'voiceGaps', 'voiceDeess', 'voiceHum', 'voiceGate', 'voiceEven', '|',
@@ -25,7 +25,7 @@ const MENUS = {
     'fxProfile', 'fxNoise', '|', 'fxEq', 'fxComp', 'fxReverb', 'fxEcho'],
 };
 // rows a menu shows only in a script project; the shortcut list still has them
-const SCRIPT_ONLY = new Set(['editLine', 'prevLine', 'nextLine', 'contRecord', 'splitFile']);
+const SCRIPT_ONLY = new Set(['editLine', 'prevLine', 'nextLine', 'contRecord', 'splitFile', 'toggleLines']);
 // [data-list] buttons
 const LISTS = { addTrack: ['addTrack', 'dupTrack', '|', 'addVoiceTrack', 'addMusicTrack', 'addSfxTrack'] };
 const CONTEXT = ['cut', 'copy', 'paste', 'delete', '|', 'split', 'merge', 'duplicate', 'keep', 'clipProps',

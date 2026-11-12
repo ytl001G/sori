@@ -29,7 +29,7 @@ function undoStep(p, next) {
 // Returns whether it made an undo step.
 function takeProject(next) {
   const p = state.project, s = p.script, { step, at } = undoStep(p, next);
-  if (step) history.commit(at);
+  if (step) history.commit(at, '명령줄 편집');
   else setDirty(true);
   const { range, clipIds, activeTrackId } = state.sel;
   Object.assign(p, next);

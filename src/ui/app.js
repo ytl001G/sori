@@ -8,6 +8,7 @@ const timeline = require('./timeline');
 const tracks = require('./panels/tracks');
 const mixer = require('./panels/mixer');
 const fxpanel = require('./panels/fx');
+const histpanel = require('./panels/history');
 const scriptui = require('./panels/script');
 const findbox = require('./panels/find');
 const menus = require('./menus');
@@ -40,6 +41,7 @@ function apply(s, keys) {
   }
   if (has('mixer')) state.ui.mixer = s.mixer; // the menu (setPanel) and sori live settings
   if (has('fxPanel')) state.ui.fxPanel = s.fxPanel;
+  if (has('lines')) state.ui.lines = s.lines;
   changed();
 }
 const settings = S.load();
@@ -57,6 +59,7 @@ timeline.init();
 tracks.init();
 mixer.init();
 fxpanel.init();
+histpanel.init();
 scriptui.init();
 menus.init();
 require('./live'); // sori live: the AI command line drives the app's commands (docs/cli.md)
@@ -148,7 +151,7 @@ function updateChrome() {
   setPressed('btn-grid', p.grid === 'beats');
   setPressed('btn-snap', S.get().snap);
   setPressed('btn-mixer', state.ui.mixer);
-  setPressed('btn-fx', state.ui.fxPanel);
+  setPressed('btn-fx', state.ui.fxPanel && state.ui.fxTab === 'fx'); // the history tab is the same panel
   if (document.activeElement !== $('bpm') && $('bpm').value !== String(p.bpm)) $('bpm').value = p.bpm;
   if (!$('beats').querySelector(`option[value="${p.beats}"]`)) {
     $('beats').append(Object.assign(document.createElement('option'), { value: p.beats, textContent: `${p.beats}/4` }));
@@ -187,7 +190,7 @@ function draw() {
     const full = dirty;
     dirty = false;
     scriptui.render(); // its 이어 녹음 time and input level move while recording
-    if (full) { tracks.render(); fxpanel.render(); findbox.render(); } // the rest changes only through changed()
+    if (full) { tracks.render(); fxpanel.render(); histpanel.render(); findbox.render(); } // the rest: only changed()
     timeline.draw(full);
     timeline.syncScrollbar();
     updateChrome();

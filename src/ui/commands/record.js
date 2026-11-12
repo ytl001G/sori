@@ -63,7 +63,7 @@ async function stopRecording(quiet) {
   }
   const at = recSpot(done.trackId, done.lineId);
   // the take becomes one undo step now, on its line (still hidden from this snapshot)
-  if (ch && at) history.commit(done.lineId);
+  if (ch && at) history.commit(done.lineId, '녹음');
   history.hide = null;
   if (at && !ch) { // nothing kept (stopped during the count-in): no empty take
     at.set(null);

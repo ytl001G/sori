@@ -77,7 +77,7 @@ async function reviewIn(ch, c, lead, lost) {
 function apply(ch, lines, st) {
   const { lines: plan } = SPL.plan(st, lines.length);
   if (!plan.length) return D.toast('넣을 조각이 없어요 — 바뀐 것 없어요');
-  history.commit();
+  history.commit(null, '이어 녹음 나누기');
   let n = 0;
   for (const { line, ranges } of plan) {
     const id = lines[line].id, here = id === SC().lineId, l = SC().lines.find((x) => x.id === id);

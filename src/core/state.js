@@ -14,7 +14,9 @@ const state = {
   view: { pxPerSec: 80, scrollX: 0, scrollY: 0, follow: true, laneH: 96, spec: false },
   // fxTarget: 'master', a track id, or 'char:<name>' (script mode: one effect set per character)
   // scriptView: line list filter (script mode) — character tab ('' = all), only unrecorded
-  ui: { mixer: false, fxPanel: false, fxTarget: 'master', scriptView: { char: '', todo: false } },
+  // lines: the line list shown (script mode, 대사 목록 F7); fxTab: what the right panel shows, 'fx' or 'history' (F6)
+  ui: { mixer: false, fxPanel: false, fxTab: 'fx', lines: true, fxTarget: 'master',
+    scriptView: { char: '', todo: false } },
   playing: false, loop: false, recording: false,
   filePath: null, dirty: false, edits: 0, clipboard: null, noiseProfile: null,
   // 자동 백업 (ui/commands/backup.js): a change since the last backup; saveHint: where 저장 suggests for an opened backup
@@ -72,6 +74,9 @@ const snapshot = (lineId) => {
   return { tracks: l ? out(l.takes) : out(p.tracks), markers: p.markers, script };
 };
 const viewOf = (snap) => snap.script && snap.script.lineId;
+// every step carries its name (the command's, or the caller's) and when it was made, for 실행취소 기록
+const tag = (snap, label, time) => Object.assign(snap, { label, time });
+const info = (s) => ({ label: s.label, time: s.time, line: viewOf(s) || null });
 
 function restore(snap) {
   // structure comes from the snapshot; live mixer props stay as they are now
@@ -115,8 +120,10 @@ function tidySel() {
 
 const history = {
   budget: 0.5e9, // sample bytes only undo keeps alive; long files hit this before MAX_HISTORY
-  commit(lineId) { // script projects: lineId = the line the step changes, when it is not the one on screen
-    undoStack.push(snapshot(lineId));
+  // script projects: lineId = the line the step changes, when it is not the one on screen. label: the step's name
+  // (default: the command running, commands/core.js run)
+  commit(lineId, label) {
+    undoStack.push(tag(snapshot(lineId), label || history.label || '편집', Date.now()));
     if (undoStack.length > MAX_HISTORY) undoStack.shift();
     lastRedo = redoStack.splice(0);
     const mine = new Set();
@@ -127,19 +134,25 @@ const history = {
   },
   undo() {
     if (!undoStack.length) return false;
-    const s = undoStack.pop(); redoStack.push(snapshot(viewOf(s))); restore(s); setDirty(true); return true;
+    const s = undoStack.pop(); redoStack.push(tag(snapshot(viewOf(s)), s.label, s.time));
+    restore(s); setDirty(true); return true;
   },
   redo() {
     if (!redoStack.length) return false;
-    const s = redoStack.pop(); undoStack.push(snapshot(viewOf(s))); restore(s); setDirty(true); return true;
+    const s = redoStack.pop(); undoStack.push(tag(snapshot(viewOf(s)), s.label, s.time));
+    restore(s); setDirty(true); return true;
   },
   // forget the last commit when the action turned out to change nothing (a saved project stays saved, no backup due)
   drop() {
     undoStack.pop(); redoStack.push(...lastRedo); lastRedo = []; setDirty(lastDirty); state.backupDue = lastDue;
   },
   hide: null,
+  label: null, // the name of the command running (commands/core.js run)
+  // done: the steps undo can take back, oldest first; undone: the ones redo brings back, next first
+  steps: () => ({ done: undoStack.map(info), undone: redoStack.slice().reverse().map(info) }),
   clear() { undoStack.length = 0; redoStack.length = 0; lastRedo = []; history.hide = null; },
   depth: () => undoStack.length,
+  redoDepth: () => redoStack.length,
   top: () => undoStack[undoStack.length - 1], // a new object after every commit, undo and redo
   canUndo: () => undoStack.length > 0,
   canRedo: () => redoStack.length > 0,

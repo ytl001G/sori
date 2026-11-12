@@ -97,7 +97,7 @@ function onMove(e) {
 const written = () => (drag.kind === 'marker' ? state.project.markers : T());
 
 function dragMarker(x) {
-  if (!drag.orig) { history.commit(); drag.orig = true; drag.snaps = snapTargets(new Set(), drag.id); }
+  if (!drag.orig) { history.commit(null, '마커 옮기기'); drag.orig = true; drag.snaps = snapTargets(new Set(), drag.id); }
   let f = xToFrame(x);
   f = Math.max(0, f + snapDelta([f], drag.snaps));
   drag.moved = f !== drag.start;
@@ -112,7 +112,7 @@ function setClip(nc, sort) {
   changed();
 }
 function dragFade(x) {
-  if (!drag.orig) { history.commit(); drag.orig = dragged(); }
+  if (!drag.orig) { history.commit(null, '페이드 조절'); drag.orig = dragged(); }
   const o = drag.orig;
   if (!o) return;
   const f = xToFrame(x);
@@ -126,7 +126,7 @@ function dragFade(x) {
 }
 function trimEdge(x) {
   if (!drag.orig) {
-    history.commit();
+    history.commit(null, '클립 끝 다듬기');
     drag.orig = dragged();
     drag.snaps = snapTargets(new Set([drag.clipId]));
   }
@@ -140,7 +140,7 @@ function trimEdge(x) {
 // the first move: an undo step, the clips as they were, what moves, where it can snap
 function startMove() {
   const ids = state.sel.clipIds, tracks = T();
-  history.commit();
+  history.commit(null, '클립 옮기기');
   drag.orig = tracks.map((t) => ({ id: t.id, clips: t.clips }));
   drag.items = tracks.flatMap((t, i) => t.clips.filter((c) => ids.has(c.id)).map((c) => ({ c, i })));
   drag.snaps = snapTargets(ids);

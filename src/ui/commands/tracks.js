@@ -57,7 +57,7 @@ function moveTrack(id, to) {
   const ts = [...T()], i = ts.findIndex((t) => t.id === id);
   to = Math.max(0, Math.min(ts.length - 1, to));
   if (i < 0 || i === to) return;
-  history.commit();
+  history.commit(null, '트랙 옮기기');
   ts.splice(to, 0, ...ts.splice(i, 1));
   state.project.tracks = ts;
   state.sel.activeTrackId = id;
@@ -80,7 +80,7 @@ function removeTrack(id) {
   if (!t || R.busy()) return;
   // the recording stops, its take goes
   if (rec && rec.trackId === id) return R.stopRecording(true).then(() => removeTrack(id));
-  history.commit();
+  history.commit(null, '트랙 삭제');
   state.project.tracks = T().filter((x) => x.id !== id);
   if (state.sel.activeTrackId === id) state.sel.activeTrackId = T()[0] ? T()[0].id : null;
   if (state.sel.range) state.sel.range.trackIds.delete(id);
@@ -138,11 +138,23 @@ function setPanel(key, on) { state.ui[key] = on; S.set({ [key]: on }); changed()
 const fxKey = (id) => (curLine() && id !== 'master' && !String(id).startsWith('char:') ? 'char:' + curLine().char : id);
 function showFx(target) {
   state.ui.fxTarget = fxKey(target);
+  state.ui.fxTab = 'fx';
   if (!state.ui.fxPanel) setPanel('fxPanel', true);
   changed();
 }
+// the right panel's two tabs: F8 효과, F6 실행취소 기록. Each key shows its tab; on its own tab it closes the panel
+const showing = (tab) => state.ui.fxPanel && state.ui.fxTab === tab;
+function panelTab(tab) {
+  if (showing(tab)) return setPanel('fxPanel', false);
+  state.ui.fxTab = tab;
+  setPanel('fxPanel', true);
+}
 def('toggleMixer', '믹서', () => setPanel('mixer', !state.ui.mixer), null, () => state.ui.mixer);
-def('toggleFxPanel', '효과 패널', () => setPanel('fxPanel', !state.ui.fxPanel), null, () => state.ui.fxPanel);
+def('toggleFxPanel', '효과 패널', () => panelTab('fx'), null, () => showing('fx'));
+def('toggleHistory', '실행취소 기록', () => panelTab('history'), null, () => showing('history'));
+// script mode: the line list on the left (F7); the line bar above stays, so ↑/↓ still move through the lines
+def('toggleLines', '대사 목록', () => setPanel('lines', !state.ui.lines), () => !!state.project.script,
+  () => state.ui.lines);
 def('masterFx', '마스터 효과', () => showFx('master'));
 def('trackFx', '이 트랙 효과', () => { const t = activeTrack(); if (t) showFx(t.id); }, () => !!activeTrack());
 // the whole timeline: a view, not an edit (no undo step, not saved); every launch starts as 파형
