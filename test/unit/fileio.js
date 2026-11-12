@@ -23,8 +23,26 @@ t('wav header and samples', () => {
   const v = new DataView(w.buffer);
   assert.strictEqual(String.fromCharCode(...w.subarray(0, 4)), 'RIFF');
   assert.strictEqual(v.getUint32(24, true), 48000);
-  assert.deepStrictEqual([v.getInt16(44, true), v.getInt16(46, true), v.getInt16(48, true)], [0, 32767, -32767]);
+  const got = [v.getInt16(44, true), v.getInt16(46, true), v.getInt16(48, true)]; // dither: within a step
+  assert(got[0] === 0 && got[1] >= 32766 && got[2] <= -32766 && got[2] >= -32768, String(got));
   assert.strictEqual(IO.encodeWav([new Float32Array(10), new Float32Array(10)], 44100, 24).length, 44 + 60);
+});
+t('16 bits with TPDF dither: a -95 dBFS sine kept without harmonics, silence stays 0, same sound same bytes', () => {
+  const n = sr * 2, a = 10 ** (-95 / 20), at = (y, f) => {
+    let s = 0, c = 0;
+    for (let i = 0; i < n; i++) {
+      const ph = 2 * Math.PI * f * i / sr;
+      s += y[i] * Math.sin(ph); c += y[i] * Math.cos(ph);
+    }
+    return 20 * Math.log10(2 * Math.hypot(s, c) / n);
+  };
+  const x = Float32Array.from({ length: n }, (_, i) => a * Math.sin(2 * Math.PI * 1000 * i / sr + 0.3));
+  const w = IO.encodeWav([x], sr, 16), y = Float32Array.from(new Int16Array(w.buffer, 44), (v) => v / 32767);
+  // rounding alone: 1 kHz -94.2, a harmonic at -97.7 (a staircase); truncation (the old MP3 input): silence
+  assert(Math.abs(at(y, 1000) + 95) < 0.5 && at(y, 3000) < -120 && at(y, 5000) < -120, 'tone ' + at(y, 1000));
+  const z = new Int16Array(IO.encodeWav([new Float32Array(1000)], sr, 16).buffer, 44);
+  assert(z.every((v) => v === 0), 'digital silence stays 0');
+  assert.deepStrictEqual(IO.encodeWav([x], sr, 16), w, 'seeded per file');
 });
 t('mp3 encodes frames', () => {
   const m = IO.encodeMp3([sine(sr, 440, sr), sine(sr, 440, sr)], sr, 128);

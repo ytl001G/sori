@@ -585,7 +585,11 @@ Project kind = whether `project.script` exists. 대본 넣기 in a plain project
 snapshot carries `chars` (live while the script exists, used only when it comes back). Fresh ids matter: `restore`
 keeps live props by id, so a track sharing a take's id would hand the take its new name.
 
-WAV export: PCM 16/24-bit, stereo, project rate, clamped. MP3: lamejs, 1152-sample frames, Int16 input. lamejs writes
+WAV export: PCM 16/24-bit, stereo, project rate, clamped. 16-bit (and the MP3 encoder's Int16 input) goes through
+`encoders.to16`: TPDF dither (two uniform randoms one step wide; xorshift32 seeded per file, so the same sound gives
+the same bytes), exact zeros stay 0. Measured: a -95 dBFS sine came out as mostly harmonics with rounding (-97.7) and
+as silence with the old MP3 truncation; dithered: kept at -95.0, harmonics < -120, floor -96 dBFS rms. 24-bit rounds
+(steps 256x finer). MP3: lamejs, 1152-sample frames. lamejs writes
 no Info frame, so `encoders.js` puts one first (Xing "Info" + LAME tag, as LAME does): encoder delay 576 and the end
 padding, so decoders (FFmpeg/Chromium, foobar, iTunes) play exactly the input samples. Without it a file started
 1105 samples (23 ms at 48 kHz) late and ran 1536 samples long (measured with Chromium's decoder; now 0).

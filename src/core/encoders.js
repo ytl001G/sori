@@ -1,5 +1,15 @@
 // WAV and MP3 encoders (Float32Array channels -> file bytes); fileio.js re-exports them.
 
+// To 16 bits with TPDF dither (two uniform randoms 1 step wide, the standard; Audacity and Audition do it by default):
+// rounding alone turns a quiet sound into a staircase (a -95 dBFS sine came out as mostly harmonics; the MP3 path
+// truncated it to silence), dither leaves no harmonics (-137 dB) and an even floor at -96 dBFS rms instead. Exact
+// zeros stay 0: digital silence stays silent. Seeded per file: the same sound gives the same bytes
+function to16() {
+  let s = 0x9e3779b9 | 0;
+  const u = () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; }; // xorshift32
+  return (x) => (x === 0 ? 0 : Math.max(-32768, Math.min(32767, Math.round(x * 32767 + u() - u()))));
+}
+
 function encodeWav(ch, sr, bits = 16) {
   const nch = ch.length, n = ch[0].length, bps = bits / 8, data = n * nch * bps;
   const buf = new ArrayBuffer(44 + data), v = new DataView(buf);
@@ -8,13 +18,13 @@ function encodeWav(ch, sr, bits = 16) {
   v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, nch, true);
   v.setUint32(24, sr, true); v.setUint32(28, sr * nch * bps, true); v.setUint16(32, nch * bps, true);
   v.setUint16(34, bits, true); str(36, 'data'); v.setUint32(40, data, true);
-  const max = 2 ** (bits - 1) - 1;
+  const max = 2 ** (bits - 1) - 1, q = to16(); // 24 bits: steps 256x finer, rounding is enough
   let o = 44;
   for (let i = 0; i < n; i++) {
     for (let k = 0; k < nch; k++) {
+      if (bits === 16) { v.setInt16(o, q(ch[k][i]), true); o += bps; continue; }
       const s = Math.round(Math.max(-1, Math.min(1, ch[k][i])) * max);
-      if (bits === 16) v.setInt16(o, s, true);
-      else { v.setUint8(o, s & 255); v.setUint8(o + 1, (s >> 8) & 255); v.setUint8(o + 2, (s >> 16) & 255); }
+      v.setUint8(o, s & 255); v.setUint8(o + 1, (s >> 8) & 255); v.setUint8(o + 2, (s >> 16) & 255);
       o += bps;
     }
   }
@@ -26,7 +36,7 @@ function encodeMp3(ch, sr, kbps = 192) {
   const lame = require('path').join(__dirname, '../../node_modules/@breezystack/lamejs/dist/lamejs.js');
   const { Mp3Encoder } = require(lame);
   const nch = Math.min(2, ch.length), enc = new Mp3Encoder(nch, sr, kbps), n = ch[0].length;
-  const toI16 = (c, a, b) => Int16Array.from(c.subarray(a, b), (x) => Math.max(-1, Math.min(1, x)) * 32767);
+  const q = to16(), toI16 = (c, a, b) => Int16Array.from(c.subarray(a, b), q); // lamejs takes 16-bit samples
   const parts = [];
   for (let i = 0; i < n; i += 1152) {
     const e = Math.min(n, i + 1152), l = toI16(ch[0], i, e);
