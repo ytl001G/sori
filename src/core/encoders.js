@@ -45,7 +45,7 @@ function encodeMp3(ch, sr, kbps = 192) {
   }
   const tail = enc.flush();
   if (tail.length) parts.push(tail);
-  return withInfoFrame(parts, n);
+  return withInfoFrame(parts, n, sr);
 }
 
 // The encoder starts the sound ENC_DELAY samples late and fills the last frame with silence; without saying so a
@@ -56,14 +56,14 @@ const ENC_DELAY = 576;
 const BITRATES = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320]; // MPEG-1 Layer III, kbps
 const BITRATES2 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160]; // MPEG-2 / 2.5 Layer III
 const RATES = [44100, 48000, 32000];
-// one MP3 frame header -> { size, spf (samples per frame), side (bytes of side info) }; MPEG-2/2.5 (low rates) too
+// one MP3 frame header -> { size, spf (samples per frame), side (bytes of side info), sr }; MPEG-2/2.5 (low rates) too
 function frameOf(b, i) {
   if (b[i] !== 0xFF || (b[i + 1] & 0xE0) !== 0xE0) return null;
   const v = (b[i + 1] >> 3) & 3, one = v === 3, mono = (b[i + 2 + 1] >> 6) === 3;
   const br = (one ? BITRATES : BITRATES2)[b[i + 2] >> 4];
   const sr = RATES[(b[i + 2] >> 2) & 3] / (one ? 1 : v === 2 ? 2 : 4), pad = (b[i + 2] >> 1) & 1;
   return { size: Math.floor((one ? 144 : 72) * br * 1000 / sr) + pad, spf: one ? 1152 : 576,
-    side: one ? (mono ? 17 : 32) : (mono ? 9 : 17) };
+    side: one ? (mono ? 17 : 32) : (mono ? 9 : 17), sr };
 }
 // CRC-16 as LAME's tag uses it (polynomial 0x8005, reflected: CRC-16/ARC)
 function crc16(b, end) {
@@ -74,12 +74,14 @@ function crc16(b, end) {
   }
   return c;
 }
-function withInfoFrame(parts, n) {
+// inN samples at inRate; above 48 kHz the encoder writes the stream at a lower rate, so the tag counts in its rate
+function withInfoFrame(parts, inN, inRate) {
   const audio = new Uint8Array(parts.reduce((s, p) => s + p.length, 0));
   let o = 0;
   for (const p of parts) { audio.set(p, o); o += p.length; }
   const first = frameOf(audio, 0);
   if (!first) return audio; // nothing encoded
+  const n = Math.round(inN * first.sr / inRate);
   let frames = 0;
   for (let i = 0, f; i < audio.length && (f = frameOf(audio, i)); i += f.size) frames++;
   const info = new Uint8Array(first.size), v = new DataView(info.buffer);

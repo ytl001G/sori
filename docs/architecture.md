@@ -600,7 +600,9 @@ as silence with the old MP3 truncation; dithered: kept at -95.0, harmonics < -12
 (steps 256x finer). MP3: lamejs, 1152-sample frames. lamejs writes
 no Info frame, so `encoders.js` puts one first (Xing "Info" + LAME tag, as LAME does): encoder delay 576 and the end
 padding, so decoders (FFmpeg/Chromium, foobar, iTunes) play exactly the input samples. Without it a file started
-1105 samples (23 ms at 48 kHz) late and ran 1536 samples long (measured with Chromium's decoder; now 0).
+1105 samples (23 ms at 48 kHz) late and ran 1536 samples long (measured with Chromium's decoder; now 0). Above
+48 kHz (a project made outside Sori; MP3 has no higher rate) lamejs writes the stream at 48 kHz, and the tag counts
+the samples at the stream's rate (counted at the input rate, a 96 kHz file's padding came out wrong).
 Export by markers: one file per segment (start→1st marker, between markers, last marker→end; markers past
 the end ignored, segments under 10 ms skipped), named `NN 마커이름.ext` in a chosen folder, overwrite asked once.
 Export 트랙 = 지금 트랙만: `renderFile` gets `[{ ...track, mute: false, solo: false }]` instead of all tracks, so the

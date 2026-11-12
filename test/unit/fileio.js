@@ -50,14 +50,16 @@ t('mp3 encodes frames', () => {
   assert(m[0] === 0xff && (m[1] & 0xe0) === 0xe0, 'mp3 sync');
 });
 t('mp3 starts with an Info/LAME frame giving the delay and padding, so players play exactly the samples given', () => {
-  for (const [rate, nch, n] of [[48000, 2, 48000], [48000, 1, 12345], [44100, 2, 1], [22050, 1, 1152]]) {
+  // 96 kHz: the encoder writes 48 kHz (MP3 has no higher rate); the tag counts the samples of the stream it heads
+  const cases = [[48000, 2, 48000], [48000, 1, 12345], [44100, 2, 1], [22050, 1, 1152], [96000, 1, 9600]];
+  for (const [rate, nch, n] of cases) {
     const m = IO.encodeMp3(Array.from({ length: nch }, () => sine(n, 440, rate)), rate, 128);
-    const one = ((m[1] >> 3) & 3) === 3, spf = one ? 1152 : 576;
+    const one = ((m[1] >> 3) & 3) === 3, spf = one ? 1152 : 576, out = rate > 48000 ? n / 2 : n;
     const at = 4 + (one ? (nch === 1 ? 17 : 32) : (nch === 1 ? 9 : 17)), lame = at + 120;
     const txt = (o, k) => String.fromCharCode(...m.subarray(o, o + k)), v = new DataView(m.buffer, m.byteOffset);
     assert.strictEqual(txt(at, 4), 'Info'); assert.strictEqual(txt(lame, 4), 'LAME');
     const delay = (m[lame + 21] << 4) | (m[lame + 22] >> 4), pad = ((m[lame + 22] & 15) << 8) | m[lame + 23];
-    assert.strictEqual(v.getUint32(at + 8) * spf - delay - pad, n, `${rate} ${nch} ${n}: samples`);
+    assert.strictEqual(v.getUint32(at + 8) * spf - delay - pad, out, `${rate} ${nch} ${n}: samples`);
     assert.strictEqual(v.getUint32(at + 12), m.length, 'bytes');
     let crc = 0; // CRC-16/ARC of the frame up to the tag's CRC field
     for (const b of m.subarray(0, lame + 34)) {
